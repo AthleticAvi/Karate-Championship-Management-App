@@ -1,6 +1,12 @@
 package com.management.models;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+@Document
 public class Player {
+    @Id
+    private String id;
     private String name;
     private String color;
     private Points numberOfPoints;
@@ -11,6 +17,10 @@ public class Player {
         this.color = color;
         this.numberOfPoints = new Points();
         this.numberOfFouls = new Foul();
+    }
+
+    public String getId() {
+        return id;
     }
 
     public String getName() {
