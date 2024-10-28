@@ -1,20 +1,36 @@
 package com.management.models;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Timer;
 
+@Document
 public class KumiteGame {
+    @Id
+    private String id;
     private List<Player> players;
-    private Timer timer;
     private List<Referee> referees;
+    private Duration duration;
+    private Instant startTime;
+    private Instant endTime;
     private String winner;
-    private String kumiteGameId;
 
-    public KumiteGame(List<Player> players, Timer timer, List<Referee> referees, String kumiteGameId) {
+
+    public KumiteGame(List<Player> players, List<Referee> referees, Duration duration){
         this.players = players;
-        this.timer = timer;
         this.referees = referees;
-        this.kumiteGameId = kumiteGameId;
+        this.duration = duration;
+        this.startTime = null;
+        this.endTime = null;
+        this.winner = null;
+    }
+
+    public String getId(){
+        return id;
     }
 
     public List<Player> getPlayers() {
@@ -25,20 +41,36 @@ public class KumiteGame {
         this.players = players;
     }
 
-    public Timer getTimer() {
-        return timer;
-    }
-
-    public void setTimer(Timer timer) {
-        this.timer = timer;
-    }
-
     public List<Referee> getReferees() {
         return referees;
     }
 
     public void setReferees(List<Referee> referees) {
         this.referees = referees;
+    }
+
+    public Duration getDuration() {
+        return duration;
+    }
+
+    public void setDuration(Duration duration) {
+        this.duration = duration;
+    }
+
+    public Instant getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(Instant startTime) {
+        this.startTime = startTime;
+    }
+
+    public Instant getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(Instant endTime) {
+        this.endTime = endTime;
     }
 
     public String getWinner() {
@@ -49,12 +81,23 @@ public class KumiteGame {
         this.winner = winner;
     }
 
-    public String getKumiteGameId() {
-        return kumiteGameId;
+    //TODO read about what units you need to send the additionalTime.
+    public void addTime(Duration additionalTime) {
+        this.duration = this.duration.plus(additionalTime);
     }
 
-    public void setKumiteGameId(String kumiteGameId) {
-        this.kumiteGameId = kumiteGameId;
+    public boolean isActive(){
+        return startTime != null && endTime == null;
     }
+
+    public Duration getRemainingTime(){
+        if (startTime != null){
+            return duration;
+        }
+        Instant now = Instant.now();
+        Duration elapsedTime = Duration.between(startTime, now);
+        return duration.minus(elapsedTime);
+    }
+
 }
 

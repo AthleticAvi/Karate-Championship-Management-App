@@ -10,10 +10,10 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 //@RequestMapping("/api")
 @SpringBootApplication(scanBasePackages = "com.management")
 @EnableMongoRepositories(basePackages = "com.management.repositories")
-public class KumiteGameController {
-    private static final Logger logger = LoggerFactory.getLogger(KumiteGameController.class);
+public class KumiteGameStarter {
+    private static final Logger logger = LoggerFactory.getLogger(KumiteGameStarter.class);
     public static void main(String[] args) {
         logger.info("Management - Kumite Management - Main - Started the application");
-        SpringApplication.run(KumiteGameController.class, args);
+        SpringApplication.run(KumiteGameStarter.class, args);
     }
 }

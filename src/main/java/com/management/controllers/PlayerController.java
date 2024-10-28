@@ -29,12 +29,12 @@ public class PlayerController {
         return playerService.updatePlayer(playerId, playerDetails);
     }
 
-    @DeleteMapping("{playerId}")
+    @DeleteMapping("/{playerId}")
     public void deletePlayer(@PathVariable String playerId){
         playerService.deletePlayer(playerId);
     }
 
-    @PostMapping("{playerId}/ippon")
+    @PostMapping("/{playerId}/ippon")
     public void logIppon(@PathVariable String playerId){
         playerService.logIppon(playerId);
     }
