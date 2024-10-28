@@ -4,13 +4,14 @@ import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Referee;
 import com.management.repositories.KumiteGameRepository;
+import com.management.repositories.PlayerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class KumiteGameService {
@@ -18,6 +19,8 @@ public class KumiteGameService {
     private static final String GAME_NOT_FOUND = "Game not found!";
     @Autowired
     private KumiteGameRepository kumiteGameRepository;
+    @Autowired
+    private PlayerRepository playerRepository;
 
     public KumiteGame createKumiteGame(List<Player> players, List<Referee> referees, Duration duration){
         KumiteGame game = new KumiteGame(players, referees, duration);
@@ -25,8 +28,16 @@ public class KumiteGameService {
         return kumiteGameRepository.save(game);
     }
 
-    public Optional<KumiteGame> getKumiteGame(String gameId){
-        return kumiteGameRepository.findById(gameId);
+    public KumiteGame getKumiteGame(String gameId){
+        KumiteGame game = kumiteGameRepository.findById(gameId)
+                .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
+
+        List<Player> populatedPlayers = game.getPlayers().stream()
+                .map(player -> playerRepository.findById(player.getId()).orElse(null))
+                .collect(Collectors.toList());
+        game.setPlayers(populatedPlayers);
+
+        return game;
     }
 
     public KumiteGame updateKumiteGame(String gameId, KumiteGame gameDetails){
