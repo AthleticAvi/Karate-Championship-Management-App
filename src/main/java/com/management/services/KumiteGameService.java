@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,9 +21,8 @@ public class KumiteGameService {
     @Autowired
     private PlayerRepository playerRepository;
 
-    public KumiteGame createKumiteGame(List<Player> players, List<Referee> referees, Duration duration){
-        KumiteGame game = new KumiteGame(players, referees, duration);
-        game.setStartTime(Instant.now());
+    public KumiteGame createKumiteGame(List<Player> players, List<Referee> referees){
+        KumiteGame game = new KumiteGame(players, referees);
         return kumiteGameRepository.save(game);
     }
 
@@ -46,7 +44,6 @@ public class KumiteGameService {
 
         game.setPlayers(gameDetails.getPlayers());
         game.setReferees(gameDetails.getReferees());
-        game.setDuration(gameDetails.getDuration());
         return kumiteGameRepository.save(game);
     }
 
@@ -54,7 +51,6 @@ public class KumiteGameService {
         KumiteGame game = kumiteGameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
 
-        game.setDuration(game.getDuration().plus(additionalTime));
         kumiteGameRepository.save(game);
     }
 
@@ -62,7 +58,6 @@ public class KumiteGameService {
         KumiteGame game = kumiteGameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
 
-        game.setEndTime(Instant.now());
         kumiteGameRepository.save(game);
     }
 }

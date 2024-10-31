@@ -16,7 +16,7 @@ public class KumiteGameController {
 
     @PostMapping
     public KumiteGame createKumiteGame(@RequestBody KumiteGame gameDetails){
-        return kumiteGameService.createKumiteGame(gameDetails.getPlayers(), gameDetails.getReferees(), gameDetails.getDuration());
+        return kumiteGameService.createKumiteGame(gameDetails.getPlayers(), gameDetails.getReferees());
     }
 
     @GetMapping("/{gameId}")
