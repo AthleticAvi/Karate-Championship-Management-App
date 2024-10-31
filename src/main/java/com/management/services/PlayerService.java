@@ -1,5 +1,6 @@
 package com.management.services;
 
+import com.management.dto.PlayerRequestDTO;
 import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,8 +15,9 @@ public class PlayerService {
     @Autowired
     private PlayerRepository playerRepository;
 
-    public Player createPlayer(Player player) {
-        return playerRepository.save(player);
+    public Player createPlayer(PlayerRequestDTO playerDTO) {
+        Player newPlayer = new Player(playerDTO.getName());
+        return playerRepository.save(newPlayer);
     }
 
     public Optional<Player> getPlayer(String playerId) {
@@ -27,7 +29,6 @@ public class PlayerService {
                 .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
 
         player.setName(playerDetails.getName());
-        player.setColor(playerDetails.getColor());
         player.setPoints(playerDetails.getPoints());
         player.setFouls(playerDetails.getFouls());
 

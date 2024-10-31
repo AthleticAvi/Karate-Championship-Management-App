@@ -1,5 +1,7 @@
 package com.management.controllers;
 
+import com.management.dto.PlayerRequestDTO;
+import com.management.dto.PlayerResponseDTO;
 import com.management.models.Player;
 import com.management.services.PlayerService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,18 +17,19 @@ public class PlayerController {
     private PlayerService playerService;
 
     @PostMapping
-    public Player createPlayer(@RequestBody Player player){
-        return playerService.createPlayer(player);
+    public PlayerResponseDTO createPlayer(@RequestBody PlayerRequestDTO newPlayer){
+        Player savedPlayer = playerService.createPlayer(newPlayer);
+        return new PlayerResponseDTO (
+                savedPlayer.getId(),
+                savedPlayer.getName(),
+                savedPlayer.getPoints().getPointsCounter(),
+                savedPlayer.getFouls().getFoulCounter()
+        );
     }
 
     @GetMapping("/{playerId}")
     public Optional<Player> getPlayer(@PathVariable String playerId){
         return playerService.getPlayer(playerId);
-    }
-
-    @PutMapping("/{playerId}")
-    public Player updatePlayer(@PathVariable String playerId, @RequestBody Player playerDetails){
-        return playerService.updatePlayer(playerId, playerDetails);
     }
 
     @DeleteMapping("/{playerId}")
