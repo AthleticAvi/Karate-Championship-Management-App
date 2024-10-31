@@ -8,13 +8,11 @@ public class Player {
     @Id
     private String id;
     private String name;
-    private String color;
     private Points numberOfPoints;
     private Foul numberOfFouls;
 
-    public Player(String name, String color){
+    public Player(String name){
         this.name = name;
-        this.color = color;
         this.numberOfPoints = new Points();
         this.numberOfFouls = new Foul();
     }
@@ -29,14 +27,6 @@ public class Player {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
     }
 
     public Points getPoints() {
