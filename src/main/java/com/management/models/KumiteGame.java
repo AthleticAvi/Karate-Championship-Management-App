@@ -6,7 +6,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Timer;
 
 @Document
 public class KumiteGame {
@@ -81,7 +80,6 @@ public class KumiteGame {
         this.winner = winner;
     }
 
-    //TODO read about what units you need to send the additionalTime.
     public void addTime(Duration additionalTime) {
         this.duration = this.duration.plus(additionalTime);
     }
