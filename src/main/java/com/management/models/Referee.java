@@ -3,6 +3,7 @@ package com.management.models;
 public class Referee {
     private String name;
 
+    public Referee(){ }
     public Referee(String name) {
         this.name = name;
     }
@@ -13,4 +14,3 @@ public class Referee {
         this.name = name;
     }
 }
-

@@ -1,5 +1,8 @@
 package com.management.services;
 
+import com.management.dto.KumiteGameRequestDTO;
+import com.management.dto.PlayerRequestDTO;
+import com.management.enums.PlayerColor;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Referee;
@@ -7,10 +10,9 @@ import com.management.repositories.KumiteGameRepository;
 import com.management.repositories.PlayerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.time.Duration;
+import java.util.EnumMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 public class KumiteGameService {
@@ -20,44 +22,37 @@ public class KumiteGameService {
     private KumiteGameRepository kumiteGameRepository;
     @Autowired
     private PlayerRepository playerRepository;
+    @Autowired
+    private PlayerService playerService;
 
-    public KumiteGame createKumiteGame(List<Player> players, List<Referee> referees){
-        KumiteGame game = new KumiteGame(players, referees);
-        return kumiteGameRepository.save(game);
+    public KumiteGame createKumiteGame(KumiteGameRequestDTO gameRequestDTO){
+        Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
+
+        gameRequestDTO.getPlayersMap().forEach((key, playerDTO) -> {
+            PlayerColor playerColor = PlayerColor.valueOf(playerDTO.getColor().toUpperCase());
+            PlayerRequestDTO playerRequestDTO = new PlayerRequestDTO();
+            playerRequestDTO.setName(playerDTO.getName());
+            Player player = playerService.createPlayer(playerRequestDTO);
+            playersMap.put(playerColor, player);
+        });
+
+        List<Referee> refereesList = gameRequestDTO.getRefereeList().stream().map(Referee::new).toList();
+
+        KumiteGame kumiteGame = new KumiteGame(playersMap, refereesList);
+        return kumiteGameRepository.save(kumiteGame);
     }
 
     public KumiteGame getKumiteGame(String gameId){
-        KumiteGame game = kumiteGameRepository.findById(gameId)
+        return kumiteGameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
-
-        List<Player> populatedPlayers = game.getPlayers().stream()
-                .map(player -> playerRepository.findById(player.getId()).orElse(null))
-                .collect(Collectors.toList());
-        game.setPlayers(populatedPlayers);
-
-        return game;
     }
 
-    public KumiteGame updateKumiteGame(String gameId, KumiteGame gameDetails){
-        KumiteGame game = kumiteGameRepository.findById(gameId)
-                .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
-
-        game.setPlayers(gameDetails.getPlayers());
-        game.setReferees(gameDetails.getReferees());
-        return kumiteGameRepository.save(game);
-    }
-
-    public void addTime(String gameId, Duration additionalTime){
-        KumiteGame game = kumiteGameRepository.findById(gameId)
-                .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
-
-        kumiteGameRepository.save(game);
-    }
-
-    public void endKumiteGame(String gameId){
-        KumiteGame game = kumiteGameRepository.findById(gameId)
-                .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
-
-        kumiteGameRepository.save(game);
-    }
+//    public KumiteGame updateKumiteGame(String gameId, KumiteGame gameDetails){
+//        KumiteGame game = kumiteGameRepository.findById(gameId)
+//                .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
+//
+//        game.setPlayers(gameDetails.getPlayers());
+//        game.setReferees(gameDetails.getReferees());
+//        return kumiteGameRepository.save(game);
+//    }
 }
