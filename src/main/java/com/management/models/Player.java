@@ -11,15 +11,23 @@ public class Player {
     private Points numberOfPoints;
     private Foul numberOfFouls;
 
+    public Player() {}
     public Player(String name){
         this.name = name;
         this.numberOfPoints = new Points();
         this.numberOfFouls = new Foul();
     }
+    public Player(String id, String name, Points points, Foul fouls) {
+        this.id = id;
+        this.name = name;
+        this.numberOfPoints = points;
+        this.numberOfFouls = fouls;
+    }
 
     public String getId() {
         return id;
     }
+    public void setId(String id) { this.id = id; }
 
     public String getName() {
         return name;

@@ -1,6 +1,7 @@
 package com.management.services;
 
 import com.management.dto.KumiteGameRequestDTO;
+import com.management.dto.PlayerDTO;
 import com.management.dto.PlayerRequestDTO;
 import com.management.enums.PlayerColor;
 import com.management.models.KumiteGame;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class KumiteGameService {
@@ -47,12 +49,14 @@ public class KumiteGameService {
                 .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
     }
 
-//    public KumiteGame updateKumiteGame(String gameId, KumiteGame gameDetails){
-//        KumiteGame game = kumiteGameRepository.findById(gameId)
-//                .orElseThrow(() -> new RuntimeException(GAME_NOT_FOUND));
-//
-//        game.setPlayers(gameDetails.getPlayers());
-//        game.setReferees(gameDetails.getReferees());
-//        return kumiteGameRepository.save(game);
-//    }
+    public KumiteGame updateKumiteGame(String gameId, PlayerColor color, PlayerDTO updatedPlayerId){
+        KumiteGame kumiteGame = getKumiteGame(gameId);
+        Optional<Player> updatedPlayer = playerService.getPlayer(updatedPlayerId.getId());
+        Player newPlayer = new Player();
+        if (updatedPlayer.isPresent()){
+            newPlayer = updatedPlayer.get();
+        }
+        kumiteGame.updatePlayer(color, newPlayer);
+        return kumiteGameRepository.save(kumiteGame);
+    }
 }

@@ -49,4 +49,13 @@ public class KumiteGame {
     public void setWinner(String winner) {
         this.winner = winner;
     }
+
+    public void updatePlayer(PlayerColor color, Player updatedPlayer){
+        if (playersMap.containsKey(color)){
+            playersMap.put(color, updatedPlayer);
+        }
+        else {
+            throw new IllegalArgumentException("Player color not found in the game");
+        }
+    }
 }

@@ -1,12 +1,22 @@
 package com.management.dto;
 
 public class PlayerDTO {
+    private String id;
     private String name;
     private String color;
 
+    public PlayerDTO(){}
     public PlayerDTO(String name, String color){
         this.name = name;
         this.color = color;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getName() {
