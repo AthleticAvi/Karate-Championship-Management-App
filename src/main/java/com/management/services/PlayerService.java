@@ -20,8 +20,13 @@ public class PlayerService {
         return playerRepository.save(newPlayer);
     }
 
-    public Optional<Player> getPlayer(String playerId) {
-        return playerRepository.findById(playerId);
+    public Player getPlayer(String playerId) {
+        Optional<Player> updatedPlayer = playerRepository.findById(playerId);
+        Player fetchedPlayer = new Player();
+        if (updatedPlayer.isPresent()){
+            fetchedPlayer = updatedPlayer.get();
+        }
+        return fetchedPlayer;
     }
 
     public Player updatePlayer(String playerId, Player playerDetails) {
