@@ -1,7 +1,6 @@
 package com.management.controllers;
 
 import com.management.dto.KumiteGameRequestDTO;
-import com.management.dto.PlayerDTO;
 import com.management.enums.PlayerColor;
 import com.management.models.KumiteGame;
 import com.management.services.KumiteGameService;
@@ -28,8 +27,7 @@ public class KumiteGameController {
     @PutMapping("/{gameId}/updatePlayer/{color}")
     public KumiteGame updatePlayerInKumiteGame(
             @PathVariable String gameId,
-            @PathVariable PlayerColor color,
-            @RequestBody PlayerDTO updatedPlayerId) {
-        return kumiteGameService.updateKumiteGame(gameId, color, updatedPlayerId);
+            @PathVariable PlayerColor color) {
+        return kumiteGameService.updateKumiteGame(gameId, color);
     }
 }

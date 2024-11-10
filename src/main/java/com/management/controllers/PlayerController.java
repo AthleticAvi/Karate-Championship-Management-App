@@ -7,8 +7,6 @@ import com.management.services.PlayerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
-
 @RestController
 @RequestMapping("/api/players")
 public class PlayerController {
@@ -28,7 +26,7 @@ public class PlayerController {
     }
 
     @GetMapping("/{playerId}")
-    public Optional<Player> getPlayer(@PathVariable String playerId){
+    public Player getPlayer(@PathVariable String playerId){
         return playerService.getPlayer(playerId);
     }
 
