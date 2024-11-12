@@ -28,6 +28,6 @@ public class KumiteGameController {
     public KumiteGame updatePlayerInKumiteGame(
             @PathVariable String gameId,
             @PathVariable PlayerColor color) {
-        return kumiteGameService.updateKumiteGame(gameId, color);
+        return kumiteGameService.updateKumiteGamePlayers(gameId, color);
     }
 }
