@@ -30,4 +30,11 @@ public class KumiteGameController {
             @PathVariable PlayerColor color) {
         return kumiteGameService.updateKumiteGamePlayers(gameId, color);
     }
+
+    @PutMapping("/{gameId}/updateWinner/{color}")
+    public KumiteGame updateKumiteGameWinner(
+            @PathVariable String gameId,
+            @PathVariable PlayerColor color) {
+        return kumiteGameService.updateKumiteGameWinner(gameId, color);
+    }
 }
