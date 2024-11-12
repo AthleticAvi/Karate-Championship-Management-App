@@ -20,19 +20,16 @@ public class PlayerService {
         return playerRepository.save(newPlayer);
     }
 
-    //TODO handle case where player is not found
     public Player getPlayer(String playerId) {
-        Optional<Player> updatedPlayer = playerRepository.findById(playerId);
-        Player fetchedPlayer = new Player();
-        if (updatedPlayer.isPresent()){
-            fetchedPlayer = updatedPlayer.get();
+        Optional<Player> fetchedPlayer = playerRepository.findById(playerId);
+        if (fetchedPlayer.isEmpty()){
+            throw new IllegalArgumentException(PLAYER_NOT_FOUND);
         }
-        return fetchedPlayer;
+        return fetchedPlayer.get();
     }
 
     public Player updatePlayer(String playerId, Player playerDetails) {
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
+        Player player = getPlayer(playerId);
 
         player.setName(playerDetails.getName());
         player.setPoints(playerDetails.getPoints());
@@ -42,35 +39,30 @@ public class PlayerService {
     }
 
     public void deletePlayer(String playerId) {
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
+        Player player = getPlayer(playerId);
         playerRepository.delete(player);
     }
 
     public void logIppon(String playerId) {
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
+        Player player = getPlayer(playerId);
         player.logIppon();
         playerRepository.save(player);
     }
 
     public void logWazari(String playerId) {
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
+        Player player = getPlayer(playerId);
         player.logWazari();
         playerRepository.save(player);
     }
 
     public void logYoko(String playerId) {
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
+        Player player = getPlayer(playerId);
         player.logYoko();
         playerRepository.save(player);
     }
 
     public void logFoul(String playerId) {
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException(PLAYER_NOT_FOUND));
+        Player player = getPlayer(playerId);
         player.logFoul();
         playerRepository.save(player);
     }

@@ -43,13 +43,12 @@ public class KumiteGameService {
         return kumiteGameRepository.save(kumiteGame);
     }
 
-    //TODO handle the exception upon not finding the game
     public KumiteGame getKumiteGame(String gameId){
         Optional<KumiteGame> fetchedKumiteGame = kumiteGameRepository.findById(gameId);
-//        if (fetchedKumiteGame.isEmpty()){
-//            //return fetchedKumiteGame.get();
-//        }
-        return new KumiteGame(fetchedKumiteGame.get().getPlayersMap(), fetchedKumiteGame.orElseThrow().getReferees());
+        if (fetchedKumiteGame.isEmpty()){
+            throw new IllegalArgumentException(GAME_NOT_FOUND);
+        }
+        return fetchedKumiteGame.get();
     }
 
     public KumiteGame updateKumiteGamePlayers(String gameId, PlayerColor color){
@@ -59,8 +58,10 @@ public class KumiteGameService {
         kumiteGame.updatePlayer(color, updatedPlayer);
         return kumiteGameRepository.save(kumiteGame);
     }
-    //TODO provide logic for updating the winner
-//    public KumiteGame updateKumiteGameWinner(String gameId){
-//        KumiteGame kumiteGame = getKumiteGame(gameId);
-//    }
+
+    public KumiteGame updateKumiteGameWinner(String gameId, PlayerColor color){
+        KumiteGame kumiteGame = getKumiteGame(gameId);
+        kumiteGame.updateWinner(color);
+        return kumiteGameRepository.save(kumiteGame);
+    }
 }
