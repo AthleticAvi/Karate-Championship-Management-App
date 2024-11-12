@@ -20,6 +20,7 @@ public class PlayerService {
         return playerRepository.save(newPlayer);
     }
 
+    //TODO handle case where player is not found
     public Player getPlayer(String playerId) {
         Optional<Player> updatedPlayer = playerRepository.findById(playerId);
         Player fetchedPlayer = new Player();

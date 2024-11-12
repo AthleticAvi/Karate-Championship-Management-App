@@ -19,7 +19,7 @@ public class KumiteGame {
     public KumiteGame(Map<PlayerColor, Player> playersMap, List<Referee> referees){
         this.playersMap = playersMap;
         this.referees = referees;
-        this.winner = null;
+        this.winner = "Pending game ending";
     }
 
     public String getId(){
@@ -51,11 +51,16 @@ public class KumiteGame {
     }
 
     public void updatePlayer(PlayerColor color, Player updatedPlayer){
-        if (playersMap.containsKey(color)){
-            playersMap.put(color, updatedPlayer);
-        }
-        else {
+        if (!(playersMap.containsKey(color))) {
             throw new IllegalArgumentException("Player color not found in the game");
         }
+        playersMap.put(color, updatedPlayer);
     }
+
+//    public void updateWinner(PlayerColor color){
+//        if (!(playersMap.containsKey(color))){
+//            throw new IllegalArgumentException("Player color not found in the game");
+//        }
+//        setWinner(playersMap.get(color).getName());
+//    }
 }
