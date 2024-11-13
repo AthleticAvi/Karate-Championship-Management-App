@@ -1,8 +1,11 @@
 package com.management.services;
 
 import com.management.dto.PlayerRequestDTO;
+import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +14,10 @@ import java.util.Optional;
 
 @Service
 public class PlayerService {
+
+    public static final Logger logger = LoggerFactory.getLogger(PlayerService.class);
     private static final String PLAYER_NOT_FOUND = "Player not found";
+    private static final String PLAYER_ID = " Player ID: ";
     @Autowired
     private PlayerRepository playerRepository;
 
@@ -23,7 +29,8 @@ public class PlayerService {
     public Player getPlayer(String playerId) {
         Optional<Player> fetchedPlayer = playerRepository.findById(playerId);
         if (fetchedPlayer.isEmpty()){
-            throw new IllegalArgumentException(PLAYER_NOT_FOUND);
+            logger.error("PlayerService - getPlayer - {}  {}: {}", PLAYER_NOT_FOUND, PLAYER_ID, playerId);
+            throw new PlayerNotFoundException(PLAYER_NOT_FOUND + PLAYER_ID + playerId);
         }
         return fetchedPlayer.get();
     }
