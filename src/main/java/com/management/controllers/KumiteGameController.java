@@ -1,7 +1,6 @@
 package com.management.controllers;
 
 import com.management.dto.KumiteGameRequestDTO;
-import com.management.enums.PlayerColor;
 import com.management.models.KumiteGame;
 import com.management.services.KumiteGameService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,14 +26,14 @@ public class KumiteGameController {
     @PutMapping("/{gameId}/updatePlayer/{color}")
     public KumiteGame updatePlayerInKumiteGame(
             @PathVariable String gameId,
-            @PathVariable PlayerColor color) {
+            @PathVariable String color) {
         return kumiteGameService.updateKumiteGamePlayers(gameId, color);
     }
 
     @PutMapping("/{gameId}/updateWinner/{color}")
     public KumiteGame updateKumiteGameWinner(
             @PathVariable String gameId,
-            @PathVariable PlayerColor color) {
+            @PathVariable String color) {
         return kumiteGameService.updateKumiteGameWinner(gameId, color);
     }
 }
