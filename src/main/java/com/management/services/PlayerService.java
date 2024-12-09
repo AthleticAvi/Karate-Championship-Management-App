@@ -19,13 +19,11 @@ import java.util.Optional;
 
 @Service
 public class PlayerService {
-
     public static final Logger logger = LoggerFactory.getLogger(PlayerService.class);
     private static final String PLAYER_NOT_FOUND = "Player not found";
     private static final String PLAYER_ID = " Player ID: ";
     @Autowired
     private PlayerRepository playerRepository;
-
     @Autowired
     @Lazy
     private KumiteGameService kumiteGameService;
@@ -84,9 +82,19 @@ public class PlayerService {
         logger.debug("PlayerService - addPoint - Method Ended");
     }
 
-    public void logFoul(String playerId) {
+    public void addFoul(String gameId, String color) {
+        logger.debug("PlayerService - addFoul - Method Started");
+
+        KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
+
+        PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
+        String playerId = kumiteGame.getPlayersMap().get(playerColor).getId();
+
         Player player = getPlayer(playerId);
-        player.logFoul();
+        player.addFoul();
         playerRepository.save(player);
+        kumiteGameService.updateKumiteGamePlayers(gameId, color);
+
+        logger.debug("PlayerService - addFoul - Method Ended");
     }
 }

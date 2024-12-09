@@ -37,6 +37,14 @@ public class KumiteGameController {
             return ResponseEntity.ok("Points updated successfully.");
     }
 
+    @PutMapping("/{gameId}/foul")
+    public ResponseEntity<String> addFoul(
+            @PathVariable String gameId,
+            @RequestParam String color) {
+        playerService.addFoul(gameId, color);
+        return ResponseEntity.ok("Foul updated successfully.");
+    }
+
     @PutMapping("/{gameId}/update-player/{color}")
     public KumiteGame updatePlayerInKumiteGame(
             @PathVariable String gameId,

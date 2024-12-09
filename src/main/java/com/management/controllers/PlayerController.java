@@ -21,7 +21,7 @@ public class PlayerController {
                 savedPlayer.getId(),
                 savedPlayer.getName(),
                 savedPlayer.getPoints().getPointsCounter(),
-                savedPlayer.getFouls().getFoulCounter()
+                savedPlayer.getFouls().getNumOfFouls()
         );
     }
 
@@ -35,9 +35,5 @@ public class PlayerController {
         playerService.deletePlayer(playerId);
     }
 
-    @PostMapping("/{playerId}/foul")
-    public void logFoul(@PathVariable String playerId) {
-        playerService.logFoul(playerId);
-    }
 
 }
