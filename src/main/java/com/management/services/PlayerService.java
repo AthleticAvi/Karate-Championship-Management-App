@@ -1,10 +1,8 @@
 package com.management.services;
 
 import com.management.dto.PlayerRequestDTO;
-import com.management.enums.PlayerColor;
 import com.management.enums.PointsType;
 import com.management.exceptions.PlayerNotFoundException;
-import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import com.management.util.KumiteGameManagementUtils;
@@ -26,7 +24,7 @@ public class PlayerService {
     private PlayerRepository playerRepository;
     @Autowired
     @Lazy
-    private KumiteGameService kumiteGameService;
+    private GameHelperService gameHelperService;
 
     public Player createPlayer(PlayerRequestDTO playerDTO) {
         logger.debug("PlayerService - createPlayer - Method Started");
@@ -68,32 +66,23 @@ public class PlayerService {
     public void addPoint(String gameId, String color, String pointType) {
         logger.debug("PlayerService - addPoint - Method Started");
 
-        KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
-
-        PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
-        String playerId = kumiteGame.getPlayersMap().get(playerColor).getId();
-
+        String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
         Player player = getPlayer(playerId);
         PointsType scoredPoint = KumiteGameManagementUtils.mapPointToPointType(pointType);
         player.addPoint(scoredPoint);
-
         playerRepository.save(player);
-        kumiteGameService.updateKumiteGamePlayers(gameId, color);
+        gameHelperService.updateKumiteGame(gameId, color);
         logger.debug("PlayerService - addPoint - Method Ended");
     }
 
     public void addFoul(String gameId, String color) {
         logger.debug("PlayerService - addFoul - Method Started");
 
-        KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
-
-        PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
-        String playerId = kumiteGame.getPlayersMap().get(playerColor).getId();
-
+        String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
         Player player = getPlayer(playerId);
         player.addFoul();
         playerRepository.save(player);
-        kumiteGameService.updateKumiteGamePlayers(gameId, color);
+        gameHelperService.updateKumiteGame(gameId, color);
 
         logger.debug("PlayerService - addFoul - Method Ended");
     }

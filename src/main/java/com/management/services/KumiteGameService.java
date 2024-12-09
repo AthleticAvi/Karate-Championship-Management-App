@@ -12,6 +12,7 @@ import com.management.util.KumiteGameManagementUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import java.util.EnumMap;
 import java.util.List;
@@ -27,7 +28,8 @@ public class KumiteGameService {
     @Autowired
     private KumiteGameRepository kumiteGameRepository;
     @Autowired
-    private PlayerService playerService;
+    @Lazy
+    private GameHelperService gameHelperService;
 
     public KumiteGame createKumiteGame(KumiteGameRequestDTO gameRequestDTO){
         logger.debug("KumiteGameService - createKumiteGame - Method Started");
@@ -38,7 +40,7 @@ public class KumiteGameService {
             PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(playerDTO.getColor());
             PlayerRequestDTO playerRequestDTO = new PlayerRequestDTO();
             playerRequestDTO.setName(playerDTO.getName());
-            Player player = playerService.createPlayer(playerRequestDTO);
+            Player player = gameHelperService.createNewPlayer(playerRequestDTO);
             playersMap.put(playerColor, player);
         });
 
@@ -69,7 +71,7 @@ public class KumiteGameService {
         PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
 
         String playerId = kumiteGame.getPlayersMap().get(playerColor).getId();
-        Player updatedPlayer = playerService.getPlayer(playerId);
+        Player updatedPlayer = gameHelperService.getPlayerById(playerId);
 
         kumiteGame.updatePlayer(playerColor, updatedPlayer);
         logger.debug("KumiteGameService - updateKumiteGamePlayers - Method Ended");
