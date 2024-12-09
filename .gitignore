@@ -1,0 +1,18 @@
+# Ignore local build info
+build-info.properties
+
+# Ignore created files list
+createdFiles.lst
+
+# Ignore input files list
+inputFiles.lst
+
+# Ignore UI Designer files
+uiDesigner.xml
+
+# Other common ignores
+*.log
+*.tmp
+*.swp
+.DS_Store
+target/

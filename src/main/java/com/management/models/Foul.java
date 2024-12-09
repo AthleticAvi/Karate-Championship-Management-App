@@ -11,6 +11,10 @@ public class Foul {
         this.setNumOfFouls(this.getNumOfFouls() + 1);
     }
 
+    public void removeFoul() {
+        this.setNumOfFouls(Math.max(this.getNumOfFouls() - 1, 0));
+    }
+
     public int getNumOfFouls(){
         return numOfFouls;
     }

@@ -28,7 +28,7 @@ public class KumiteGameController {
         return kumiteGameService.getKumiteGame(gameId);
     }
 
-    @PutMapping("/{gameId}/points")
+    @PutMapping("/{gameId}/add-point")
     public ResponseEntity<String> addPoint(
             @PathVariable String gameId,
             @RequestParam String color,
@@ -37,11 +37,28 @@ public class KumiteGameController {
             return ResponseEntity.ok("Points updated successfully.");
     }
 
-    @PutMapping("/{gameId}/foul")
+    @PutMapping("/{gameId}/remove-point")
+    public ResponseEntity<String> removePoint(
+            @PathVariable String gameId,
+            @RequestParam String color,
+            @RequestParam String pointType) {
+        playerService.removePoint(gameId, color, pointType);
+        return ResponseEntity.ok("Points updated successfully.");
+    }
+
+    @PutMapping("/{gameId}/add-foul")
     public ResponseEntity<String> addFoul(
             @PathVariable String gameId,
             @RequestParam String color) {
         playerService.addFoul(gameId, color);
+        return ResponseEntity.ok("Foul updated successfully.");
+    }
+
+    @PutMapping("/{gameId}/remove-foul")
+    public ResponseEntity<String> removeFoul(
+            @PathVariable String gameId,
+            @RequestParam String color) {
+        playerService.removeFoul(gameId, color);
         return ResponseEntity.ok("Foul updated successfully.");
     }
 

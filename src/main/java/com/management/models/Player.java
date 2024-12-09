@@ -57,8 +57,17 @@ public class Player {
     public void addPoint(PointsType pointType) {
         pointType.getStrategy().addPoint(this.points);
     }
+
+    public void removePoint(PointsType pointType){
+        pointType.getStrategy().removePoint(this.points);
+    }
+
     public void addFoul() {
         this.fouls.addFoul();
+    }
+
+    public void removeFoul() {
+        this.fouls.removeFoul();
     }
 
 }

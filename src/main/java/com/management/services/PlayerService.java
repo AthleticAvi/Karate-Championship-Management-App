@@ -75,6 +75,17 @@ public class PlayerService {
         logger.debug("PlayerService - addPoint - Method Ended");
     }
 
+    public void removePoint(String gameId, String color, String pointType) {
+        logger.debug("PlayerService - removePoint - Method Started");
+
+        String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
+        Player player = getPlayer(playerId);
+        PointsType pointToRemove = KumiteGameManagementUtils.mapPointToPointType(pointType);
+        player.removePoint(pointToRemove);
+        playerRepository.save(player);
+        gameHelperService.updateKumiteGame(gameId, color);
+        logger.debug("PlayerService - removePoint - Method Ended");
+    }
     public void addFoul(String gameId, String color) {
         logger.debug("PlayerService - addFoul - Method Started");
 
@@ -85,5 +96,17 @@ public class PlayerService {
         gameHelperService.updateKumiteGame(gameId, color);
 
         logger.debug("PlayerService - addFoul - Method Ended");
+    }
+
+    public void removeFoul(String gameId, String color) {
+        logger.debug("PlayerService - removeFoul - Method Started");
+
+        String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
+        Player player = getPlayer(playerId);
+        player.removeFoul();
+        playerRepository.save(player);
+        gameHelperService.updateKumiteGame(gameId, color);
+
+        logger.debug("PlayerService - removeFoul - Method Ended");
     }
 }
