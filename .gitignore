@@ -2,6 +2,9 @@
 default-testCompile/
 default-compile/
 
+# Ignore IntelliJ project files
+.idea/
+
 # Ignore targer directory
 target/
 
