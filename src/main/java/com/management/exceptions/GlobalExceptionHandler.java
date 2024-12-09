@@ -40,6 +40,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(PointTypeNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePointTypeNotFoundException(PointTypeNotFoundException ex){
+        logger.error("handlePointTypeNotFoundException Caught: {} ", ex.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
     public static class ErrorResponse {
         private int status;
         private String message;
