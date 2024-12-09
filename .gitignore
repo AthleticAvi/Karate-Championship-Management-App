@@ -1,3 +1,7 @@
+# Ignore build and compilation directories
+default-testCompile/
+default-compile/
+
 # Ignore local build info
 build-info.properties
 
@@ -9,6 +13,9 @@ inputFiles.lst
 
 # Ignore UI Designer files
 uiDesigner.xml
+
+# Ignore META-INF directory
+META-INF/
 
 # Other common ignores
 *.log
