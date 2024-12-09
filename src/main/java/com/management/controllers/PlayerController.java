@@ -35,21 +35,6 @@ public class PlayerController {
         playerService.deletePlayer(playerId);
     }
 
-    @PostMapping("/{playerId}/ippon")
-    public void logIppon(@PathVariable String playerId){
-        playerService.logIppon(playerId);
-    }
-
-    @PostMapping("/{playerId}/wazari")
-    public void logWazari(@PathVariable String playerId) {
-        playerService.logWazari(playerId);
-    }
-
-    @PostMapping("/{playerId}/yoko")
-    public void logYoko(@PathVariable String playerId) {
-        playerService.logYoko(playerId);
-    }
-
     @PostMapping("/{playerId}/foul")
     public void logFoul(@PathVariable String playerId) {
         playerService.logFoul(playerId);

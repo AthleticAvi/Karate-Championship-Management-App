@@ -11,15 +11,7 @@ public class Points {
         return pointsCounter;
     }
 
-    public void logIppon(){
-        this.pointsCounter += 3;
-    }
-
-    public void logWazari(){
-        this.pointsCounter += 2;
-    }
-
-    public void logYoko(){
-        this.pointsCounter += 1;
+    public void setPointsCounter(int pointsCounter) {
+        this.pointsCounter = pointsCounter;
     }
 }

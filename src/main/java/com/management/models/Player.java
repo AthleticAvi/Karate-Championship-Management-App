@@ -1,5 +1,6 @@
 package com.management.models;
 
+import com.management.enums.PointsType;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -8,19 +9,19 @@ public class Player {
     @Id
     private String id;
     private String name;
-    private Points numberOfPoints;
+    private Points points;
     private Foul numberOfFouls;
 
     public Player() {}
     public Player(String name){
         this.name = name;
-        this.numberOfPoints = new Points();
+        this.points = new Points();
         this.numberOfFouls = new Foul();
     }
     public Player(String id, String name, Points points, Foul fouls) {
         this.id = id;
         this.name = name;
-        this.numberOfPoints = points;
+        this.points = points;
         this.numberOfFouls = fouls;
     }
 
@@ -38,11 +39,11 @@ public class Player {
     }
 
     public Points getPoints() {
-        return numberOfPoints;
+        return points;
     }
 
     public void setPoints(Points points){
-        this.numberOfPoints = points;
+        this.points = points;
     }
 
     public Foul getFouls(){
@@ -53,18 +54,9 @@ public class Player {
         this.numberOfFouls = fouls;
     }
 
-    public void logIppon() {
-        this.numberOfPoints.logIppon();
+    public void addPoint(PointsType pointType) {
+        pointType.getStrategy().addPoint(this.points);
     }
-
-    public void logWazari() {
-        this.numberOfPoints.logWazari();
-    }
-
-    public void logYoko() {
-        this.numberOfPoints.logYoko();
-    }
-
     public void logFoul() {
         this.numberOfFouls.logFoul();
     }
