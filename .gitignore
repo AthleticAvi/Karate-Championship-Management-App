@@ -2,6 +2,9 @@
 default-testCompile/
 default-compile/
 
+# Ignore targer directory
+target/
+
 # Ignore local build info
 build-info.properties
 
