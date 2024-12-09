@@ -1,5 +1,6 @@
 package com.management.models;
 
+import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
 import org.slf4j.Logger;
@@ -14,6 +15,7 @@ import java.util.Map;
 public class KumiteGame {
     @Id
     private String id;
+    private GameState gameState;
     private Map<PlayerColor, Player> playersMap;
     private List<Referee> referees;
     private String winner;
@@ -22,7 +24,8 @@ public class KumiteGame {
     private static final String PLAYER_COLOR_NOT_FOUND = "Player color not found in the game";
     private static final String PLAYER_COLOR = " Player color: ";
 
-    public KumiteGame(Map<PlayerColor, Player> playersMap, List<Referee> referees){
+    public KumiteGame(Map<PlayerColor, Player> playersMap, List<Referee> referees) {
+        this.gameState = GameState.QUEUED;
         this.playersMap = playersMap;
         this.referees = referees;
         this.winner = "Pending game ending";
@@ -30,6 +33,14 @@ public class KumiteGame {
 
     public String getId(){
         return id;
+    }
+
+    public GameState getGameState() {
+        return gameState;
+    }
+
+    public void setGameState(GameState gameState) {
+        this.gameState = gameState;
     }
 
     public Map<PlayerColor, Player> getPlayersMap() {
