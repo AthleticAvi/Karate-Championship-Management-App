@@ -4,4 +4,5 @@ import com.management.models.Points;
 
 public interface PointStrategy {
     void addPoint(Points point);
+    void removePoint(Points point);
 }

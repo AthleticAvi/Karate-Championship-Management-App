@@ -20,7 +20,7 @@ public class PlayerController {
         return new PlayerResponseDTO (
                 savedPlayer.getId(),
                 savedPlayer.getName(),
-                savedPlayer.getPoints().getPointsCounter(),
+                savedPlayer.getPoints().getNumOfPoints(),
                 savedPlayer.getFouls().getNumOfFouls()
         );
     }
