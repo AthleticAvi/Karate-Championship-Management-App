@@ -1,17 +1,21 @@
 package com.management.models;
 
 public class Foul {
-    private int foulCounter;
+    private int numOfFouls;
 
     public Foul(){
-        this.foulCounter = 0;
+        this.numOfFouls = 0;
     }
 
-    public void logFoul(){
-        this.foulCounter++;
+    public void addFoul(){
+        this.setNumOfFouls(this.getNumOfFouls() + 1);
     }
 
-    public int getFoulCounter(){
-        return foulCounter;
+    public int getNumOfFouls(){
+        return numOfFouls;
+    }
+
+    public void setNumOfFouls(int numOfFouls) {
+        this.numOfFouls = numOfFouls;
     }
 }

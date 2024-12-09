@@ -10,19 +10,19 @@ public class Player {
     private String id;
     private String name;
     private Points points;
-    private Foul numberOfFouls;
+    private Foul fouls;
 
     public Player() {}
     public Player(String name){
         this.name = name;
         this.points = new Points();
-        this.numberOfFouls = new Foul();
+        this.fouls = new Foul();
     }
     public Player(String id, String name, Points points, Foul fouls) {
         this.id = id;
         this.name = name;
         this.points = points;
-        this.numberOfFouls = fouls;
+        this.fouls = fouls;
     }
 
     public String getId() {
@@ -47,18 +47,18 @@ public class Player {
     }
 
     public Foul getFouls(){
-        return this.numberOfFouls;
+        return this.fouls;
     }
 
     public void setFouls(Foul fouls){
-        this.numberOfFouls = fouls;
+        this.fouls = fouls;
     }
 
     public void addPoint(PointsType pointType) {
         pointType.getStrategy().addPoint(this.points);
     }
-    public void logFoul() {
-        this.numberOfFouls.logFoul();
+    public void addFoul() {
+        this.fouls.addFoul();
     }
 
 }
