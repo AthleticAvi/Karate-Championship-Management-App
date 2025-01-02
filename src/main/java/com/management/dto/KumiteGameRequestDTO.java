@@ -7,6 +7,8 @@ public class KumiteGameRequestDTO {
     private Map<String, PlayerDTO> playersMap;
     private List<String> refereeList;
 
+    private String gameDuration;
+
     public Map<String, PlayerDTO> getPlayersMap() {
         return playersMap;
     }
@@ -21,5 +23,13 @@ public class KumiteGameRequestDTO {
 
     public void setRefereeList(List<String> refereeList) {
         this.refereeList = refereeList;
+    }
+
+    public String getGameDuration() {
+        return gameDuration;
+    }
+
+    public void setGameDuration(String gameDuration) {
+        this.gameDuration = gameDuration;
     }
 }
