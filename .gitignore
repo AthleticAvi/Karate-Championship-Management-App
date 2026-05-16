@@ -29,3 +29,23 @@ META-INF/
 *.swp
 .DS_Store
 target/
+
+
+# Environment variables - never commit secrets
+.env
+.env.*
+
+# Application properties with sensitive values
+application-prod.properties
+application-staging.properties
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# OS files
+Thumbs.db
+
+# Package Files
+*.jar
+*.war
+*.ear
