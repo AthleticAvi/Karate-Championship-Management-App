@@ -7,11 +7,15 @@ Read it before opening a pull request. Most rejections happen because it wasn't 
 ## Before you write any code
 
 1. **Find an open issue.** Every change starts from one. If you want to work on something that isn't an issue, open one and describe it — do not open a pull request for unplanned work.
-2. **Comment on the issue and ask to be assigned.** Say briefly how you intend to approach it.
-3. **Wait until it is assigned to you.** Not every request is granted, and issues are sometimes reserved. Work started before assignment may be declined no matter how good it is.
-4. **One issue at a time.** Finish or withdraw from your current issue before claiming another.
+2. **Comment on the issue and ask for it.** Say briefly how you intend to approach it.
+3. **Wait for the maintainer to confirm the issue is yours.** GitHub's assignee field cannot be used for people outside the repository, so a comment from the maintainer saying the issue is yours **is** the assignment. Not every request is granted, and issues are sometimes reserved.
 
-If you go quiet for a week without an update, the issue may be unassigned so someone else can take it. Just say so if you need more time — that's always fine.
+   **A pull request opened without that confirmation will be closed, however good the work is.** This is not about the quality of your change. Several people asking for the same issue and two of them writing the same patch wastes their evening and mine, and the only way to prevent it is for claims to be settled before work starts.
+4. **One issue at a time, and one open pull request at a time.** Finish or withdraw from your current issue before claiming another.
+
+If you go quiet for a week without an update, the issue is released so someone else can take it. Just say so if you need more time — that's always fine.
+
+**Triage happens at least once a week.** Issue claims, review comments and pull requests are picked up in that window, often sooner. This is a side project, so if you have heard nothing after a week, it is fine to comment again and nudge.
 
 ## What gets merged
 
@@ -31,7 +35,7 @@ Being direct about this saves everyone time:
 - **Cosmetic-only changes.** Whitespace, typo-only edits, comment reflows, and reformatting are not accepted as standalone contributions. This is not a repository for padding a contribution graph.
 - **A description that does not match the diff.** If the pull request claims work that isn't in the changed files, it is closed without further review.
 - **Unrelated changes bundled in.** Reformatting a file you happened to open, upgrading a dependency you happened to notice, renaming something you'd have named differently. Raise it as an issue instead.
-- **Work on an issue assigned to someone else.**
+- **Work on an issue that was not confirmed as yours**, including one already claimed by someone else.
 - **Large unsolicited rewrites.** An architectural change is a conversation before it is a pull request.
 - **Anything with no tests**, where the change is testable.
 
@@ -99,7 +103,7 @@ You are responsible for every line in your pull request. If you cannot explain w
 
 ## Review
 
-Reviews are done by the maintainer, usually within a few days. This is a side project, so response times vary — a delay is not disinterest.
+Reviews are done by the maintainer, within a week and usually sooner. This is a side project, so a delay is not disinterest.
 
 Expect comments. Being asked to change something is normal and is not criticism. If you disagree with a review comment, say so and explain why; that conversation is welcome.
 
