@@ -61,3 +61,7 @@ Include the correlation identifier on every error response so a report can be ti
 - Every custom exception type has a throw site and a handler.
 - An unmapped exception returns 500 with a generic body containing nothing internal.
 - A validation failure returns every failing field, not the first.
+
+## Sources
+
+- RFC 9457 — Problem Details for HTTP APIs. Defines the body fields and the `application/problem+json` media type. Supersedes RFC 7807.

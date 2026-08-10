@@ -65,3 +65,7 @@ Never reflect an unvalidated client value into a message, a log line, or a persi
 - A well-formed request that is illegal for the resource's current state returns 409 or 422, not 400.
 - No service contains a null or emptiness check expressible as a constraint.
 - Removing a constraint makes a test fail.
+
+## Sources
+
+- Jakarta Bean Validation 3.0 (formerly JSR-380) — the constraint annotations and the validation lifecycle. Hibernate Validator is the reference implementation supplied by the framework's validation starter.
