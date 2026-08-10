@@ -68,14 +68,6 @@ public class KumiteGameController {
         return ResponseEntity.ok("Foul removed successfully.");
     }
 
-    @PutMapping("/{gameId}/update-player/{color}")
-    public ResponseEntity<KumiteGame> updatePlayerInKumiteGame(
-            @PathVariable String gameId,
-            @PathVariable String color) {
-        KumiteGame updatedGame = kumiteGameService.updateKumiteGamePlayers(gameId, color);
-        return ResponseEntity.ok(updatedGame);
-    }
-
     @PutMapping("/{gameId}/update-winner/{color}")
     public ResponseEntity<KumiteGame> updateKumiteGameWinner(
             @PathVariable String gameId,
