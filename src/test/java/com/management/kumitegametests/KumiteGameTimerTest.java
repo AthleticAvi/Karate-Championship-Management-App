@@ -18,6 +18,7 @@ import org.mockito.MockitoAnnotations;
 import java.time.Duration;
 import java.util.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -66,7 +67,11 @@ class KumiteGameTimerTest {
         testGame = kumiteGameService.startGame(testGame.getId());
 
         assertNotNull(testGame.getStartTime());
-        assertEquals(Duration.ofSeconds(120), testGame.getRemainingTime());
+        // The clock is running by the time this value is read, so a small amount of
+        // real time has already been subtracted. Assert a tight range: exact equality
+        // only passes where the platform clock is coarse enough to round that to zero.
+        assertThat(testGame.getRemainingTime())
+                .isBetween(Duration.ofMillis(119_900), Duration.ofSeconds(120));
         assertEquals(GameState.RUNNING, testGame.getGameState());
     }
 

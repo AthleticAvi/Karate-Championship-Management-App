@@ -62,3 +62,7 @@ Connection details for local infrastructure come from the environment with local
 - No secret appears in any committed file.
 - No code branches on the active profile.
 - A clean clone starts with documented steps only.
+
+## Sources
+
+- Fail Fast (Shore, *IEEE Software*, 2004; popularised by Fowler) — when a precondition for functioning is unmet, stop at startup rather than degrading into a later, unrelated failure.

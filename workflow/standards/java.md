@@ -97,3 +97,8 @@ Prefer records and the language over an annotation processor. Introducing one (L
 - Compiles with no warnings introduced.
 - No new `printStackTrace`, no new `public` mutable static, no new getter/setter data class.
 - Non-ASCII characters survive a round trip through any script that touches the file.
+
+## Sources
+
+- *Effective Java*, Bloch — Items 10–12 (`equals`, `hashCode`, `toString` overridden together); Item 69 (exceptions only for exceptional conditions); Item 55 (`Optional` as a return type).
+- JEP 395 — records, standard from Java 16.

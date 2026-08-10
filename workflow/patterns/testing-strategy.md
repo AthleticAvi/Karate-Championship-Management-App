@@ -66,3 +66,7 @@ Before optimising anything else, count how many distinct contexts the suite buil
 - Reverting any recent fix turns exactly one test red.
 - Removing a persisted field's storage makes at least one test fail.
 - Context build count is known and justified.
+
+## Sources
+
+- The layer shape is the test pyramid (Cohn, *Succeeding with Agile*; refined by Fowler). The cost argument, not the shape itself, is what decides a given test's layer.

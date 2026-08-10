@@ -69,3 +69,8 @@ Omit a field entirely rather than specify a format nobody consumes.
 - At least one test per response asserts an internal field is absent.
 - Every status code in the table above that the endpoint can produce has a test.
 - Temporal and numeric formats are asserted against a literal body, not an object.
+
+## Sources
+
+- RFC 9110 — HTTP semantics; the normative definition of every status code above.
+- The boundary rule is the API-contract / persistence-model separation described as the Data Transfer Object pattern in *Patterns of Enterprise Application Architecture* (Fowler), and as the adapter boundary in hexagonal architecture.
