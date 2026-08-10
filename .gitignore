@@ -49,3 +49,5 @@ Thumbs.db
 *.jar
 *.war
 *.ear
+# Claude Code local workspace - personal config, identity, and settings
+.claude/

@@ -2,15 +2,64 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Detailed Documentation
+## Hard Rules
 
-All reference material lives in `.claude/docs/`. Read these before making changes:
-- `.claude/docs/architecture.md` — package structure and class responsibilities
-- `.claude/docs/patterns.md` — every design pattern in use, including known workarounds
-- `.claude/docs/business-rules.md` — Kumite scoring rules, game states, and valid transitions
-- `.claude/docs/known-issues.md` — active issues that affect what can safely be built
-- `.claude/docs/stack.md` — full technology stack and tooling
-- `.claude/docs/working-rules.md` — how this project is developed; read before doing anything
+1. **Reuse first, framework first.** If Spring Boot or the JDK already does it, use it. A hand-rolled equivalent of a framework feature is rejected regardless of quality. Establish what the framework provides *before* writing a mechanism.
+2. **Every finding goes to the engineer, not to a file and not to the tracker.** Bugs, missing features, refactors, enhancements — surface them and stop. The engineer decides whether it becomes a GitHub issue.
+3. **No new markdown files in the project.** Work items live as GitHub issues; reusable knowledge lives in `workflow/`. Nothing else.
+4. **Architecture and scope decisions are made by the engineer**, outside Claude Code. Implement the decision; do not make it.
+5. **One thing at a time**, confirmed working and signed off before the next starts.
+
+## workflow/
+
+`workflow/` is the project-agnostic engineering knowledge base: how this team builds Spring Boot services, not what this service does. It contains no project names, classes, files, or issue numbers, and everything in it is intended to transfer to the next project unchanged.
+
+Read only what the task needs — each file is written to be found by grep and read alone. Every file opens with an `Applies when:` line naming its triggers.
+
+| Folder | Contents |
+|---|---|
+| `workflow/standards/` | Rules that apply to all code — `java.md`, `spring-boot.md`, `enforcement.md` |
+| `workflow/patterns/` | One file per pattern: how to build a given thing correctly, with the framework-first check, do/don't, and verification |
+
+Consult it before designing, and record in it anything learned the hard way — generalised, with no project references.
+
+## Domain Rules
+
+Settled rules. Anything not listed here is either unbuilt (tracked as a GitHub issue) or undecided — ask, do not invent.
+
+**Vocabulary** — WKF Kumite terms are authoritative.
+
+| Concept | Values |
+|---|---|
+| Player colours | AKA = RED, AO = BLUE. Exactly one of each per game. |
+| Scoring | IPPON = 3, WAZA-ARI = 2, YUKO = 1 |
+| Game durations | 90s / **120s default** / 180s, loaded from config |
+| Game states | QUEUED, RUNNING, PAUSED, FINISHED |
+
+**Valid state transitions.** Anything not in this table is illegal.
+
+| From | To |
+|---|---|
+| QUEUED | RUNNING |
+| RUNNING | PAUSED, FINISHED |
+| PAUSED | RUNNING, FINISHED |
+
+No transition guard is currently enforced — every transition is permitted by the code. Guards are tracked as an issue.
+
+**Known vocabulary deviations in code** (each has an issue):
+- `PointsType.YOKO` is a misspelling of **YUKO**. It is public API surface — clients send `pointType=YOKO`.
+- `PlayerColor` has only `RED` / `BLUE`; the AKA/AO names appear nowhere in code.
+- `FoulTypes` (`CHUI1, CHUI2, CHUI3, HANSOKU_CHUI, HANSOKU, SHIKKAKU`) is declared but **never referenced**. Fouls are currently a plain counter with no progression.
+- The project wiki calls the in-progress state `STARTED`; the code says `RUNNING`. **The code is authoritative.**
+
+## Stack
+
+- Java: build targets **17** (`<java.version>` in `pom.xml`); local JDK is 21. The pom is authoritative.
+- Spring Boot 3.2.3, Maven, embedded Tomcat
+- MongoDB 7 in Docker — `localhost:27017`, database `kumitedb`, standalone (**not** a replica set, so multi-document transactions are unavailable)
+- Tooling: IntelliJ IDEA, Postman, MongoDB Compass
+- No linter, formatter, or static analysis configured. `mvn test` is the only quality gate.
+- Frontend: not started
 
 ## Commands
 
@@ -33,6 +82,23 @@ mvn test -Dtest=KumiteGameTimerTest
 mvn test -Dtest=KumiteGameTimerTest#testStartGame
 ```
 
+- Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
+- Spring Boot 3.2.3, Java 17 (pinned via `<java.version>` in `pom.xml`)
+- No linter, formatter, or static analysis is configured. `mvn test` is the only quality gate.
+- Windows dev setup: see `karate-app-dev-setup-windows.pdf` in the repo root.
+
+## MCP Tooling
+
+**Context7 is the only MCP needed for Spring Boot development on this project.** Use it to fetch current docs for Spring Boot 3.2, Spring Data MongoDB, Jakarta Validation, Spring Security, and any other library/framework before relying on training knowledge.
+
+**MongoDB MCP is intentionally NOT connected.** MongoDB Compass covers the rare moments live data inspection is needed during current-phase backend work. Reconsider connecting MongoDB MCP when any of these become true:
+- Debugging a real data-corruption incident (e.g. after the dual-write/snapshot fix lands)
+- Writing or verifying a data migration (e.g. backfilling `@Version` fields for optimistic locking)
+- Optimizing queries / designing indexes for the Championship layer
+- Building Testcontainers integration tests that need mid-test collection inspection
+
+Do not propose adding other MCPs (JetBrains, Postman, Docker, etc.) unless the user asks.
+
 ## Architecture
 
 4-layer: `Controller → Service → Repository → MongoDB`
@@ -43,7 +109,7 @@ There are two aggregate roots with their own controller/service/repository stack
 
 **GameTimer is `@Transient`** — it is never persisted to MongoDB. `KumiteGame.initializeTimer()` must be called on every `startGame` and `resumeGame` to reconstruct it from `remainingTime`. Any feature touching the timer must account for this.
 
-**Circular dependency:** `KumiteGameService` and `PlayerService` mutually depend on each other. `GameHelperService` breaks this cycle as a delegating intermediary, injected with `@Lazy` in both services. This is a workaround — see `.claude/docs/known-issues.md` before touching any of these three services.
+**Circular dependency:** `KumiteGameService` and `PlayerService` mutually depend on each other. `GameHelperService` breaks this cycle as a delegating intermediary, injected with `@Lazy` in both services. This is a workaround, not a pattern — see `workflow/patterns/service-interaction.md` before touching any of these three services.
 
 **Game lifecycle endpoints do not exist yet.** `startGame`, `pauseGame`, `resumeGame`, and `endGame` are implemented in `KumiteGameService` but have no controller mappings. They are intentionally withheld pending timer implementation.
 
@@ -51,13 +117,13 @@ There are two aggregate roots with their own controller/service/repository stack
 
 - `KumiteGameController` at `/api/kumitegame` — owns game creation, retrieval, point/foul mutations, and winner assignment
 - `PlayerController` at `/api/players` — owns player CRUD
-- `PointsType` enum carries its `PointStrategy` instance — point value is resolved by calling `pointsType.getStrategy().calculatePoints()`
+- `PointsType` enum carries its `PointStrategy` instance — `PointStrategy` declares `addPoint(Points)` / `removePoint(Points)`, which mutate the score in place. There is no method that returns a value.
 - `GameConfig` reads from `src/main/resources/config.properties` — game durations are loaded there, not hardcoded
 - MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`
 
 ## What Is Not Built Yet
 
-- **Timer implementation** — designed, not written
+- **Timer lifecycle wiring** — `GameTimer` class exists with basic structure and a test, but is not yet integrated into game lifecycle methods. WebSocket push to frontend not implemented. Persistence strategy for `remainingTime` recalculation on point/foul events not implemented.
 - **Game lifecycle endpoints** — `startGame`, `pauseGame`, `resumeGame`, `endGame` have no controller mappings
 - **Game Orchestrator** — evaluates game ending conditions after every point/foul, determines winner, updates state
 - **Spring Security and JWT** — not started
