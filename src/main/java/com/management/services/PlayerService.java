@@ -27,56 +27,44 @@ public class PlayerService {
     private GameHelperService gameHelperService;
 
     public Player createPlayer(PlayerRequestDTO playerDTO) {
-        logger.debug("PlayerService - createPlayer - Method Started");
         Player newPlayer = new Player(playerDTO.getName());
-        logger.debug("PlayerService - createPlayer - Method Ended");
         return playerRepository.save(newPlayer);
     }
 
     public Player getPlayer(String playerId) {
-        logger.debug("PlayerService - getPlayer - Method Started");
         Optional<Player> fetchedPlayer = playerRepository.findById(playerId);
         if (fetchedPlayer.isEmpty()){
             logger.error("PlayerService - getPlayer - {}  {}: {}", PLAYER_NOT_FOUND, PLAYER_ID, playerId);
             throw new PlayerNotFoundException(PLAYER_NOT_FOUND + PLAYER_ID + playerId);
         }
-        logger.debug("PlayerService - getPlayer - Method Ended");
         return fetchedPlayer.get();
     }
 
     public Player updatePlayer(String playerId, Player playerDetails) {
-        logger.debug("PlayerService - updatePlayer - Method Started");
 
         Player player = getPlayer(playerId);
         player.setName(playerDetails.getName());
         player.setPoints(playerDetails.getPoints());
         player.setFouls(playerDetails.getFouls());
 
-        logger.debug("PlayerService - updatePlayer - Method Ended");
         return playerRepository.save(player);
     }
 
     public void deletePlayer(String playerId) {
-        logger.debug("PlayerService - deletePlayer - Method Started");
         Player player = getPlayer(playerId);
         playerRepository.delete(player);
-        logger.debug("PlayerService - deletePlayer - Method Ended");
     }
 
     public void addPoint(String gameId, String color, String pointType) {
-        logger.debug("PlayerService - addPoint - Method Started");
-
         String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
         Player player = getPlayer(playerId);
         PointsType scoredPoint = KumiteGameManagementUtils.mapPointToPointType(pointType);
         player.addPoint(scoredPoint);
         playerRepository.save(player);
         gameHelperService.updateKumiteGame(gameId, color);
-        logger.debug("PlayerService - addPoint - Method Ended");
     }
 
     public void removePoint(String gameId, String color, String pointType) {
-        logger.debug("PlayerService - removePoint - Method Started");
 
         String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
         Player player = getPlayer(playerId);
@@ -84,10 +72,8 @@ public class PlayerService {
         player.removePoint(pointToRemove);
         playerRepository.save(player);
         gameHelperService.updateKumiteGame(gameId, color);
-        logger.debug("PlayerService - removePoint - Method Ended");
     }
     public void addFoul(String gameId, String color) {
-        logger.debug("PlayerService - addFoul - Method Started");
 
         String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
         Player player = getPlayer(playerId);
@@ -95,11 +81,9 @@ public class PlayerService {
         playerRepository.save(player);
         gameHelperService.updateKumiteGame(gameId, color);
 
-        logger.debug("PlayerService - addFoul - Method Ended");
     }
 
     public void removeFoul(String gameId, String color) {
-        logger.debug("PlayerService - removeFoul - Method Started");
 
         String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
         Player player = getPlayer(playerId);
@@ -107,6 +91,5 @@ public class PlayerService {
         playerRepository.save(player);
         gameHelperService.updateKumiteGame(gameId, color);
 
-        logger.debug("PlayerService - removeFoul - Method Ended");
     }
 }

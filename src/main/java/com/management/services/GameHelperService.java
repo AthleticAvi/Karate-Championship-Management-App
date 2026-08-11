@@ -20,26 +20,20 @@ public class GameHelperService {
     @Autowired
     private PlayerService playerService;
     public String getPlayerIdByGameAndColor(String gameId, String color){
-        logger.debug("GameHelperService - getPlayerIdByGameAndColor - Method Started");
         KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
         PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
-        logger.debug("GameHelperService - getPlayerIdByGameAndColor - Method Ended");
         return kumiteGame.getPlayersMap().get(playerColor).getId();
     }
 
     public void updateKumiteGame(String gameId, String color) {
-        logger.debug("GameHelperService - updateKumiteGame - Method Started");
         kumiteGameService.updateKumiteGamePlayers(gameId, color);
-        logger.debug("GameHelperService - updateKumiteGame - Method Ended");
     }
 
     public Player getPlayerById(String playerId) {
-        logger.debug("GameHelperService - getPlayerById - Method Reached");
         return playerService.getPlayer(playerId);
     }
 
     public Player createNewPlayer(PlayerRequestDTO playerDTO) {
-        logger.debug("GameHelperService - createNewPlayer - Method Reached");
         return playerService.createPlayer(playerDTO);
     }
 }
