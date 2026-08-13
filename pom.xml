@@ -18,11 +18,8 @@
 
   <properties>
     <java.version>17</java.version>
-
     <testcontainers.version>1.21.4</testcontainers.version>
   </properties>
-
-  
 
   <dependencies>
     <dependency>
@@ -63,7 +60,6 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
 
   <build>

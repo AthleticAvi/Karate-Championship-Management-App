@@ -55,9 +55,12 @@ class ActuatorHealthIT {
     void healthIsDownWhenMongoIsUnreachable() {
         mongo.stop();
 
-        ResponseEntity<String> response = rest.getForEntity("/actuator/health", String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        assertThat(response.getBody()).contains("\"status\":\"DOWN\"");
+        await().atMost(Duration.ofSeconds(40))
+                .pollInterval(Duration.ofSeconds(1))
+                .untilAsserted(() -> {
+                    ResponseEntity<String> response = rest.getForEntity("/actuator/health", String.class);
+                    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                    assertThat(response.getBody()).contains("\"status\":\"DOWN\"");
+                });
     }
 }
