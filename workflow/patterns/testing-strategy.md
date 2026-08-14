@@ -48,6 +48,17 @@ This class of defect is invisible to every assertion in the test. It is only cau
 
 Arrange, act, assert — separated by blank lines, in that order, once. A test with three act phases is three tests.
 
+### The filename suffix selects the suite
+
+Build tools route a test file into a suite by its filename. That makes the suffix a functional decision rather than a stylistic one: renaming a file moves it between suites, and an integration test that lands in the fast suite runs with no infrastructure behind it — where it either fails confusingly or passes for the wrong reason.
+
+Bind one suffix per suite, and declare the mapping explicitly in the build rather than inheriting the tool's defaults. Defaults are typically wider than intended and often match on prefix as well, which drags helper classes into the run as though they were tests.
+
+- **Fast suite** — unit and slice tests. Runs on every build, needs nothing external.
+- **Slow suite** — integration and end-to-end tests. Gated behind real infrastructure.
+
+Keeping the suites separate is what keeps the fast one fast. But **one documented command must run both.** A gate that passes locally while the pipeline runs strictly more than it is not a gate; it is a rehearsal, and the difference surfaces as a pipeline failure nobody can reproduce.
+
 ## Fixtures
 
 Build test data with named builders exposing intent-revealing defaults, so each test states only the field it cares about. A test that sets eleven fields to reach one assertion hides which field matters.
@@ -63,6 +74,7 @@ Before optimising anything else, count how many distinct contexts the suite buil
 ## Verify
 
 - Suite passes from a clean checkout with no ordering dependence, and passes when run in reverse order.
+- The single documented command runs every suite. No test is reachable only by a command the team does not run.
 - Reverting any recent fix turns exactly one test red.
 - Removing a persisted field's storage makes at least one test fail.
 - Context build count is known and justified.
