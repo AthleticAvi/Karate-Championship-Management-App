@@ -58,7 +58,9 @@ No transition guard is currently enforced — every transition is permitted by t
 - Spring Boot 3.2.3, Maven, embedded Tomcat
 - MongoDB 7 in Docker — `localhost:27017`, database `kumitedb`, standalone (**not** a replica set, so multi-document transactions are unavailable)
 - Tooling: IntelliJ IDEA, Postman, MongoDB Compass
-- No linter, formatter, or static analysis configured. `mvn test` is the only quality gate.
+- **`mvn verify` is the quality gate** — it runs both test suites. `mvn test` runs only the fast one and does **not** run integration tests.
+- Compiler warnings are enabled (`-Xlint:all,-serial`) in report mode; they do not fail the build yet. No linter, formatter, or static analysis configured (issue #58).
+- Docker must be running for `mvn verify` — integration tests start their own MongoDB via Testcontainers.
 - Frontend: not started
 
 ## Commands
@@ -72,7 +74,10 @@ mvn spring-boot:run
 # Build
 mvn clean install
 
-# Run all tests
+# THE GATE — runs both suites. Requires Docker.
+mvn verify
+
+# Fast suite only (unit + slice). Does NOT run integration tests.
 mvn test
 
 # Run a single test class
@@ -80,11 +85,22 @@ mvn test -Dtest=KumiteGameTimerTest
 
 # Run a single test method
 mvn test -Dtest=KumiteGameTimerTest#testStartGame
+
+# Select a single integration test (the fast suite still runs first)
+mvn verify -Dit.test=ActuatorHealthIT
 ```
+
+**Test suffixes decide which suite a test runs in**, and the mapping is declared explicitly in `pom.xml`:
+
+| Suffix | Suite | Phase | Command |
+|---|---|---|---|
+| `*Test`, `*Tests` | unit and slice | `test` | `mvn test` |
+| `*IT` | integration and end-to-end | `integration-test` | `mvn verify` |
+
+Naming an integration test `*Test` runs it in the fast suite with no container behind it. See `workflow/patterns/testing-strategy.md`.
 
 - Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
 - Spring Boot 3.2.3, Java 17 (pinned via `<java.version>` in `pom.xml`)
-- No linter, formatter, or static analysis is configured. `mvn test` is the only quality gate.
 - Windows dev setup: see `karate-app-dev-setup-windows.pdf` in the repo root.
 
 ## MCP Tooling
