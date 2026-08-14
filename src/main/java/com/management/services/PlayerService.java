@@ -17,7 +17,7 @@ import java.util.Optional;
 
 @Service
 public class PlayerService {
-    public static final Logger logger = LoggerFactory.getLogger(PlayerService.class);
+    private static final Logger logger = LoggerFactory.getLogger(PlayerService.class);
     private static final String PLAYER_NOT_FOUND = "Player not found";
     private static final String PLAYER_ID = " Player ID: ";
     @Autowired
