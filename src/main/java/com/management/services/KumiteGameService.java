@@ -39,7 +39,6 @@ public class KumiteGameService {
     private GameHelperService gameHelperService;
 
     public KumiteGame createKumiteGame(KumiteGameRequestDTO gameRequestDTO) {
-        logger.debug("KumiteGameService - createKumiteGame - Method Started");
 
         validateGameRequestDTO(gameRequestDTO);
         Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
@@ -58,51 +57,42 @@ public class KumiteGameService {
 
         KumiteGame kumiteGame = new KumiteGame(playersMap, refereesList, gameDuration);
 
-        logger.debug("KumiteGameService - createKumiteGame - Method ended");
         return saveGame(kumiteGame);
     }
 
     public KumiteGame startGame(String gameId) {
-        logger.debug("KumiteGameService - startGame - Method Started");
         KumiteGame kumiteGame = getKumiteGame(gameId);
         kumiteGame.initializeTimer(kumiteGame.getRemainingTime());
         kumiteGame.setGameState(GameState.RUNNING);
         kumiteGame.setStartTime(LocalDateTime.now());
         kumiteGame.getTimer().start();
         updateRemainingTime(kumiteGame);
-        logger.debug("KumiteGameService - startGame - Method Ended");
         return saveGame(kumiteGame);
     }
 
     public KumiteGame pauseGame(String gameId) {
-        logger.debug("KumiteGameService - pauseGame - Method Started");
         KumiteGame kumiteGame = getKumiteGame(gameId);
         kumiteGame.getTimer().pause();
         updateRemainingTime(kumiteGame);
         kumiteGame.setStartTime(null);
         kumiteGame.setGameState(GameState.PAUSED);
-        logger.debug("KumiteGameService - pauseGame - Method Ended");
         return saveGame(kumiteGame);
     }
 
     public KumiteGame resumeGame(String gameId) {
-        logger.debug("KumiteGameService - resumeGame - Method Started");
         KumiteGame kumiteGame = getKumiteGame(gameId);
         kumiteGame.initializeTimer(kumiteGame.getRemainingTime());
         kumiteGame.setGameState(GameState.RUNNING);
         kumiteGame.setStartTime(LocalDateTime.now());
         kumiteGame.getTimer().resume();
-        logger.debug("KumiteGameService - resumeGame - Method Ended");
         return saveGame(kumiteGame);
     }
 
     public KumiteGame endGame(String gameId) {
-        logger.debug("KumiteGameService - endGame - Method Started");
         KumiteGame kumiteGame = getKumiteGame(gameId);
         kumiteGame.getTimer().stop();
         updateRemainingTime(kumiteGame);
         kumiteGame.setGameState(GameState.FINISHED);
-        logger.debug("KumiteGameService - endGame - Method Ended");
         return saveGame(kumiteGame);
     }
 
@@ -111,7 +101,6 @@ public class KumiteGameService {
     }
 
     public KumiteGame getKumiteGame(String gameId){
-        logger.debug("KumiteGameService - getKumiteGame - Method Started");
 
         Optional<KumiteGame> fetchedKumiteGame = kumiteGameRepository.findById(gameId);
         if (fetchedKumiteGame.isEmpty()){
@@ -119,12 +108,10 @@ public class KumiteGameService {
             throw new GameNotFoundException(GAME_NOT_FOUND + GAME_ID + gameId);
         }
 
-        logger.debug("KumiteGameService - getKumiteGame - Method Ended");
         return fetchedKumiteGame.get();
     }
 
     public KumiteGame updateKumiteGamePlayers(String gameId, String color){
-        logger.debug("KumiteGameService - updateKumiteGamePlayers - Method Started");
         KumiteGame kumiteGame = getKumiteGame(gameId);
         PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
 
@@ -132,18 +119,15 @@ public class KumiteGameService {
         Player updatedPlayer = gameHelperService.getPlayerById(playerId);
 
         kumiteGame.updatePlayer(playerColor, updatedPlayer);
-        logger.debug("KumiteGameService - updateKumiteGamePlayers - Method Ended");
         return saveGame(kumiteGame);
     }
 
     public KumiteGame updateKumiteGameWinner(String gameId, String color){
-        logger.debug("KumiteGameService - updateKumiteGameWinner - Method Started");
 
         KumiteGame kumiteGame = getKumiteGame(gameId);
         PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
         kumiteGame.updateWinner(playerColor);
 
-        logger.debug("KumiteGameService - updateKumiteGameWinner - Method Ended");
 
         return saveGame(kumiteGame);
     }
