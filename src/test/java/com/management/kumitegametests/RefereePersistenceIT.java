@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(classes = KumiteGameStarter.class)
 @Testcontainers
-class RefereePersistenceTest {
+class RefereePersistenceIT {
 
     @Container
     @ServiceConnection
@@ -63,6 +63,5 @@ class RefereePersistenceTest {
         assertEquals("Referee 1", reloadedGame.getReferees().get(0).name());
         assertEquals("Referee 2", reloadedGame.getReferees().get(1).name());
 
-        kumiteGameRepository.deleteById(savedGame.getId());
     }
 }
