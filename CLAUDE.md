@@ -174,6 +174,27 @@ There are two aggregate roots with their own controller/service/repository stack
 - `GameConfig` reads from `src/main/resources/config.properties` — game durations are loaded there, not hardcoded
 - MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`. They bind through **`spring.mongodb.*`**, not `spring.data.mongodb.*` — Boot 4 split that namespace into driver-level (`spring.mongodb`) and repository-level (`spring.data.mongodb`). Both still resolve, so using the wrong one fails silently by falling back to the default host.
 
+## The API Response Contract
+
+Settled in Epic #32. Persistence types do not cross the HTTP boundary in either direction; `KumiteGameMapper` and `PlayerMapper` are the only places a document becomes a response.
+
+| Response type | Endpoint | Shape |
+|---|---|---|
+| `KumiteGameResponse` | everything under `/api/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner` |
+| `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
+| `PlayerResponse` | `/api/players` | `id`, `name`, `points`, `fouls` |
+
+**The wire formats, and why.** Every one of these is pinned by a strict whole-body assertion in `KumiteGameControllerSliceTest` — change one and that test fails, which is the only thing standing between this contract and a silent shift under a dependency upgrade.
+
+- **The clock is `remainingSeconds`, a whole number of seconds.** Not a `Duration`, which Jackson can render as `PT1M27S` or as a decimal depending on configuration nobody on this project has set. An integer has one reading, needs no `spring.jackson.*` property, and drives a countdown directly.
+- **No timestamp is exposed at all.** `startTime` is internal bookkeeping for computing elapsed time; a client holding `remainingSeconds` has no use for it. Omitting a field is the cheapest way to avoid specifying its format. If a timestamp is ever genuinely needed, it goes out as an ISO-8601 UTC string — decided here so the question is not reopened.
+- **`winner` is a `PlayerColor` or `null`.** Never a sentence, never a placeholder string. The client renders the wording.
+- **Points and fouls are bare integers.** The `Points` and `Foul` wrappers exist so scoring strategies have something to mutate in place; that is an implementation detail of scoring.
+- **Referees are names.** A `List<String>`, not a list of objects, until a referee has more than a name.
+- **Enums serialise as their names**, uppercase, exactly as declared.
+
+**Mutations return the new state.** The four scoring endpoints answer with the updated `KumiteGameResponse` rather than a confirmation sentence, so a scoreboard never needs a follow-up read.
+
 ## What Is Not Built Yet
 
 - **Timer lifecycle wiring** — `GameTimer` class exists with basic structure and a test, but is not yet integrated into game lifecycle methods. WebSocket push to frontend not implemented. Persistence strategy for `remainingTime` recalculation on point/foul events not implemented.
