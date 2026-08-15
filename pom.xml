@@ -165,7 +165,7 @@
               <violationSeverity>warning</violationSeverity>
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
-              <maxAllowedViolations>21</maxAllowedViolations>
+              <maxAllowedViolations>19</maxAllowedViolations>
             </configuration>
           </execution>
           <execution>
@@ -181,7 +181,7 @@
               <violationSeverity>warning</violationSeverity>
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
-              <maxAllowedViolations>4</maxAllowedViolations>
+              <maxAllowedViolations>3</maxAllowedViolations>
             </configuration>
           </execution>
         </executions>
