@@ -26,6 +26,7 @@
     <error-prone.version>2.39.0</error-prone.version>
     <nullaway.version>0.12.7</nullaway.version>
     <jacoco.version>0.8.13</jacoco.version>
+    <git-build-hook.version>3.5.0</git-build-hook.version>
   </properties>
 
   <dependencies>
@@ -116,6 +117,36 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+      </plugin>
+
+      <!--
+        Points git at the versioned hooks/ directory, so hooks install themselves the first time
+        anyone builds - the same lifecycle trick husky uses with npm install. Hooks become committed
+        files rather than per-clone setup.
+
+        The hook is a convenience and never a gate; see hooks/pre-commit and
+        workflow/standards/enforcement.md. It is bypassable by the commit flag that skips hooks, and
+        does not exist until someone runs a build, which is exactly why CI runs the full build
+        regardless.
+      -->
+      <plugin>
+        <groupId>com.rudikershaw.gitbuildhook</groupId>
+        <artifactId>git-build-hook-maven-plugin</artifactId>
+        <version>${git-build-hook.version}</version>
+        <configuration>
+          <gitConfig>
+            <core.hooksPath>hooks</core.hooksPath>
+          </gitConfig>
+        </configuration>
+        <executions>
+          <execution>
+            <id>install-git-hooks</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>configure</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>

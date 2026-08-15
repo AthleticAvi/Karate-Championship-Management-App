@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Formats staged Java files before the commit is created.
+#
+# This is a convenience, not a gate. workflow/standards/enforcement.md is explicit that a gate which
+# runs only locally does not exist -- CI runs the full build on every push and pull request, and that
+# is what actually protects the repository. This hook exists because formatting is the one check
+# that is auto-fixable and the one most likely to fail CI for a reason nobody needed to think about.
+#
+# Only the formatter runs here. Analyser findings are not auto-fixable, so a hook could only block on
+# them, which moves an interruption earlier without preventing anything.
+#
+# To skip it once:            git commit --no-verify
+# To stop using hooks at all: git config --unset core.hooksPath
+
+set -e
+
+# Nothing staged in Java? Nothing to do.
+staged_java=$(git diff --cached --name-only --diff-filter=ACM -- '*.java')
+if [ -z "$staged_java" ]; then
+  exit 0
+fi
+
+echo "pre-commit: formatting staged Java files..."
+
+if ! mvn -q --no-transfer-progress spotless:apply; then
+  echo "pre-commit: spotless:apply failed. Commit aborted." >&2
+  echo "pre-commit: fix the error above, or bypass with 'git commit --no-verify'." >&2
+  exit 1
+fi
+
+# Re-stage only files that were already staged. Spotless formats the whole tree, so a blanket
+# 'git add' would sweep unrelated work-in-progress into this commit.
+echo "$staged_java" | while IFS= read -r file; do
+  if [ -f "$file" ]; then
+    git add -- "$file"
+  fi
+done
+
+exit 0

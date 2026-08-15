@@ -126,6 +126,10 @@ mvn verify            # everything, including the coverage report
 - **Correctness** — Error Prone checks are toggled with `-Xep:CheckName:OFF|WARN|ERROR` in the compiler args.
 - **Suppressions** — `config/checkstyle/suppressions.xml`, one entry per reason. A suppression with no reason gets rejected in review.
 
+**The pre-commit hook.** `hooks/pre-commit` runs `spotless:apply` on staged Java files and re-stages them, so formatting never fails CI for a reason nobody needed to think about. It installs itself: the build sets `core.hooksPath` to the versioned `hooks/` directory, so it arrives on the first `mvn` run rather than needing per-clone setup.
+
+It is a **convenience, not a gate** — bypassable with `git commit --no-verify`, and absent until someone runs a build. CI remains the thing that actually protects the repository. Only the formatter runs there; analyser findings are not auto-fixable, so a hook could only block on them. To stop using hooks: `git config --unset core.hooksPath`.
+
 **The ratchet.** `maxAllowedViolations` is set to the current baseline, so the build fails if the count *rises*. Lower it as findings are fixed; it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until its findings are cleared and NullAway can move to `ERROR`. Note its count depends on the command: `mvn compile` sees main sources only, `mvn verify` also compiles tests.
 
 **Deliberately not used: SonarQube.** It would duplicate most of the above — SonarSource has itself deprecated 158 Checkstyle/PMD rules as redundant with SonarJava. More decisively, its value here would be the PR gate, and GitHub withholds secrets from `pull_request` runs originating in forks. Most PRs on this repo come from forks, so Sonar would silently skip them. The usual workaround is `pull_request_target`, which hands secrets to fork-authored code — see the warning in `.github/workflows/ci.yml`. Revisit only if contribution stops coming through forks.
