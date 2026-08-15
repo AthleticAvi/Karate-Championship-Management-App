@@ -25,6 +25,8 @@
     <checkstyle.version>10.26.1</checkstyle.version>
     <error-prone.version>2.39.0</error-prone.version>
     <nullaway.version>0.12.7</nullaway.version>
+    <jacoco.version>0.8.13</jacoco.version>
+    <git-build-hook.version>3.5.0</git-build-hook.version>
   </properties>
 
   <dependencies>
@@ -117,6 +119,36 @@
         </configuration>
       </plugin>
 
+      <!--
+        Points git at the versioned hooks/ directory, so hooks install themselves the first time
+        anyone builds - the same lifecycle trick husky uses with npm install. Hooks become committed
+        files rather than per-clone setup.
+
+        The hook is a convenience and never a gate; see hooks/pre-commit and
+        workflow/standards/enforcement.md. It is bypassable by the commit flag that skips hooks, and
+        does not exist until someone runs a build, which is exactly why CI runs the full build
+        regardless.
+      -->
+      <plugin>
+        <groupId>com.rudikershaw.gitbuildhook</groupId>
+        <artifactId>git-build-hook-maven-plugin</artifactId>
+        <version>${git-build-hook.version}</version>
+        <configuration>
+          <gitConfig>
+            <core.hooksPath>hooks</core.hooksPath>
+          </gitConfig>
+        </configuration>
+        <executions>
+          <execution>
+            <id>install-git-hooks</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>configure</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
@@ -164,7 +196,7 @@
               <violationSeverity>warning</violationSeverity>
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
-              <maxAllowedViolations>21</maxAllowedViolations>
+              <maxAllowedViolations>19</maxAllowedViolations>
             </configuration>
           </execution>
           <execution>
@@ -180,7 +212,7 @@
               <violationSeverity>warning</violationSeverity>
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
-              <maxAllowedViolations>4</maxAllowedViolations>
+              <maxAllowedViolations>3</maxAllowedViolations>
             </configuration>
           </execution>
         </executions>
@@ -211,6 +243,105 @@
               <goal>integration-test</goal>
               <goal>verify</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>coverage-agent-unit</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <destFile>${project.build.directory}/jacoco-unit.exec</destFile>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>coverage-agent-integration</id>
+            <goals>
+              <goal>prepare-agent-integration</goal>
+            </goals>
+            <configuration>
+              <destFile>${project.build.directory}/jacoco-integration.exec</destFile>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>coverage-merge</id>
+            <phase>post-integration-test</phase>
+            <goals>
+              <goal>merge</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <directory>${project.build.directory}</directory>
+                  <includes>
+                    <include>jacoco-unit.exec</include>
+                    <include>jacoco-integration.exec</include>
+                  </includes>
+                </fileSet>
+              </fileSets>
+              <destFile>${project.build.directory}/jacoco-merged.exec</destFile>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>coverage-report</id>
+            <phase>post-integration-test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+              <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+            </configuration>
+          </execution>
+
+          <!--
+            The floor. Set to what the suite actually achieves, so it catches a drop rather than
+            expressing an aspiration. Raise it as coverage rises; never lower it.
+
+            This is a floor, not a target. workflow/patterns/testing-strategy.md lists what must not
+            be tested - getters, setters, framework behaviour, configuration values - and coverage
+            bought that way is a worse suite with a better number.
+
+            LINE and BRANCH rather than JaCoCo's default INSTRUCTION, which counts bytecode and
+            moves for reasons unrelated to testing. BRANCH is low because the harness work exercised
+            happy paths; #37 and the timer epic are where it should rise.
+          -->
+          <execution>
+            <id>coverage-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.37</minimum>
+                    </limit>
+                    <limit>
+                      <counter>BRANCH</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.15</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
           </execution>
         </executions>
       </plugin>

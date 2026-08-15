@@ -109,11 +109,16 @@ Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate ord
 | **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
 | **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **42** — 34 main (19 NullAway) + 8 test |
 | **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
+| **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | **Enforced floor** | LINE **37%**, BRANCH **15%** |
 
 ```bash
 mvn spotless:apply    # fix formatting — run this if the build fails on layout
-mvn verify            # everything
+mvn verify            # everything, including the coverage report
 ```
+
+**Coverage** is measured across *both* suites: an agent runs under surefire and another under failsafe, the two execution files are merged, and one report is written to `target/site/jacoco/`. Open `index.html` from there, or download the `coverage-report` artifact from any CI run. A number from one suite alone is misleading — most of this codebase is only reachable through integration tests.
+
+The floor is enforced and **ratchets upward only**: raise it in `pom.xml` as coverage rises, never lower it. It is a floor, not a target — `workflow/patterns/testing-strategy.md` lists what must *not* be tested, and coverage bought that way is a worse suite with a better number. BRANCH sits low because the harness work exercised happy paths; #37 and the timer epic are where it should climb.
 
 **How to change each one**
 
@@ -122,6 +127,10 @@ mvn verify            # everything
 - **Project rules** — edit `project-standards.xml`. Every module there cites the `java.md` rule it mechanises. New rule in `java.md` → new module here.
 - **Correctness** — Error Prone checks are toggled with `-Xep:CheckName:OFF|WARN|ERROR` in the compiler args.
 - **Suppressions** — `config/checkstyle/suppressions.xml`, one entry per reason. A suppression with no reason gets rejected in review.
+
+**The pre-commit hook.** `hooks/pre-commit` runs `spotless:apply` on staged Java files and re-stages them, so formatting never fails CI for a reason nobody needed to think about. It installs itself: the build sets `core.hooksPath` to the versioned `hooks/` directory, so it arrives on the first `mvn` run rather than needing per-clone setup.
+
+It is a **convenience, not a gate** — bypassable with `git commit --no-verify`, and absent until someone runs a build. CI remains the thing that actually protects the repository. Only the formatter runs there; analyser findings are not auto-fixable, so a hook could only block on them. To stop using hooks: `git config --unset core.hooksPath`.
 
 **The ratchet.** `maxAllowedViolations` is set to the current baseline, so the build fails if the count *rises*. Lower it as findings are fixed; it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until its findings are cleared and NullAway can move to `ERROR`. Note its count depends on the command: `mvn compile` sees main sources only, `mvn verify` also compiles tests.
 

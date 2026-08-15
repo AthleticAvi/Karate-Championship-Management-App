@@ -49,3 +49,13 @@ jobs:
             **/target/failsafe-reports/*
           if-no-files-found: ignore
           retention-days: 7
+
+      # Merged coverage across both suites. Browse index.html from the artifact.
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: '**/target/site/jacoco/*'
+          if-no-files-found: ignore
+          retention-days: 7
