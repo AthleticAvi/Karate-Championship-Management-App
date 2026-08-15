@@ -54,7 +54,7 @@ No transition guard is currently enforced — every transition is permitted by t
 
 ## Stack
 
-- Java: build targets **17** (`<java.version>` in `pom.xml`); local JDK is 21. The pom is authoritative.
+- Java: **21** everywhere — `<java.version>` in `pom.xml`, the local JDK, and the CI toolchain. Do not let these diverge; the build carries JDK-sensitive compiler flags for Error Prone, and a divergence makes them untestable locally.
 - Spring Boot 3.2.3, Maven, embedded Tomcat
 - MongoDB 7 in Docker — `localhost:27017`, database `kumitedb`, standalone (**not** a replica set, so multi-document transactions are unavailable)
 - Tooling: IntelliJ IDEA, Postman, MongoDB Compass
@@ -107,7 +107,7 @@ Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate ord
 | **Spotless** + google-java-format | **Layout** — indentation, wrapping, import order, whitespace | `pom.xml` → `spotless-maven-plugin` | **Enforced.** Build fails; `mvn spotless:apply` fixes | 0 |
 | **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **21** |
 | **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
-| **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **34** (19 NullAway) |
+| **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **42** — 34 main (19 NullAway) + 8 test |
 | **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
 
 ```bash
@@ -123,12 +123,12 @@ mvn verify            # everything
 - **Correctness** — Error Prone checks are toggled with `-Xep:CheckName:OFF|WARN|ERROR` in the compiler args.
 - **Suppressions** — `config/checkstyle/suppressions.xml`, one entry per reason. A suppression with no reason gets rejected in review.
 
-**The ratchet.** `maxAllowedViolations` is set to the current baseline, so the build fails if the count *rises*. Lower it as findings are fixed; it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until the 34 are cleared and NullAway can move to `ERROR`.
+**The ratchet.** `maxAllowedViolations` is set to the current baseline, so the build fails if the count *rises*. Lower it as findings are fixed; it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until its findings are cleared and NullAway can move to `ERROR`. Note its count depends on the command: `mvn compile` sees main sources only, `mvn verify` also compiles tests.
 
 **Deliberately not used: SonarQube.** It would duplicate most of the above — SonarSource has itself deprecated 158 Checkstyle/PMD rules as redundant with SonarJava. More decisively, its value here would be the PR gate, and GitHub withholds secrets from `pull_request` runs originating in forks. Most PRs on this repo come from forks, so Sonar would silently skip them. The usual workaround is `pull_request_target`, which hands secrets to fork-authored code — see the warning in `.github/workflows/ci.yml`. Revisit only if contribution stops coming through forks.
 
 - Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
-- Spring Boot 3.2.3, Java 17 (pinned via `<java.version>` in `pom.xml`)
+- Spring Boot 3.2.3, Java 21 (pinned via `<java.version>` in `pom.xml`; CI provisions the same)
 - Windows dev setup: see `karate-app-dev-setup-windows.pdf` in the repo root.
 
 ## MCP Tooling
