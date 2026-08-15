@@ -92,7 +92,14 @@
             <arg>-XDcompilePolicy=simple</arg>
             <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
             <arg>--should-stop=ifError=FLOW</arg>
+            <!--
+              CatchAndPrintStackTrace is OFF because config/checkstyle/project-standards.xml
+              already enforces this as ForbidPrintStackTrace. One defect, one source: the
+              Checkstyle rule is kept because it catches every printStackTrace call rather than
+              only those inside a catch block, and its message cites the java.md rule.
+            -->
             <arg>-Xplugin:ErrorProne -XepAllErrorsAsWarnings -XepAllSuggestionsAsWarnings
+              -Xep:CatchAndPrintStackTrace:OFF
               -Xep:NullAway:WARN -XepOpt:NullAway:AnnotatedPackages=com.management</arg>
           </compilerArgs>
           <annotationProcessorPaths>
@@ -152,12 +159,12 @@
               <goal>check</goal>
             </goals>
             <configuration>
-              <configLocation>google_checks.xml</configLocation>
+              <configLocation>config/checkstyle/google-checks-vendored.xml</configLocation>
               <includeTestSourceDirectory>true</includeTestSourceDirectory>
               <violationSeverity>warning</violationSeverity>
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
-              <maxAllowedViolations>131</maxAllowedViolations>
+              <maxAllowedViolations>21</maxAllowedViolations>
             </configuration>
           </execution>
           <execution>

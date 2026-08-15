@@ -98,26 +98,34 @@ mvn verify -Dit.test=ActuatorHealthIT
 
 Naming an integration test `*Test` runs it in the fast suite with no container behind it. See `workflow/patterns/testing-strategy.md`.
 
-### Quality gates
+### Quality gates — the tool registry
 
-All run inside `mvn verify`. Gate order follows `workflow/standards/enforcement.md`.
+Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate order follows `workflow/standards/enforcement.md`. **No two tools have authority over the same category** — if a finding is reported twice, that is a bug in this setup, not thoroughness.
 
-| Gate | Tool | Mode | Baseline |
-|---|---|---|---|
-| Formatter | Spotless + google-java-format | **enforced** — build fails on unformatted code | 0 |
-| Style (published) | Checkstyle, `google_checks.xml` | ratchet | **131** |
-| Style (project rules) | Checkstyle, `config/checkstyle/project-standards.xml` | ratchet | **4** |
-| Correctness | Error Prone + NullAway | report only | **35** (19 NullAway) |
-| Compiler | `-Xlint:all,-serial` | report only | 0 |
+| Tool | Owns | Configured in | Mode | Baseline |
+|---|---|---|---|---|
+| **Spotless** + google-java-format | **Layout** — indentation, wrapping, import order, whitespace | `pom.xml` → `spotless-maven-plugin` | **Enforced.** Build fails; `mvn spotless:apply` fixes | 0 |
+| **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **21** |
+| **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
+| **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **34** (19 NullAway) |
+| **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
 
 ```bash
-# Reformat everything. Run this before committing if the build fails on formatting.
-mvn spotless:apply
+mvn spotless:apply    # fix formatting — run this if the build fails on layout
+mvn verify            # everything
 ```
 
-**The ratchet:** Checkstyle's `maxAllowedViolations` is set to the baseline, so the build fails if the count *rises*. Lower the number in `pom.xml` as findings are fixed — it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until the 35 are cleared and NullAway can be switched to `ERROR`.
+**How to change each one**
 
-Suppressions live in `config/checkstyle/suppressions.xml`, one reason per entry.
+- **Formatting rules** — not configurable by design. google-java-format has no options; that is why it was chosen.
+- **Published conventions** — edit the vendored ruleset. Its header explains what was removed from the upstream `google_checks.xml` and why, and how to re-vendor after a Checkstyle upgrade.
+- **Project rules** — edit `project-standards.xml`. Every module there cites the `java.md` rule it mechanises. New rule in `java.md` → new module here.
+- **Correctness** — Error Prone checks are toggled with `-Xep:CheckName:OFF|WARN|ERROR` in the compiler args.
+- **Suppressions** — `config/checkstyle/suppressions.xml`, one entry per reason. A suppression with no reason gets rejected in review.
+
+**The ratchet.** `maxAllowedViolations` is set to the current baseline, so the build fails if the count *rises*. Lower it as findings are fixed; it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until the 34 are cleared and NullAway can move to `ERROR`.
+
+**Deliberately not used: SonarQube.** It would duplicate most of the above — SonarSource has itself deprecated 158 Checkstyle/PMD rules as redundant with SonarJava. More decisively, its value here would be the PR gate, and GitHub withholds secrets from `pull_request` runs originating in forks. Most PRs on this repo come from forks, so Sonar would silently skip them. The usual workaround is `pull_request_target`, which hands secrets to fork-authored code — see the warning in `.github/workflows/ci.yml`. Revisit only if contribution stops coming through forks.
 
 - Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
 - Spring Boot 3.2.3, Java 17 (pinned via `<java.version>` in `pom.xml`)
