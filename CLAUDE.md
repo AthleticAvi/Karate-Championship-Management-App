@@ -109,11 +109,14 @@ Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate ord
 | **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
 | **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **42** — 34 main (19 NullAway) + 8 test |
 | **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
+| **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | Measured, not yet enforced | LINE **25.2%**, BRANCH **15.8%** |
 
 ```bash
 mvn spotless:apply    # fix formatting — run this if the build fails on layout
-mvn verify            # everything
+mvn verify            # everything, including the coverage report
 ```
+
+**Coverage** is measured across *both* suites: an agent runs under surefire and another under failsafe, the two execution files are merged, and one report is written to `target/site/jacoco/`. Open `index.html` from there, or download the `coverage-report` artifact from any CI run. A number from one suite alone is misleading — most of this codebase is only reachable through integration tests.
 
 **How to change each one**
 
