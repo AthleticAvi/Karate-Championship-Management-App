@@ -83,10 +83,10 @@ class InMemoryMongoFidelityTest {
     KumiteGame saved = storage.save(KumiteGameBuilder.newGame().build());
 
     KumiteGame first = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
-    first.setWinner("RED player: tampered");
+    first.setWinner(PlayerColor.RED);
 
     KumiteGame second = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
-    assertThat(second.getWinner()).isNotEqualTo("RED player: tampered");
+    assertThat(second.getWinner()).isNull();
   }
 
   @Test

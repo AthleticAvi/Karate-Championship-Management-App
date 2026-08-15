@@ -216,7 +216,13 @@
               <violationSeverity>warning</violationSeverity>
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
-              <maxAllowedViolations>19</maxAllowedViolations>
+              <!--
+                Ratchets down only. 19 -> 18 when #34 replaced KumiteGameResponseDTO with
+                KumiteGameResponse: the vendored ruleset counts the DTO suffix as an abbreviation,
+                so dropping it from a type name retires a violation. The remaining fifteen of that
+                kind belong to the request DTOs, which #40 owns.
+              -->
+              <maxAllowedViolations>18</maxAllowedViolations>
             </configuration>
           </execution>
           <execution>

@@ -1,5 +1,6 @@
 package com.management.kumitegametests;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -105,7 +106,8 @@ class KumiteGameControllerSliceTest {
         .andExpect(jsonPath("$.playersMap.BLUE").exists())
         // startTime is present and non-null; its exact encoding is what Epic #89 may change.
         .andExpect(jsonPath("$.startTime").exists())
-        .andExpect(jsonPath("$.winner").value("Pending game ending"));
+        // A match with no winner reports no winner, rather than a sentence saying so (#34).
+        .andExpect(jsonPath("$.winner").value(nullValue()));
   }
 
   @Test
