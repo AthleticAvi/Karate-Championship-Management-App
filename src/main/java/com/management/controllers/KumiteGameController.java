@@ -1,7 +1,8 @@
 package com.management.controllers;
 
 import com.management.dto.KumiteGameRequestDTO;
-import com.management.models.KumiteGame;
+import com.management.dto.KumiteGameResponse;
+import com.management.mappers.KumiteGameMapper;
 import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,51 +19,50 @@ public class KumiteGameController {
   @Autowired private PlayerService playerService;
 
   @PostMapping
-  public ResponseEntity<KumiteGame> createKumiteGame(
+  public ResponseEntity<KumiteGameResponse> createKumiteGame(
       @RequestBody KumiteGameRequestDTO gameDetails) {
-    KumiteGame createdGame = kumiteGameService.createKumiteGame(gameDetails);
+    KumiteGameResponse created =
+        KumiteGameMapper.toResponse(kumiteGameService.createKumiteGame(gameDetails));
     return ResponseEntity.status(HttpStatus.CREATED)
-        .header("Location", "/api/kumitegame/" + createdGame.getId())
-        .body(createdGame);
+        .header("Location", "/api/kumitegame/" + created.id())
+        .body(created);
   }
 
   @GetMapping("/{gameId}")
-  public ResponseEntity<KumiteGame> getKumiteGame(@PathVariable String gameId) {
-    KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
-    return ResponseEntity.ok(kumiteGame);
+  public ResponseEntity<KumiteGameResponse> getKumiteGame(@PathVariable String gameId) {
+    return ResponseEntity.ok(KumiteGameMapper.toResponse(kumiteGameService.getKumiteGame(gameId)));
   }
 
   @PutMapping("/{gameId}/add-point")
-  public ResponseEntity<String> addPoint(
+  public ResponseEntity<KumiteGameResponse> addPoint(
       @PathVariable String gameId, @RequestParam String color, @RequestParam String pointType) {
-    playerService.addPoint(gameId, color, pointType);
-    return ResponseEntity.ok("Point added successfully.");
+    return ResponseEntity.ok(
+        KumiteGameMapper.toResponse(playerService.addPoint(gameId, color, pointType)));
   }
 
   @PutMapping("/{gameId}/remove-point")
-  public ResponseEntity<String> removePoint(
+  public ResponseEntity<KumiteGameResponse> removePoint(
       @PathVariable String gameId, @RequestParam String color, @RequestParam String pointType) {
-    playerService.removePoint(gameId, color, pointType);
-    return ResponseEntity.ok("Point removed successfully.");
+    return ResponseEntity.ok(
+        KumiteGameMapper.toResponse(playerService.removePoint(gameId, color, pointType)));
   }
 
   @PutMapping("/{gameId}/add-foul")
-  public ResponseEntity<String> addFoul(@PathVariable String gameId, @RequestParam String color) {
-    playerService.addFoul(gameId, color);
-    return ResponseEntity.ok("Foul added successfully.");
+  public ResponseEntity<KumiteGameResponse> addFoul(
+      @PathVariable String gameId, @RequestParam String color) {
+    return ResponseEntity.ok(KumiteGameMapper.toResponse(playerService.addFoul(gameId, color)));
   }
 
   @PutMapping("/{gameId}/remove-foul")
-  public ResponseEntity<String> removeFoul(
+  public ResponseEntity<KumiteGameResponse> removeFoul(
       @PathVariable String gameId, @RequestParam String color) {
-    playerService.removeFoul(gameId, color);
-    return ResponseEntity.ok("Foul removed successfully.");
+    return ResponseEntity.ok(KumiteGameMapper.toResponse(playerService.removeFoul(gameId, color)));
   }
 
   @PutMapping("/{gameId}/update-winner/{color}")
-  public ResponseEntity<KumiteGame> updateKumiteGameWinner(
+  public ResponseEntity<KumiteGameResponse> updateKumiteGameWinner(
       @PathVariable String gameId, @PathVariable String color) {
-    KumiteGame updatedGame = kumiteGameService.updateKumiteGameWinner(gameId, color);
-    return ResponseEntity.ok(updatedGame);
+    return ResponseEntity.ok(
+        KumiteGameMapper.toResponse(kumiteGameService.updateKumiteGameWinner(gameId, color)));
   }
 }

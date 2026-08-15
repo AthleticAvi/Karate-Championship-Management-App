@@ -20,8 +20,14 @@ public class GameHelperService {
     return kumiteGame.getPlayersMap().get(playerColor).getId();
   }
 
-  public void updateKumiteGame(String gameId, String color) {
-    kumiteGameService.updateKumiteGamePlayers(gameId, color);
+  /**
+   * Re-syncs the player snapshot inside the match and hands the saved match back.
+   *
+   * <p>Returns the match rather than {@code void} so a scoring call can report the new score
+   * without a second round trip. The caller already paid for the read and the write.
+   */
+  public KumiteGame updateKumiteGame(String gameId, String color) {
+    return kumiteGameService.updateKumiteGamePlayers(gameId, color);
   }
 
   public Player getPlayerById(String playerId) {

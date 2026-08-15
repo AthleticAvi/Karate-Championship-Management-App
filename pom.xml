@@ -217,12 +217,12 @@
               <logViolationsToConsole>true</logViolationsToConsole>
               <failOnViolation>true</failOnViolation>
               <!--
-                Ratchets down only. 19 -> 18 when #34 replaced KumiteGameResponseDTO with
-                KumiteGameResponse: the vendored ruleset counts the DTO suffix as an abbreviation,
-                so dropping it from a type name retires a violation. The remaining fifteen of that
-                kind belong to the request DTOs, which #40 owns.
+                Ratchets down only. 19 -> 17 across Epic #32: the vendored ruleset counts the DTO
+                suffix as an abbreviation, and the two response types shed it when they were
+                redesigned (#34) and wired (#33). The remaining names of that kind belong to the
+                request DTOs, which #40 owns.
               -->
-              <maxAllowedViolations>18</maxAllowedViolations>
+              <maxAllowedViolations>17</maxAllowedViolations>
             </configuration>
           </execution>
           <execution>

@@ -71,10 +71,35 @@ class KumiteGameControllerSliceTest {
         // Asserted at the wire level, not against the object. Object equality passes while the
         // serialised contract changes underneath -- which is the whole point of Epic #32.
         .andExpect(jsonPath("$.gameState").value("RUNNING"))
-        .andExpect(jsonPath("$.remainingTime").value("PT1M27S"))
-        .andExpect(jsonPath("$.playersMap.RED.name").value("Red Fighter"))
-        .andExpect(jsonPath("$.playersMap.BLUE.name").value("Blue Fighter"))
-        // The @Transient timer is @JsonIgnore, so it must never appear on the wire.
+        .andExpect(jsonPath("$.remainingSeconds").value(87))
+        .andExpect(jsonPath("$.red.name").value("Red Fighter"))
+        .andExpect(jsonPath("$.blue.name").value("Blue Fighter"));
+  }
+
+  /**
+   * The boundary rule, asserted as absence.
+   *
+   * <p>This is the only automated defence against a persistence type leaking back through the
+   * controller. Every name below is a field of the stored document that a client must never see; if
+   * one reappears, an entity is being serialised again.
+   */
+  @Test
+  void getKumiteGame_response_carriesNoPersistenceDetail() throws Exception {
+    KumiteGame game =
+        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
+    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+
+    mockMvc
+        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .andExpect(status().isOk())
+        // The colour-keyed map is internal structure; the response names red and blue.
+        .andExpect(jsonPath("$.playersMap").doesNotExist())
+        // Points and fouls are counts, not the wrapper objects the scoring strategies mutate.
+        .andExpect(jsonPath("$.red.points").isNumber())
+        .andExpect(jsonPath("$.red.fouls").isNumber())
+        // Internal bookkeeping: the clock's origin, its total, and the transient timer.
+        .andExpect(jsonPath("$.startTime").doesNotExist())
+        .andExpect(jsonPath("$.gameDuration").doesNotExist())
         .andExpect(jsonPath("$.timer").doesNotExist());
   }
 
@@ -83,8 +108,11 @@ class KumiteGameControllerSliceTest {
    * which pins the stored form.
    *
    * <p>Asserted here rather than against a hand-built mapper because this is the only place the
-   * application's real configured mapper runs. Jackson crosses a major version in Epic #89, and
-   * this test is what will report it if the wire format moves.
+   * application's real configured mapper runs — the one that will change under a dependency
+   * upgrade.
+   *
+   * <p>Retargeted by #33 from the entity's shape to the response type's. What it pins is no longer
+   * "whatever the document happens to look like" but a contract someone chose.
    */
   @Test
   void getKumiteGame_jsonRepresentation_isPinned() throws Exception {
@@ -95,17 +123,15 @@ class KumiteGameControllerSliceTest {
     mockMvc
         .perform(get("/api/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isOk())
-        // Durations are ISO-8601 strings, not numbers or objects.
-        .andExpect(jsonPath("$.remainingTime").value("PT1M27S"))
-        .andExpect(jsonPath("$.gameDuration").value("PT2M"))
-        // Points and fouls are nested objects carrying a count, not bare numbers.
-        .andExpect(jsonPath("$.playersMap.RED.points.numOfPoints").value(0))
-        .andExpect(jsonPath("$.playersMap.RED.fouls.numOfFouls").value(0))
-        // The colour-keyed map uses the colour name as the JSON key.
-        .andExpect(jsonPath("$.playersMap.RED").exists())
-        .andExpect(jsonPath("$.playersMap.BLUE").exists())
-        // startTime is present and non-null; its exact encoding is what Epic #89 may change.
-        .andExpect(jsonPath("$.startTime").exists())
+        // The clock is a whole number of seconds, not an ISO-8601 duration string.
+        .andExpect(jsonPath("$.remainingSeconds").value(87))
+        // Points and fouls are bare numbers, not objects carrying a count.
+        .andExpect(jsonPath("$.red.points").value(0))
+        .andExpect(jsonPath("$.red.fouls").value(0))
+        // Enums serialise as their names.
+        .andExpect(jsonPath("$.gameState").value("RUNNING"))
+        // Referees are a list of names, not objects.
+        .andExpect(jsonPath("$.referees[0]").value("Test Referee"))
         // A match with no winner reports no winner, rather than a sentence saying so (#34).
         .andExpect(jsonPath("$.winner").value(nullValue()));
   }
