@@ -77,6 +77,37 @@ class KumiteGameControllerSliceTest {
         .andExpect(jsonPath("$.timer").doesNotExist());
   }
 
+  /**
+   * Pins the JSON representation, as the counterpart to {@link RepresentationCharacterizationTest}
+   * which pins the stored form.
+   *
+   * <p>Asserted here rather than against a hand-built mapper because this is the only place the
+   * application's real configured mapper runs. Jackson crosses a major version in Epic #89, and
+   * this test is what will report it if the wire format moves.
+   */
+  @Test
+  void getKumiteGame_jsonRepresentation_isPinned() throws Exception {
+    KumiteGame game =
+        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
+    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+
+    mockMvc
+        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .andExpect(status().isOk())
+        // Durations are ISO-8601 strings, not numbers or objects.
+        .andExpect(jsonPath("$.remainingTime").value("PT1M27S"))
+        .andExpect(jsonPath("$.gameDuration").value("PT2M"))
+        // Points and fouls are nested objects carrying a count, not bare numbers.
+        .andExpect(jsonPath("$.playersMap.RED.points.numOfPoints").value(0))
+        .andExpect(jsonPath("$.playersMap.RED.fouls.numOfFouls").value(0))
+        // The colour-keyed map uses the colour name as the JSON key.
+        .andExpect(jsonPath("$.playersMap.RED").exists())
+        .andExpect(jsonPath("$.playersMap.BLUE").exists())
+        // startTime is present and non-null; its exact encoding is what Epic #89 may change.
+        .andExpect(jsonPath("$.startTime").exists())
+        .andExpect(jsonPath("$.winner").value("Pending game ending"));
+  }
+
   @Test
   void getKumiteGame_whenTheGameIsMissing_returns404FromTheExceptionHandler() throws Exception {
     given(kumiteGameService.getKumiteGame(anyString()))
