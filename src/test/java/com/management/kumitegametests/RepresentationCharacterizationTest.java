@@ -26,6 +26,16 @@ import org.junit.jupiter.api.Test;
  * before-and-after comparison is executable rather than a screenshot. The MongoDB driver crosses a
  * major version in that upgrade, and it owns this representation.
  *
+ * <p><strong>Audit result (#93): nothing moved.</strong> Every assertion below passed unchanged
+ * across Spring Boot 3.2.3 → 4.1.0, which carried Jackson 2 → 3 and MongoDB driver 4.11 → 5.8.
+ * Durations are still ISO-8601 strings, enums are still names, {@code startTime} is still a BSON
+ * date, and the type hint is still written. The same holds for the JSON side in {@link
+ * KumiteGameControllerSliceTest}. No re-pinning was needed, and no migration of existing documents
+ * is required.
+ *
+ * <p>That is a result, not an absence of one — it is only credible because these assertions existed
+ * <em>before</em> the upgrade rather than being written afterwards to match whatever came out.
+ *
  * <p>The JSON half of the contract is pinned in {@link KumiteGameControllerSliceTest}, at the HTTP
  * boundary, because that is where the application's real configured mapper runs. Constructing a
  * bare {@code ObjectMapper} here would pin a format the application never actually produces — it
