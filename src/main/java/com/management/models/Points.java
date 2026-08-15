@@ -1,17 +1,17 @@
 package com.management.models;
 
 public class Points {
-    private int numOfPoints;
+  private int numOfPoints;
 
-    public Points(){
-        this.numOfPoints = 0;
-    }
+  public Points() {
+    this.numOfPoints = 0;
+  }
 
-    public int getNumOfPoints(){
-        return numOfPoints;
-    }
+  public int getNumOfPoints() {
+    return numOfPoints;
+  }
 
-    public void setNumOfPoints(int numOfPoints) {
-        this.numOfPoints = numOfPoints;
-    }
+  public void setNumOfPoints(int numOfPoints) {
+    this.numOfPoints = numOfPoints;
+  }
 }

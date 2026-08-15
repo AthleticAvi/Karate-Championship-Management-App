@@ -1,8 +1,6 @@
 package com.management.repositories;
 
-import org.springframework.data.mongodb.repository.MongoRepository;
 import com.management.models.Player;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface PlayerRepository extends MongoRepository<Player, String> {
-
-}
+public interface PlayerRepository extends MongoRepository<Player, String> {}

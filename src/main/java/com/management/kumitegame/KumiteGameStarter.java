@@ -6,14 +6,15 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
-//@RestController
-//@RequestMapping("/api")
+// @RestController
+// @RequestMapping("/api")
 @SpringBootApplication(scanBasePackages = "com.management")
 @EnableMongoRepositories(basePackages = "com.management.repositories")
 public class KumiteGameStarter {
-    private static final Logger logger = LoggerFactory.getLogger(KumiteGameStarter.class);
-    public static void main(String[] args) {
-        logger.info("Management - Kumite Management - Main - Started the application");
-        SpringApplication.run(KumiteGameStarter.class, args);
-    }
+  private static final Logger log = LoggerFactory.getLogger(KumiteGameStarter.class);
+
+  public static void main(String[] args) {
+    log.info("Management - Kumite Management - Main - Started the application");
+    SpringApplication.run(KumiteGameStarter.class, args);
+  }
 }

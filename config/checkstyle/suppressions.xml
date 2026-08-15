@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+  Every suppression is a decision and carries a reason, per workflow/standards/enforcement.md:
+
+    "A suppression is a decision, so it carries a reason. Blanket file-level or project-level
+     suppression of a rule is equivalent to deleting the rule."
+
+  Suppress the narrowest thing that works, and say why. An entry with no reason is not reviewable
+  and should be rejected.
+-->
+<suppressions>
+
+  <!--
+    VisibilityModifier fires on every @Autowired / @Value field. Field injection is a real finding
+    and is tracked as issue #43 (convert field injection to constructor injection), which will
+    delete these fields rather than change their visibility. Suppressing here would hide #43's own
+    evidence, so this is scoped to nothing today and left as the documented place to add a scope if
+    the noise blocks work.
+
+    Deliberately empty. Do not add a blanket suppression for it.
+  -->
+
+</suppressions>

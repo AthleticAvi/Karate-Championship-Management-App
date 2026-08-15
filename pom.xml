@@ -19,6 +19,12 @@
   <properties>
     <java.version>17</java.version>
     <testcontainers.version>1.21.4</testcontainers.version>
+    <spotless.version>2.44.5</spotless.version>
+    <google-java-format.version>1.27.0</google-java-format.version>
+    <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
+    <checkstyle.version>10.26.1</checkstyle.version>
+    <error-prone.version>2.39.0</error-prone.version>
+    <nullaway.version>0.12.7</nullaway.version>
   </properties>
 
   <dependencies>
@@ -83,8 +89,101 @@
         <configuration>
           <compilerArgs>
             <arg>-Xlint:all,-serial</arg>
+            <arg>-XDcompilePolicy=simple</arg>
+            <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
+            <arg>--should-stop=ifError=FLOW</arg>
+            <!--
+              CatchAndPrintStackTrace is OFF because config/checkstyle/project-standards.xml
+              already enforces this as ForbidPrintStackTrace. One defect, one source: the
+              Checkstyle rule is kept because it catches every printStackTrace call rather than
+              only those inside a catch block, and its message cites the java.md rule.
+            -->
+            <arg>-Xplugin:ErrorProne -XepAllErrorsAsWarnings -XepAllSuggestionsAsWarnings
+              -Xep:CatchAndPrintStackTrace:OFF
+              -Xep:NullAway:WARN -XepOpt:NullAway:AnnotatedPackages=com.management</arg>
           </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_core</artifactId>
+              <version>${error-prone.version}</version>
+            </path>
+            <path>
+              <groupId>com.uber.nullaway</groupId>
+              <artifactId>nullaway</artifactId>
+              <version>${nullaway.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>${google-java-format.version}</version>
+            </googleJavaFormat>
+            <removeUnusedImports/>
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>${maven-checkstyle-plugin.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>${checkstyle.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>checkstyle-google</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <configLocation>config/checkstyle/google-checks-vendored.xml</configLocation>
+              <includeTestSourceDirectory>true</includeTestSourceDirectory>
+              <violationSeverity>warning</violationSeverity>
+              <logViolationsToConsole>true</logViolationsToConsole>
+              <failOnViolation>true</failOnViolation>
+              <maxAllowedViolations>21</maxAllowedViolations>
+            </configuration>
+          </execution>
+          <execution>
+            <id>checkstyle-project-standards</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <configLocation>config/checkstyle/project-standards.xml</configLocation>
+              <suppressionsLocation>config/checkstyle/suppressions.xml</suppressionsLocation>
+              <includeTestSourceDirectory>true</includeTestSourceDirectory>
+              <violationSeverity>warning</violationSeverity>
+              <logViolationsToConsole>true</logViolationsToConsole>
+              <failOnViolation>true</failOnViolation>
+              <maxAllowedViolations>4</maxAllowedViolations>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>

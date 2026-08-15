@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  Mechanises the rules already written in workflow/standards/java.md.
+
+  This is NOT a general-purpose ruleset. google_checks.xml is the published ruleset and runs as a
+  separate execution; this file exists only to enforce the project's own written standards, which
+  no published ruleset knows about. Every module below cites the java.md rule it implements.
+
+  Layout, whitespace and line length are deliberately absent: Spotless owns formatting. A rule here
+  that disagrees with google-java-format would be unfixable.
+-->
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="warning"/>
+  <property name="fileExtensions" value="java"/>
+
+  <module name="SuppressionFilter">
+    <property name="file" value="${checkstyle.suppressions.file}"/>
+    <property name="optional" value="false"/>
+  </module>
+
+  <module name="TreeWalker">
+
+    <!-- java.md: "Never call printStackTrace()." Found once in the audit already. -->
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="ForbidPrintStackTrace"/>
+      <property name="format" value="\.printStackTrace\s*\("/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message"
+                value="java.md: never call printStackTrace() - it bypasses the log pipeline. Log with the throwable as the final argument."/>
+    </module>
+
+    <!-- java.md naming table: logger field is `private static final Logger log`. -->
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="LoggerFieldName"/>
+      <property name="format" value="\bLogger\s+(?!log\b)\w+\s*="/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="java.md: the logger field must be named 'log'."/>
+    </module>
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="LoggerFieldVisibility"/>
+      <property name="format" value="^\s*(public|protected)\s+.*\bLogger\s+\w+\s*="/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="java.md: the logger field must be private static final."/>
+    </module>
+
+    <!-- java.md: "Optional is a return type, never a field or a parameter." -->
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="OptionalAsParameter"/>
+      <property name="format" value="[(,]\s*(final\s+)?Optional&lt;"/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="java.md: Optional is a return type, never a parameter."/>
+    </module>
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="OptionalAsField"/>
+      <property name="format" value="^\s*(private|protected|public)\s+(static\s+|final\s+)*Optional&lt;"/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="java.md: Optional is a return type, never a field."/>
+    </module>
+
+    <!-- java.md naming table: boolean accessors are isX / hasX. -->
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="BooleanAccessorName"/>
+      <property name="format"
+                value="public\s+boolean\s+(?!is[A-Z]|has[A-Z]|equals\s*\()\w+\s*\("/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="java.md: a boolean accessor is named isX or hasX."/>
+    </module>
+
+    <!--
+      java.md naming table: constants are UPPER_SNAKE, private static final.
+
+      'log' is permitted explicitly. The same table mandates `private static final Logger log`, and
+      a logger is a static final field, so the default UPPER_SNAKE format would make the two rules
+      contradict: satisfying the logger rule would permanently violate this one. java.md is
+      authoritative, so the ruleset accommodates it rather than the reverse.
+    -->
+    <module name="ConstantName">
+      <property name="format" value="^(log|[A-Z][A-Z0-9]*(_[A-Z0-9]+)*)$"/>
+    </module>
+
+    <!-- java.md: "equals, hashCode, toString on every type placed in a collection or logged." -->
+    <module name="EqualsHashCode"/>
+
+    <!-- java.md: "Static utility classes get a private throwing constructor, and hold no state." -->
+    <module name="HideUtilityClassConstructor"/>
+
+    <!-- java.md verify: "no new public mutable static". -->
+    <module name="VisibilityModifier">
+      <property name="protectedAllowed" value="false"/>
+      <property name="allowPublicFinalFields" value="true"/>
+      <property name="allowPublicImmutableFields" value="true"/>
+    </module>
+
+  </module>
+</module>
