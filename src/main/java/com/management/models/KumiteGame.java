@@ -26,7 +26,7 @@ public class KumiteGame {
   private Duration gameDuration;
   @JsonIgnore @Transient private GameTimer timer;
 
-  private static final Logger logger = LoggerFactory.getLogger(KumiteGame.class);
+  private static final Logger log = LoggerFactory.getLogger(KumiteGame.class);
   private static final String PLAYER_COLOR_NOT_FOUND = "Player color not found in the game";
   private static final String PLAYER_COLOR = " Player color: ";
 
@@ -46,7 +46,7 @@ public class KumiteGame {
 
   public void updatePlayer(PlayerColor color, Player updatedPlayer) {
     if (!(playersMap.containsKey(color))) {
-      logger.error(
+      log.error(
           "KumiteGame - updatePlayer - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
       throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
     }
@@ -55,7 +55,7 @@ public class KumiteGame {
 
   public void updateWinner(PlayerColor color) {
     if (!(playersMap.containsKey(color))) {
-      logger.error(
+      log.error(
           "KumiteGame - updateWinner - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
       throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
     }

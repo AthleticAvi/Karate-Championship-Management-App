@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PlayerService {
-  private static final Logger logger = LoggerFactory.getLogger(PlayerService.class);
+  private static final Logger log = LoggerFactory.getLogger(PlayerService.class);
   private static final String PLAYER_NOT_FOUND = "Player not found";
   private static final String PLAYER_ID = " Player ID: ";
   @Autowired private PlayerRepository playerRepository;
@@ -29,7 +29,7 @@ public class PlayerService {
   public Player getPlayer(String playerId) {
     Optional<Player> fetchedPlayer = playerRepository.findById(playerId);
     if (fetchedPlayer.isEmpty()) {
-      logger.error("PlayerService - getPlayer - {}  {}: {}", PLAYER_NOT_FOUND, PLAYER_ID, playerId);
+      log.error("PlayerService - getPlayer - {}  {}: {}", PLAYER_NOT_FOUND, PLAYER_ID, playerId);
       throw new PlayerNotFoundException(PLAYER_NOT_FOUND + PLAYER_ID + playerId);
     }
     return fetchedPlayer.get();

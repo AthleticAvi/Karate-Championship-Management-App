@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class KumiteGameService {
 
-  private static final Logger logger = LoggerFactory.getLogger(KumiteGameService.class);
+  private static final Logger log = LoggerFactory.getLogger(KumiteGameService.class);
   private static final String GAME_NOT_FOUND = "Game not found!";
   private static final String GAME_ID = " Game Id: ";
   @Autowired private KumiteGameRepository kumiteGameRepository;
@@ -105,7 +105,7 @@ public class KumiteGameService {
 
     Optional<KumiteGame> fetchedKumiteGame = kumiteGameRepository.findById(gameId);
     if (fetchedKumiteGame.isEmpty()) {
-      logger.error("KumiteGameService - getKumiteGame - couldn't find game with id: {}", gameId);
+      log.error("KumiteGameService - getKumiteGame - couldn't find game with id: {}", gameId);
       throw new GameNotFoundException(GAME_NOT_FOUND + GAME_ID + gameId);
     }
 
@@ -153,7 +153,7 @@ public class KumiteGameService {
   }
 
   private KumiteGame saveGame(KumiteGame kumiteGame) {
-    logger.debug("Saving game with ID: {}", kumiteGame.getId());
+    log.debug("Saving game with ID: {}", kumiteGame.getId());
     return kumiteGameRepository.save(kumiteGame);
   }
 }

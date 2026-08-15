@@ -13,11 +13,11 @@ public class KumiteGameManagementUtils {
     throw new IllegalStateException("Utility class cannot be instantiated");
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(KumiteGameManagementUtils.class);
+  private static final Logger log = LoggerFactory.getLogger(KumiteGameManagementUtils.class);
 
   public static PlayerColor mapPlayerColor(String color) {
     if (!(isInPlayerColor(color))) {
-      logger.error("KumiteGameManagementUtils - mapPlayerColor - could not map color: {}", color);
+      log.error("KumiteGameManagementUtils - mapPlayerColor - could not map color: {}", color);
       throw new PlayerNotFoundException(
           "No player associated with the color " + color + " in this game.");
     }
@@ -35,7 +35,7 @@ public class KumiteGameManagementUtils {
 
   public static PointsType mapPointToPointType(String pointType) {
     if (!(isInPointsType(pointType))) {
-      logger.error(
+      log.error(
           "KumiteGameManagementUtils - mapPointToPointType - could not map point: {}", pointType);
       throw new PointTypeNotFoundException(
           "No point associated with the point " + pointType + " in points.");

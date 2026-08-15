@@ -106,7 +106,7 @@ All run inside `mvn verify`. Gate order follows `workflow/standards/enforcement.
 |---|---|---|---|
 | Formatter | Spotless + google-java-format | **enforced** — build fails on unformatted code | 0 |
 | Style (published) | Checkstyle, `google_checks.xml` | ratchet | **131** |
-| Style (project rules) | Checkstyle, `config/checkstyle/project-standards.xml` | ratchet | **18** |
+| Style (project rules) | Checkstyle, `config/checkstyle/project-standards.xml` | ratchet | **4** |
 | Correctness | Error Prone + NullAway | report only | **35** (19 NullAway) |
 | Compiler | `-Xlint:all,-serial` | report only | 0 |
 

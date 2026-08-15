@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-  private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
-    logger.error("General Exception Caught: {} ", ex.getMessage());
+    log.error("General Exception Caught: {} ", ex.getMessage());
     ErrorResponse errorResponse =
         new ErrorResponse(
             HttpStatus.INTERNAL_SERVER_ERROR.value(), "An unexpected error occurred.");
@@ -23,14 +23,14 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(PlayerNotFoundException.class)
   public ResponseEntity<ErrorResponse> handlePlayerNotFoundException(PlayerNotFoundException ex) {
-    logger.error("PlayerNotFoundException Caught: {} ", ex.getMessage());
+    log.error("PlayerNotFoundException Caught: {} ", ex.getMessage());
     ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage());
     return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
   }
 
   @ExceptionHandler(GameNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleGameNotFoundException(GameNotFoundException ex) {
-    logger.error("handleGameNotFoundException Caught: {} ", ex.getMessage());
+    log.error("handleGameNotFoundException Caught: {} ", ex.getMessage());
     ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage());
     return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
   }
@@ -38,7 +38,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(InvalidPlayerColorException.class)
   public ResponseEntity<ErrorResponse> handleInvalidPlayerColorException(
       InvalidPlayerColorException ex) {
-    logger.error("handleInvalidPlayerColorException Caught: {} ", ex.getMessage());
+    log.error("handleInvalidPlayerColorException Caught: {} ", ex.getMessage());
     ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage());
     return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
   }
@@ -46,7 +46,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(PointTypeNotFoundException.class)
   public ResponseEntity<ErrorResponse> handlePointTypeNotFoundException(
       PointTypeNotFoundException ex) {
-    logger.error("handlePointTypeNotFoundException Caught: {} ", ex.getMessage());
+    log.error("handlePointTypeNotFoundException Caught: {} ", ex.getMessage());
     ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage());
     return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
   }
