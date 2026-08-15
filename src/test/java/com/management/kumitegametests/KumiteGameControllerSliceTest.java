@@ -1,9 +1,13 @@
 package com.management.kumitegametests;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +18,9 @@ import com.management.enums.PlayerColor;
 import com.management.enums.PointsType;
 import com.management.exceptions.GameNotFoundException;
 import com.management.exceptions.GlobalExceptionHandler;
+import com.management.exceptions.InvalidPlayerColorException;
+import com.management.exceptions.PlayerNotFoundException;
+import com.management.exceptions.PointTypeNotFoundException;
 import com.management.models.KumiteGame;
 import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
@@ -202,32 +209,141 @@ class KumiteGameControllerSliceTest {
   }
 
   @Test
-  void getKumiteGame_whenTheGameIsMissing_returns404FromTheExceptionHandler() throws Exception {
+  void getKumiteGame_whenTheGameIsMissing_returns404AsProblemDetail() throws Exception {
     given(kumiteGameService.getKumiteGame(anyString()))
         .willThrow(new GameNotFoundException("Game not found! Game Id: nope"));
 
     mockMvc
         .perform(get("/api/kumitegame/{gameId}", "nope"))
         .andExpect(status().isNotFound())
+        // The media type is half the contract: it tells a client the body is an error, in a
+        // format it can parse without a bespoke agreement.
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(404))
-        .andExpect(jsonPath("$.message").value("Game not found! Game Id: nope"));
+        .andExpect(jsonPath("$.title").value("Match not found"))
+        .andExpect(jsonPath("$.detail").value("Game not found! Game Id: nope"));
   }
 
+  /**
+   * The status correction #36 exists for.
+   *
+   * <p>This assertion previously pinned the <em>wrong</em> behaviour on purpose — 404 for an
+   * unparseable colour — so that fixing it would show up as a failing test rather than a silent
+   * change. This is that change.
+   */
   @Test
-  void addPoint_withAnUnknownColour_returns404_currentBehaviour() throws Exception {
-    willThrow(new com.management.exceptions.InvalidPlayerColorException("Invalid color: PURPLE"))
+  void addPoint_whenTheColourIsNotRecognised_returns400() throws Exception {
+    willThrow(new InvalidPlayerColorException("Unknown player colour: purple"))
         .given(playerService)
         .addPoint(anyString(), anyString(), anyString());
 
     mockMvc
         .perform(
             put("/api/kumitegame/{gameId}/add-point", "game-1")
-                .param("color", "PURPLE")
+                .param("color", "purple")
                 .param("pointType", "IPPON"))
-        // Asserts CURRENT behaviour deliberately, not intended behaviour. An invalid colour is bad
-        // input and should be 400; it returns 404 today. #36 changes this, and this assertion is
-        // what will make that change visible rather than silent.
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.title").value("Invalid player colour"));
+  }
+
+  @Test
+  void addPoint_whenThePointTypeIsNotRecognised_returns400() throws Exception {
+    willThrow(new PointTypeNotFoundException("Unknown point type: triple-axel"))
+        .given(playerService)
+        .addPoint(anyString(), anyString(), anyString());
+
+    mockMvc
+        .perform(
+            put("/api/kumitegame/{gameId}/add-point", "game-1")
+                .param("color", "RED")
+                .param("pointType", "triple-axel"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title").value("Invalid point type"));
+  }
+
+  /**
+   * A real colour that this match does not field stays 404.
+   *
+   * <p>Paired with the test above deliberately: the same parameter, two different failures, two
+   * different statuses. That distinction is the whole point of keeping them separate exception
+   * types.
+   */
+  @Test
+  void addPoint_whenTheMatchDoesNotFieldThatColour_returns404() throws Exception {
+    willThrow(new PlayerNotFoundException("Match game-1 has no BLUE fighter."))
+        .given(playerService)
+        .addPoint(anyString(), anyString(), anyString());
+
+    mockMvc
+        .perform(
+            put("/api/kumitegame/{gameId}/add-point", "game-1")
+                .param("color", "BLUE")
+                .param("pointType", "IPPON"))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.status").value(404));
+        .andExpect(jsonPath("$.title").value("Fighter not found"));
+  }
+
+  @Test
+  void createKumiteGame_whenTheServiceRejectsTheRequest_returns400() throws Exception {
+    given(kumiteGameService.createKumiteGame(any()))
+        .willThrow(new IllegalArgumentException("Players cannot be empty"));
+
+    mockMvc
+        .perform(
+            post("/api/kumitegame")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"playersMap\":{},\"refereeList\":[]}"))
+        // Reached the catch-all and reported a client mistake as a server fault before #36.
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.detail").value("Players cannot be empty"));
+  }
+
+  @Test
+  void createKumiteGame_whenTheDurationIsNotNumeric_returns400() throws Exception {
+    given(kumiteGameService.createKumiteGame(any()))
+        .willThrow(new NumberFormatException("For input string: \"two minutes\""));
+
+    mockMvc
+        .perform(
+            post("/api/kumitegame")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"gameDuration\":\"two minutes\"}"))
+        // NumberFormatException is an IllegalArgumentException, so one handler covers both.
+        .andExpect(status().isBadRequest());
+  }
+
+  /**
+   * The catch-all, which must not leak.
+   *
+   * <p>An unhandled exception's message can carry internal identifiers, query fragments or file
+   * paths. The status is generic and so is the body; the message goes to the log instead.
+   */
+  @Test
+  void getKumiteGame_whenSomethingUnexpectedFails_returns500WithoutLeakingTheMessage()
+      throws Exception {
+    given(kumiteGameService.getKumiteGame(anyString()))
+        .willThrow(new IllegalStateException("connection string mongodb://user:secret@host/db"));
+
+    mockMvc
+        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+        .andExpect(content().string(not(containsString("secret"))));
+  }
+
+  /**
+   * A framework-raised exception, mapped by the base class rather than by anything written here.
+   *
+   * <p>This is what extending {@code ResponseEntityExceptionHandler} buys. Before #36 an unreadable
+   * body hit the catch-all and came back as 500 — the server blamed for a malformed request.
+   */
+  @Test
+  void createKumiteGame_whenTheBodyIsNotReadable_returns400FromTheBaseHandler() throws Exception {
+    mockMvc
+        .perform(post("/api/kumitegame").contentType(MediaType.APPLICATION_JSON).content("{ not"))
+        .andExpect(status().isBadRequest());
   }
 }

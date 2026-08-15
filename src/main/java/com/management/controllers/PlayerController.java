@@ -28,9 +28,17 @@ public class PlayerController {
     return ResponseEntity.ok(PlayerMapper.toResponse(playerService.getPlayer(playerId)));
   }
 
+  /**
+   * Deletes a fighter.
+   *
+   * <p>204 rather than 200 with the sentence "Player deleted successfully." A success sentence is
+   * not a contract — it cannot be parsed, it says nothing the status code does not, and it commits
+   * the API to an English string. The status table in {@code workflow/patterns/service-exposure.md}
+   * gives 204 for "succeeded, nothing to return".
+   */
   @DeleteMapping("/{playerId}")
-  public ResponseEntity<String> deletePlayer(@PathVariable String playerId) {
+  public ResponseEntity<Void> deletePlayer(@PathVariable String playerId) {
     playerService.deletePlayer(playerId);
-    return ResponseEntity.ok("Player deleted successfully.");
+    return ResponseEntity.noContent().build();
   }
 }

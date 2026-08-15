@@ -5,6 +5,7 @@ import com.management.dto.PlayerRequestDTO;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.GameNotFoundException;
+import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Referee;
@@ -116,8 +117,11 @@ public class KumiteGameService {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
 
-    String playerId = kumiteGame.getPlayersMap().get(playerColor).getId();
-    Player updatedPlayer = gameHelperService.getPlayerById(playerId);
+    Player snapshot = kumiteGame.getPlayersMap().get(playerColor);
+    if (snapshot == null) {
+      throw new PlayerNotFoundException("Match " + gameId + " has no " + playerColor + " fighter.");
+    }
+    Player updatedPlayer = gameHelperService.getPlayerById(snapshot.getId());
 
     kumiteGame.updatePlayer(playerColor, updatedPlayer);
     return saveGame(kumiteGame);

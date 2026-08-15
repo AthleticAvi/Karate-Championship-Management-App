@@ -193,7 +193,20 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 - **Referees are names.** A `List<String>`, not a list of objects, until a referee has more than a name.
 - **Enums serialise as their names**, uppercase, exactly as declared.
 
-**Mutations return the new state.** The four scoring endpoints answer with the updated `KumiteGameResponse` rather than a confirmation sentence, so a scoreboard never needs a follow-up read.
+**Mutations return the new state.** The four scoring endpoints answer with the updated `KumiteGameResponse` rather than a confirmation sentence, so a scoreboard never needs a follow-up read. `DELETE /api/players/{id}` answers 204 with no body.
+
+**Errors are RFC 9457 problem details** — `application/problem+json`, carrying `status`, `title` and `detail`. `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`, so the exceptions the framework itself raises are mapped too rather than falling through to the catch-all as 500s.
+
+| Failure | Status | Exception |
+|---|---|---|
+| Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` |
+| Not a point type | 400 | `PointTypeNotFoundException` |
+| Bad input reaching a service | 400 | `IllegalArgumentException`, incl. `NumberFormatException` |
+| No such match | 404 | `GameNotFoundException` |
+| No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` |
+| Anything else | 500 | catch-all, generic detail, message logged not returned |
+
+The two colour failures are deliberately different types: *not a colour* is the caller's mistake (400), *a colour this match does not have* is a missing resource (404).
 
 ## What Is Not Built Yet
 
