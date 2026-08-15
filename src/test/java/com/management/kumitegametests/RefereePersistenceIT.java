@@ -3,16 +3,11 @@ package com.management.kumitegametests;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.management.enums.PlayerColor;
 import com.management.kumitegame.KumiteGameStarter;
 import com.management.models.KumiteGame;
-import com.management.models.Player;
 import com.management.models.Referee;
 import com.management.repositories.KumiteGameRepository;
-import java.time.Duration;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import com.management.testsupport.KumiteGameBuilder;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,13 +27,10 @@ class RefereePersistenceIT {
 
   @Test
   void shouldPersistAndReloadReferees() {
-    Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
-    playersMap.put(PlayerColor.RED, new Player("Player 1"));
-    playersMap.put(PlayerColor.BLUE, new Player("Player 2"));
-
-    List<Referee> referees = List.of(new Referee("Referee 1"), new Referee("Referee 2"));
-
-    KumiteGame game = new KumiteGame(playersMap, referees, Duration.ofSeconds(120));
+    KumiteGame game =
+        KumiteGameBuilder.newGame()
+            .refereedBy(new Referee("Referee 1"), new Referee("Referee 2"))
+            .build();
 
     KumiteGame savedGame = kumiteGameRepository.save(game);
 
