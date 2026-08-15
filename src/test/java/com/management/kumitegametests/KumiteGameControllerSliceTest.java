@@ -18,9 +18,9 @@ import com.management.testsupport.KumiteGameBuilder;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -32,8 +32,8 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p><strong>The context configuration #37 should reuse.</strong> {@code @WebMvcTest}, an
  * {@code @Import} naming the controller under test plus {@link GlobalExceptionHandler}, and every
- * collaborating service supplied as a {@code @MockBean}. Both services must be mocked even when a
- * test only exercises one, because the controller injects both and the context will not start
+ * collaborating service supplied as a {@code @MockitoBean}. Both services must be mocked even when
+ * a test only exercises one, because the controller injects both and the context will not start
  * otherwise. Keeping every controller slice on this exact configuration means the framework builds
  * and caches one context for all of them; varying it per class multiplies context builds and
  * dominates suite time.
@@ -54,9 +54,9 @@ class KumiteGameControllerSliceTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private KumiteGameService kumiteGameService;
+  @MockitoBean private KumiteGameService kumiteGameService;
 
-  @MockBean private PlayerService playerService;
+  @MockitoBean private PlayerService playerService;
 
   @Test
   void getKumiteGame_whenTheGameExists_returns200AndTheGameAsJson() throws Exception {

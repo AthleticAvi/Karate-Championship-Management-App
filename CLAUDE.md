@@ -55,7 +55,7 @@ No transition guard is currently enforced — every transition is permitted by t
 ## Stack
 
 - Java: **21** everywhere — `<java.version>` in `pom.xml`, the local JDK, and the CI toolchain. Do not let these diverge; the build carries JDK-sensitive compiler flags for Error Prone, and a divergence makes them untestable locally.
-- Spring Boot 3.2.3, Maven, embedded Tomcat
+- Spring Boot **4.1.0**, Maven, embedded Tomcat. Jackson 3, JUnit 6, Testcontainers 2, MongoDB driver 5.8 all arrive with this BOM.
 - MongoDB 7 in Docker — `localhost:27017`, database `kumitedb`, standalone (**not** a replica set, so multi-document transactions are unavailable)
 - Tooling: IntelliJ IDEA, Postman, MongoDB Compass
 - **`mvn verify` is the quality gate** — it runs every check below plus both test suites. `mvn test` runs only the fast suite and does **not** run integration tests.
@@ -107,7 +107,7 @@ Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate ord
 | **Spotless** + google-java-format | **Layout** — indentation, wrapping, import order, whitespace | `pom.xml` → `spotless-maven-plugin` | **Enforced.** Build fails; `mvn spotless:apply` fixes | 0 |
 | **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **21** |
 | **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
-| **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **42** — 34 main (19 NullAway) + 8 test |
+| **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **45** across main and test (26 NullAway) |
 | **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
 | **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | **Enforced floor** | LINE **37%**, BRANCH **15%** |
 
@@ -137,12 +137,12 @@ It is a **convenience, not a gate** — bypassable with `git commit --no-verify`
 **Deliberately not used: SonarQube.** It would duplicate most of the above — SonarSource has itself deprecated 158 Checkstyle/PMD rules as redundant with SonarJava. More decisively, its value here would be the PR gate, and GitHub withholds secrets from `pull_request` runs originating in forks. Most PRs on this repo come from forks, so Sonar would silently skip them. The usual workaround is `pull_request_target`, which hands secrets to fork-authored code — see the warning in `.github/workflows/ci.yml`. Revisit only if contribution stops coming through forks.
 
 - Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
-- Spring Boot 3.2.3, Java 21 (pinned via `<java.version>` in `pom.xml`; CI provisions the same)
+- Spring Boot 4.1.0, Java 21 (pinned via `<java.version>` in `pom.xml`; CI provisions the same)
 - Windows dev setup: see `karate-app-dev-setup-windows.pdf` in the repo root.
 
 ## MCP Tooling
 
-**Context7 is the only MCP needed for Spring Boot development on this project.** Use it to fetch current docs for Spring Boot 3.2, Spring Data MongoDB, Jakarta Validation, Spring Security, and any other library/framework before relying on training knowledge.
+**Context7 is the only MCP needed for Spring Boot development on this project.** Use it to fetch current docs for Spring Boot 4.1, Spring Data MongoDB, Jakarta Validation, Spring Security, and any other library/framework before relying on training knowledge.
 
 **MongoDB MCP is intentionally NOT connected.** MongoDB Compass covers the rare moments live data inspection is needed during current-phase backend work. Reconsider connecting MongoDB MCP when any of these become true:
 - Debugging a real data-corruption incident (e.g. after the dual-write/snapshot fix lands)
@@ -172,7 +172,7 @@ There are two aggregate roots with their own controller/service/repository stack
 - `PlayerController` at `/api/players` — owns player CRUD
 - `PointsType` enum carries its `PointStrategy` instance — `PointStrategy` declares `addPoint(Points)` / `removePoint(Points)`, which mutate the score in place. There is no method that returns a value.
 - `GameConfig` reads from `src/main/resources/config.properties` — game durations are loaded there, not hardcoded
-- MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`
+- MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`. They bind through **`spring.mongodb.*`**, not `spring.data.mongodb.*` — Boot 4 split that namespace into driver-level (`spring.mongodb`) and repository-level (`spring.data.mongodb`). Both still resolve, so using the wrong one fails silently by falling back to the default host.
 
 ## What Is Not Built Yet
 

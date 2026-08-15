@@ -3,11 +3,12 @@ package com.management.testsupport;
 import com.management.kumitegame.KumiteGameStarter;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 /**
  * Base class for integration tests. One container, one context, clean data.
@@ -37,6 +38,7 @@ import org.testcontainers.containers.MongoDBContainer;
  * change no matter how many integration tests exist by then.
  */
 @SpringBootTest(classes = KumiteGameStarter.class, webEnvironment = WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
 public abstract class IntegrationTestBase {
 
   @ServiceConnection static final MongoDBContainer MONGO = new MongoDBContainer("mongo:7");

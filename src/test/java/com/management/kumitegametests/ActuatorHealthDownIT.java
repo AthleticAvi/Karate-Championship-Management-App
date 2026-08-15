@@ -5,9 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.management.kumitegame.KumiteGameStarter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -28,6 +29,7 @@ import org.springframework.http.ResponseEntity;
  * must never be. It is the one justified exception to the single-configuration rule, so the suite
  * builds two contexts and no more.
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(
     classes = KumiteGameStarter.class,
     webEnvironment = WebEnvironment.RANDOM_PORT,
@@ -36,7 +38,7 @@ import org.springframework.http.ResponseEntity;
       // serverSelectionTimeoutMS is cut from its 30s default: without it the driver spends half a
       // minute retrying before the health indicator gives up, and this test is the slowest in the
       // suite for no reason. 500ms is far longer than a local refused connection needs.
-      "spring.data.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500"
+      "spring.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500"
     })
 class ActuatorHealthDownIT {
 
