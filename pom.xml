@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.2.3</version>
+    <version>4.1.0</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
 
@@ -18,14 +18,13 @@
 
   <properties>
     <java.version>21</java.version>
-    <testcontainers.version>1.21.4</testcontainers.version>
     <spotless.version>2.44.5</spotless.version>
     <google-java-format.version>1.27.0</google-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <checkstyle.version>10.26.1</checkstyle.version>
     <error-prone.version>2.39.0</error-prone.version>
     <nullaway.version>0.12.7</nullaway.version>
-    <jacoco.version>0.8.13</jacoco.version>
+    <jacoco.version>0.8.15</jacoco.version>
     <git-build-hook.version>3.5.0</git-build-hook.version>
   </properties>
 
@@ -37,12 +36,34 @@
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
     </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Boot 4 split test support into per-technology starters; spring-boot-starter-test no longer
+      carries them transitively. Each of these supplies something this suite actually uses, and
+      nothing is added speculatively:
+        webmvc-test     -> @WebMvcTest and MockMvc, for the controller slice
+        restclient-test -> TestRestTemplate, for the actuator integration tests
+      spring-boot-starter-test-classic exists as a compatibility aggregate that restores the old
+      behaviour in one line. Not used: it would hide which slices this project depends on, which is
+      the thing the modularisation makes visible.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-restclient-test</artifactId>
       <scope>test</scope>
     </dependency>
 
@@ -59,13 +80,13 @@
 
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>mongodb</artifactId>
+      <artifactId>testcontainers-mongodb</artifactId>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -75,7 +96,6 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
-        <version>3.2.3</version>
         <executions>
           <execution>
             <goals>

@@ -93,6 +93,18 @@ public final class InMemoryMongo {
     return collectionFor(type).size();
   }
 
+  /**
+   * Converts an entity to the document that would be stored, without storing it.
+   *
+   * <p>For tests that assert the persisted <em>representation</em> rather than round-trip behaviour
+   * — the shape on disk is a contract too, and a framework upgrade can change it silently.
+   */
+  public Document writeForInspection(Object entity) {
+    Document document = new Document();
+    converter.write(entity, document);
+    return document;
+  }
+
   /** Discards everything, so a test never inherits another test's data. */
   public void clear() {
     collections.clear();

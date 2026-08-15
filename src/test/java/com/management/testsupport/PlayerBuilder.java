@@ -4,7 +4,7 @@ import com.management.enums.PointsType;
 import com.management.models.Foul;
 import com.management.models.Player;
 import com.management.models.Points;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Builds a {@link Player} for a test, stating only the field the test is about.

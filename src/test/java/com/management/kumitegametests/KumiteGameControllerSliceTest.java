@@ -18,9 +18,9 @@ import com.management.testsupport.KumiteGameBuilder;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -32,8 +32,8 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p><strong>The context configuration #37 should reuse.</strong> {@code @WebMvcTest}, an
  * {@code @Import} naming the controller under test plus {@link GlobalExceptionHandler}, and every
- * collaborating service supplied as a {@code @MockBean}. Both services must be mocked even when a
- * test only exercises one, because the controller injects both and the context will not start
+ * collaborating service supplied as a {@code @MockitoBean}. Both services must be mocked even when
+ * a test only exercises one, because the controller injects both and the context will not start
  * otherwise. Keeping every controller slice on this exact configuration means the framework builds
  * and caches one context for all of them; varying it per class multiplies context builds and
  * dominates suite time.
@@ -54,9 +54,9 @@ class KumiteGameControllerSliceTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private KumiteGameService kumiteGameService;
+  @MockitoBean private KumiteGameService kumiteGameService;
 
-  @MockBean private PlayerService playerService;
+  @MockitoBean private PlayerService playerService;
 
   @Test
   void getKumiteGame_whenTheGameExists_returns200AndTheGameAsJson() throws Exception {
@@ -75,6 +75,37 @@ class KumiteGameControllerSliceTest {
         .andExpect(jsonPath("$.playersMap.BLUE.name").value("Blue Fighter"))
         // The @Transient timer is @JsonIgnore, so it must never appear on the wire.
         .andExpect(jsonPath("$.timer").doesNotExist());
+  }
+
+  /**
+   * Pins the JSON representation, as the counterpart to {@link RepresentationCharacterizationTest}
+   * which pins the stored form.
+   *
+   * <p>Asserted here rather than against a hand-built mapper because this is the only place the
+   * application's real configured mapper runs. Jackson crosses a major version in Epic #89, and
+   * this test is what will report it if the wire format moves.
+   */
+  @Test
+  void getKumiteGame_jsonRepresentation_isPinned() throws Exception {
+    KumiteGame game =
+        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
+    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+
+    mockMvc
+        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .andExpect(status().isOk())
+        // Durations are ISO-8601 strings, not numbers or objects.
+        .andExpect(jsonPath("$.remainingTime").value("PT1M27S"))
+        .andExpect(jsonPath("$.gameDuration").value("PT2M"))
+        // Points and fouls are nested objects carrying a count, not bare numbers.
+        .andExpect(jsonPath("$.playersMap.RED.points.numOfPoints").value(0))
+        .andExpect(jsonPath("$.playersMap.RED.fouls.numOfFouls").value(0))
+        // The colour-keyed map uses the colour name as the JSON key.
+        .andExpect(jsonPath("$.playersMap.RED").exists())
+        .andExpect(jsonPath("$.playersMap.BLUE").exists())
+        // startTime is present and non-null; its exact encoding is what Epic #89 may change.
+        .andExpect(jsonPath("$.startTime").exists())
+        .andExpect(jsonPath("$.winner").value("Pending game ending"));
   }
 
   @Test
