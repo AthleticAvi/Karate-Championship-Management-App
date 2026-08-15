@@ -105,11 +105,11 @@ Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate ord
 | Tool | Owns | Configured in | Mode | Baseline |
 |---|---|---|---|---|
 | **Spotless** + google-java-format | **Layout** — indentation, wrapping, import order, whitespace | `pom.xml` → `spotless-maven-plugin` | **Enforced.** Build fails; `mvn spotless:apply` fixes | 0 |
-| **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **21** |
-| **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
+| **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **17** |
+| **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **3** |
 | **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **45** across main and test (26 NullAway) |
 | **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
-| **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | **Enforced floor** | LINE **37%**, BRANCH **15%** |
+| **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | **Enforced floor** | LINE **78%**, BRANCH **55%** |
 
 ```bash
 mvn spotless:apply    # fix formatting — run this if the build fails on layout
@@ -118,7 +118,7 @@ mvn verify            # everything, including the coverage report
 
 **Coverage** is measured across *both* suites: an agent runs under surefire and another under failsafe, the two execution files are merged, and one report is written to `target/site/jacoco/`. Open `index.html` from there, or download the `coverage-report` artifact from any CI run. A number from one suite alone is misleading — most of this codebase is only reachable through integration tests.
 
-The floor is enforced and **ratchets upward only**: raise it in `pom.xml` as coverage rises, never lower it. It is a floor, not a target — `workflow/patterns/testing-strategy.md` lists what must *not* be tested, and coverage bought that way is a worse suite with a better number. BRANCH sits low because the harness work exercised happy paths; #37 and the timer epic are where it should climb.
+The floor is enforced and **ratchets upward only**: raise it in `pom.xml` as coverage rises, never lower it. It is a floor, not a target — `workflow/patterns/testing-strategy.md` lists what must *not* be tested, and coverage bought that way is a worse suite with a better number. #37 raised it from LINE 37% / BRANCH 15% by covering every controller endpoint and every branch of the exception handler — the error paths were the untested branches. What remains uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 
 **How to change each one**
 

@@ -10,14 +10,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.controllers.KumiteGameController;
 import com.management.enums.PlayerColor;
 import com.management.enums.PointsType;
 import com.management.exceptions.GameNotFoundException;
-import com.management.exceptions.GlobalExceptionHandler;
 import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.exceptions.PointTypeNotFoundException;
@@ -26,50 +25,58 @@ import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
+import com.management.testsupport.WebSliceTestBase;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * The web slice harness. Two exemplars, one per direction, and no more.
+ * Every endpoint on {@code /api/kumitegame}, at the HTTP boundary.
  *
- * <p><strong>This is a harness, not a test suite.</strong> Covering every endpoint belongs to #37,
- * and should follow the response-contract issues in Epic #32 rather than precede them — otherwise
- * it locks in a shape that is about to change.
+ * <p>Started life in #87 as a two-test harness deliberately kept small until the response contract
+ * settled; #37 filled it in once #33, #34, #35 and #36 had decided what the contract is. Each
+ * endpoint has a success path asserting status and body, and each status the exception handler can
+ * produce has a test.
  *
- * <p><strong>The context configuration #37 should reuse.</strong> {@code @WebMvcTest}, an
- * {@code @Import} naming the controller under test plus {@link GlobalExceptionHandler}, and every
- * collaborating service supplied as a {@code @MockitoBean}. Both services must be mocked even when
- * a test only exercises one, because the controller injects both and the context will not start
- * otherwise. Keeping every controller slice on this exact configuration means the framework builds
- * and caches one context for all of them; varying it per class multiplies context builds and
- * dominates suite time.
- *
- * <p><strong>Why the controller is imported rather than selected.</strong>
- * {@code @WebMvcTest(controllers = ...)} filters a component scan, and the configuration anchor
- * these tests resolve to declares no scan at all — see {@code
- * com.management.SliceTestConfiguration}. Without an import the controller bean is simply never
- * created and every request resolves to the static-resource handler, producing a confusing 500
- * instead of an obvious wiring failure. Importing the controller registers it directly.
- *
- * <p>Only the web layer starts here. There is no database, no service logic and no component scan,
- * which is what makes these tests cost milliseconds rather than seconds.
+ * <p>Configuration comes from {@link WebSliceTestBase} — see there for why it is shared.
  */
-@WebMvcTest
-@Import({KumiteGameController.class, GlobalExceptionHandler.class})
-class KumiteGameControllerSliceTest {
+class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private KumiteGameService kumiteGameService;
 
   @MockitoBean private PlayerService playerService;
+
+  @Test
+  void createKumiteGame_whenTheRequestIsAccepted_returns201WithLocationHeader() throws Exception {
+    given(kumiteGameService.createKumiteGame(any()))
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").build());
+
+    mockMvc
+        .perform(
+            post("/api/kumitegame")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "playersMap": {
+                        "red":  { "name": "Kenji", "color": "RED" },
+                        "blue": { "name": "Sato",  "color": "BLUE" }
+                      },
+                      "refereeList": ["Test Referee"],
+                      "gameDuration": "90"
+                    }
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(header().string("Location", "/api/kumitegame/game-1"))
+        .andExpect(jsonPath("$.id").value("game-1"))
+        .andExpect(jsonPath("$.gameState").value("QUEUED"));
+  }
 
   @Test
   void getKumiteGame_whenTheGameExists_returns200AndTheGameAsJson() throws Exception {
@@ -206,6 +213,92 @@ class KumiteGameControllerSliceTest {
         .andExpect(jsonPath("$.gameState").value("FINISHED"))
         .andExpect(jsonPath("$.remainingSeconds").value(0))
         .andExpect(jsonPath("$.winner").value("RED"));
+  }
+
+  /**
+   * The four scoring endpoints, which all answer with the match as it now stands.
+   *
+   * <p>One test per endpoint rather than a parameterised sweep: each names a different service
+   * call, and a failure should say which endpoint broke without decoding a parameter index.
+   */
+  @Test
+  void addPoint_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
+    given(playerService.addPoint("game-1", "RED", "IPPON"))
+        .willReturn(matchWhereRedHasScored(PointsType.IPPON));
+
+    mockMvc
+        .perform(
+            put("/api/kumitegame/{gameId}/add-point", "game-1")
+                .param("color", "RED")
+                .param("pointType", "IPPON"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.red.points").value(3))
+        .andExpect(jsonPath("$.blue.points").value(0));
+  }
+
+  @Test
+  void removePoint_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
+    given(playerService.removePoint("game-1", "RED", "IPPON"))
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").build());
+
+    mockMvc
+        .perform(
+            put("/api/kumitegame/{gameId}/remove-point", "game-1")
+                .param("color", "RED")
+                .param("pointType", "IPPON"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.red.points").value(0));
+  }
+
+  @Test
+  void addFoul_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
+    given(playerService.addFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(1));
+
+    mockMvc
+        .perform(put("/api/kumitegame/{gameId}/add-foul", "game-1").param("color", "BLUE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.blue.fouls").value(1));
+  }
+
+  @Test
+  void removeFoul_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
+    given(playerService.removeFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(0));
+
+    mockMvc
+        .perform(put("/api/kumitegame/{gameId}/remove-foul", "game-1").param("color", "BLUE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.blue.fouls").value(0));
+  }
+
+  @Test
+  void updateKumiteGameWinner_whenTheColourIsValid_returns200WithTheWinner() throws Exception {
+    given(kumiteGameService.updateKumiteGameWinner("game-1", "RED"))
+        .willReturn(
+            KumiteGameBuilder.newGame()
+                .alreadyPersistedAs("game-1")
+                .finished()
+                .wonBy(PlayerColor.RED)
+                .build());
+
+    mockMvc
+        .perform(put("/api/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.winner").value("RED"))
+        .andExpect(jsonPath("$.gameState").value("FINISHED"));
+  }
+
+  private static KumiteGame matchWhereRedHasScored(PointsType pointsType) {
+    return KumiteGameBuilder.newGame()
+        .alreadyPersistedAs("game-1")
+        .with(PlayerColor.RED, PlayerBuilder.newPlayer().named("Kenji").scoring(pointsType).build())
+        .build();
+  }
+
+  private static KumiteGame matchWhereBlueHasFouled(int fouls) {
+    return KumiteGameBuilder.newGame()
+        .alreadyPersistedAs("game-1")
+        .with(PlayerColor.BLUE, PlayerBuilder.newPlayer().named("Sato").withFouls(fouls).build())
+        .build();
   }
 
   @Test

@@ -339,8 +339,12 @@
             bought that way is a worse suite with a better number.
 
             LINE and BRANCH rather than JaCoCo's default INSTRUCTION, which counts bytecode and
-            moves for reasons unrelated to testing. BRANCH is low because the harness work exercised
-            happy paths; #37 and the timer epic are where it should rise.
+            moves for reasons unrelated to testing.
+
+            Raised by #37 from LINE 37% / BRANCH 15% to 78% / 55%. The suite now achieves 79% and
+            57%; the floor sits a point or two under, so a genuine drop fails the build while a
+            counting wobble does not. What moved it was covering every controller endpoint and
+            every branch of the exception handler - the error paths were the untested branches.
           -->
           <execution>
             <id>coverage-check</id>
@@ -357,12 +361,12 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>0.37</minimum>
+                      <minimum>0.78</minimum>
                     </limit>
                     <limit>
                       <counter>BRANCH</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>0.15</minimum>
+                      <minimum>0.55</minimum>
                     </limit>
                   </limits>
                 </rule>
