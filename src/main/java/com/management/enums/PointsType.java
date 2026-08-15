@@ -6,17 +6,17 @@ import com.management.models.strategies.WazariStrategy;
 import com.management.models.strategies.YokoStrategy;
 
 public enum PointsType {
-    IPPON(new IpponStrategy()),
-    WAZARI(new WazariStrategy()),
-    YOKO(new YokoStrategy());
+  IPPON(new IpponStrategy()),
+  WAZARI(new WazariStrategy()),
+  YOKO(new YokoStrategy());
 
-    private final PointStrategy strategy;
+  private final PointStrategy strategy;
 
-    PointsType(PointStrategy strategy) {
-        this.strategy = strategy;
-    }
+  PointsType(PointStrategy strategy) {
+    this.strategy = strategy;
+  }
 
-    public PointStrategy getStrategy() {
-        return strategy;
-    }
+  public PointStrategy getStrategy() {
+    return strategy;
+  }
 }

@@ -58,8 +58,7 @@ No transition guard is currently enforced — every transition is permitted by t
 - Spring Boot 3.2.3, Maven, embedded Tomcat
 - MongoDB 7 in Docker — `localhost:27017`, database `kumitedb`, standalone (**not** a replica set, so multi-document transactions are unavailable)
 - Tooling: IntelliJ IDEA, Postman, MongoDB Compass
-- **`mvn verify` is the quality gate** — it runs both test suites. `mvn test` runs only the fast one and does **not** run integration tests.
-- Compiler warnings are enabled (`-Xlint:all,-serial`) in report mode; they do not fail the build yet. No linter, formatter, or static analysis configured (issue #58).
+- **`mvn verify` is the quality gate** — it runs every check below plus both test suites. `mvn test` runs only the fast suite and does **not** run integration tests.
 - Docker must be running for `mvn verify` — integration tests start their own MongoDB via Testcontainers.
 - Frontend: not started
 
@@ -98,6 +97,27 @@ mvn verify -Dit.test=ActuatorHealthIT
 | `*IT` | integration and end-to-end | `integration-test` | `mvn verify` |
 
 Naming an integration test `*Test` runs it in the fast suite with no container behind it. See `workflow/patterns/testing-strategy.md`.
+
+### Quality gates
+
+All run inside `mvn verify`. Gate order follows `workflow/standards/enforcement.md`.
+
+| Gate | Tool | Mode | Baseline |
+|---|---|---|---|
+| Formatter | Spotless + google-java-format | **enforced** — build fails on unformatted code | 0 |
+| Style (published) | Checkstyle, `google_checks.xml` | ratchet | **131** |
+| Style (project rules) | Checkstyle, `config/checkstyle/project-standards.xml` | ratchet | **18** |
+| Correctness | Error Prone + NullAway | report only | **35** (19 NullAway) |
+| Compiler | `-Xlint:all,-serial` | report only | 0 |
+
+```bash
+# Reformat everything. Run this before committing if the build fails on formatting.
+mvn spotless:apply
+```
+
+**The ratchet:** Checkstyle's `maxAllowedViolations` is set to the baseline, so the build fails if the count *rises*. Lower the number in `pom.xml` as findings are fixed — it never goes up. Error Prone has no count ratchet in javac, so it stays report-only until the 35 are cleared and NullAway can be switched to `ERROR`.
+
+Suppressions live in `config/checkstyle/suppressions.xml`, one reason per entry.
 
 - Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
 - Spring Boot 3.2.3, Java 17 (pinned via `<java.version>` in `pom.xml`)

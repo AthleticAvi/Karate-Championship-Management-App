@@ -11,26 +11,24 @@ import org.springframework.stereotype.Service;
 @Service
 public class GameHelperService {
 
+  @Autowired private KumiteGameService kumiteGameService;
+  @Autowired private PlayerService playerService;
 
-    @Autowired
-    private KumiteGameService kumiteGameService;
-    @Autowired
-    private PlayerService playerService;
-    public String getPlayerIdByGameAndColor(String gameId, String color){
-        KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
-        PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
-        return kumiteGame.getPlayersMap().get(playerColor).getId();
-    }
+  public String getPlayerIdByGameAndColor(String gameId, String color) {
+    KumiteGame kumiteGame = kumiteGameService.getKumiteGame(gameId);
+    PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
+    return kumiteGame.getPlayersMap().get(playerColor).getId();
+  }
 
-    public void updateKumiteGame(String gameId, String color) {
-        kumiteGameService.updateKumiteGamePlayers(gameId, color);
-    }
+  public void updateKumiteGame(String gameId, String color) {
+    kumiteGameService.updateKumiteGamePlayers(gameId, color);
+  }
 
-    public Player getPlayerById(String playerId) {
-        return playerService.getPlayer(playerId);
-    }
+  public Player getPlayerById(String playerId) {
+    return playerService.getPlayer(playerId);
+  }
 
-    public Player createNewPlayer(PlayerRequestDTO playerDTO) {
-        return playerService.createPlayer(playerDTO);
-    }
+  public Player createNewPlayer(PlayerRequestDTO playerDTO) {
+    return playerService.createPlayer(playerDTO);
+  }
 }
