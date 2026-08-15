@@ -303,6 +303,46 @@
               <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
             </configuration>
           </execution>
+
+          <!--
+            The floor. Set to what the suite actually achieves, so it catches a drop rather than
+            expressing an aspiration. Raise it as coverage rises; never lower it.
+
+            This is a floor, not a target. workflow/patterns/testing-strategy.md lists what must not
+            be tested - getters, setters, framework behaviour, configuration values - and coverage
+            bought that way is a worse suite with a better number.
+
+            LINE and BRANCH rather than JaCoCo's default INSTRUCTION, which counts bytecode and
+            moves for reasons unrelated to testing. BRANCH is low because the harness work exercised
+            happy paths; #37 and the timer epic are where it should rise.
+          -->
+          <execution>
+            <id>coverage-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.37</minimum>
+                    </limit>
+                    <limit>
+                      <counter>BRANCH</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.15</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
     </plugins>
