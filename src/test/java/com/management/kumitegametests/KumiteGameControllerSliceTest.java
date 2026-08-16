@@ -1,6 +1,7 @@
 package com.management.kumitegametests;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -71,7 +72,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                         "blue": { "name": "Sato",  "color": "BLUE" }
                       },
                       "refereeList": ["Test Referee"],
-                      "gameDuration": "90"
+                      "gameDuration": 90
                     }
                     """))
         .andExpect(status().isCreated())
@@ -402,22 +403,100 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.detail").value("Match game-1 is FINISHED and cannot be started."));
   }
 
+  /**
+   * A well-formed request the domain rejects: shape validation passed, the colour rule did not.
+   *
+   * <p>The body must be structurally valid, or {@code @Valid} rejects it before the controller —
+   * and therefore before the stubbed service — is ever reached.
+   */
   @Test
   void createKumiteGame_whenTheServiceRejectsTheRequest_returns400WithTheReason() throws Exception {
     given(kumiteGameService.createKumiteGame(any()))
-        .willThrow(new InvalidGameRequestException("Players cannot be empty"));
+        .willThrow(
+            new InvalidGameRequestException(
+                "A match fields exactly one fighter per colour, but two were given as RED."));
 
     mockMvc
         .perform(
             post("/api/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"playersMap\":{},\"refereeList\":[]}"))
+                .content(
+                    """
+                    {
+                      "playersMap": {
+                        "red":  { "name": "Kenji", "color": "RED" },
+                        "blue": { "name": "Sato",  "color": "RED" }
+                      },
+                      "refereeList": ["Test Referee"]
+                    }
+                    """))
         // Reached the catch-all and reported a client mistake as a server fault before #36.
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
         // Echoed because this project wrote it: the caller can act on it and it says nothing
         // internal.
-        .andExpect(jsonPath("$.detail").value("Players cannot be empty"));
+        .andExpect(
+            jsonPath("$.detail")
+                .value(
+                    "A match fields exactly one fighter per colour, but two were given as RED."));
+  }
+
+  /**
+   * Bean Validation at the boundary (#39): every failing field reported, in one round trip.
+   *
+   * <p>Three distinct failures in one request — a blank fighter name (a nested constraint, which
+   * only fires because the map values are marked {@code @Valid}), a one-fighter map, and an empty
+   * referee list. The service is never reached; no stubbing is needed or wanted.
+   */
+  @Test
+  void createKumiteGame_whenSeveralFieldsAreInvalid_returns400ListingEveryFailure()
+      throws Exception {
+    mockMvc
+        .perform(
+            post("/api/kumitegame")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "playersMap": {
+                        "red": { "name": "", "color": "RED" }
+                      },
+                      "refereeList": []
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.errors").value(hasKey("playersMap[red].name")))
+        .andExpect(jsonPath("$.errors").value(hasKey("playersMap")))
+        .andExpect(jsonPath("$.errors").value(hasKey("refereeList")));
+  }
+
+  /**
+   * A {@code null} fighter is the caller's mistake, not a server fault.
+   *
+   * <p>{@code @Valid} on the map values skips nulls entirely (per the Bean Validation spec), so
+   * without {@code @NotNull} beside it this request sailed through validation and died in the
+   * service as a 500. The container-element constraint is what turns it into a 400.
+   */
+  @Test
+  void createKumiteGame_whenOneFighterIsNull_returns400NotServerError() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/kumitegame")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "playersMap": {
+                        "red":  null,
+                        "blue": { "name": "Sato", "color": "BLUE" }
+                      },
+                      "refereeList": ["Test Referee"]
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors").value(hasKey("playersMap[red]")));
   }
 
   /**
@@ -446,17 +525,20 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(content().string(not(containsString("secret"))));
   }
 
+  /**
+   * A non-numeric duration dies at binding, before any code runs (#39).
+   *
+   * <p>{@code gameDuration} is an {@code Integer} now, so the framework rejects text that is not a
+   * number as an unreadable body — no service stub, no hand parse, no {@code NumberFormatException}
+   * surfacing from below.
+   */
   @Test
   void createKumiteGame_whenTheDurationIsNotNumeric_returns400() throws Exception {
-    given(kumiteGameService.createKumiteGame(any()))
-        .willThrow(new NumberFormatException("For input string: \"two minutes\""));
-
     mockMvc
         .perform(
             post("/api/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"gameDuration\":\"two minutes\"}"))
-        // NumberFormatException is an IllegalArgumentException, so one handler covers both.
         .andExpect(status().isBadRequest());
   }
 

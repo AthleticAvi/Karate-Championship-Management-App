@@ -1,13 +1,8 @@
 package com.management.dto;
 
-public class PlayerRequestDTO {
-  private String name;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
-  public String getName() {
-    return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
-  }
-}
+/** The request to create a standalone fighter. */
+public record PlayerRequestDTO(
+    @NotBlank(message = "a fighter needs a name") @Size(max = 100) String name) {}

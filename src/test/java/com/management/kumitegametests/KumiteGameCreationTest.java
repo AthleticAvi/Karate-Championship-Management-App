@@ -87,13 +87,10 @@ class KumiteGameCreationTest {
   }
 
   private static KumiteGameRequestDTO request(PlayerDTO... fighters) {
-    KumiteGameRequestDTO dto = new KumiteGameRequestDTO();
     Map<String, PlayerDTO> byKey = new java.util.LinkedHashMap<>();
     for (int i = 0; i < fighters.length; i++) {
       byKey.put("fighter" + i, fighters[i]);
     }
-    dto.setPlayersMap(byKey);
-    dto.setRefereeList(List.of("Referee One"));
-    return dto;
+    return new KumiteGameRequestDTO(byKey, List.of("Referee One"), null);
   }
 }

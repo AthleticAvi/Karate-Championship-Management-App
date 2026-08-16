@@ -4,6 +4,7 @@ import com.management.dto.PlayerRequestDTO;
 import com.management.dto.PlayerResponse;
 import com.management.mappers.PlayerMapper;
 import com.management.services.PlayerService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,8 @@ public class PlayerController {
   @Autowired private PlayerService playerService;
 
   @PostMapping
-  public ResponseEntity<PlayerResponse> createPlayer(@RequestBody PlayerRequestDTO newPlayer) {
+  public ResponseEntity<PlayerResponse> createPlayer(
+      @Valid @RequestBody PlayerRequestDTO newPlayer) {
     PlayerResponse created = PlayerMapper.toResponse(playerService.createPlayer(newPlayer));
     return ResponseEntity.status(HttpStatus.CREATED)
         .header("Location", "/api/players/" + created.id())

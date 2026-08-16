@@ -23,7 +23,7 @@ public class PlayerService {
   @Autowired @Lazy private GameHelperService gameHelperService;
 
   public Player createPlayer(PlayerRequestDTO playerDTO) {
-    Player newPlayer = new Player(playerDTO.getName());
+    Player newPlayer = new Player(playerDTO.name());
     return playerRepository.save(newPlayer);
   }
 

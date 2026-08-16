@@ -5,6 +5,7 @@ import com.management.dto.KumiteGameResponse;
 import com.management.mappers.KumiteGameMapper;
 import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ public class KumiteGameController {
 
   @PostMapping
   public ResponseEntity<KumiteGameResponse> createKumiteGame(
-      @RequestBody KumiteGameRequestDTO gameDetails) {
+      @Valid @RequestBody KumiteGameRequestDTO gameDetails) {
     KumiteGameResponse created =
         KumiteGameMapper.toResponse(kumiteGameService.createKumiteGame(gameDetails));
     return ResponseEntity.status(HttpStatus.CREATED)
