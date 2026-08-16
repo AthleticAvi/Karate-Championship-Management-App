@@ -100,6 +100,47 @@ class KumiteGameFlowIT extends IntegrationTestBase {
                     .isTrue());
   }
 
+  /**
+   * A malformed match is refused before anything is written.
+   *
+   * <p>Two fighters both claiming RED used to be accepted: both {@code Player} documents and the
+   * half-formed match were saved, and only then did the response mapper notice the missing BLUE and
+   * raise a 500. The caller was told the server had failed, got no id back, and three orphaned
+   * documents stayed in the database — with no transaction to undo them, since this MongoDB is a
+   * standalone.
+   *
+   * <p>Asserting the status alone would not have caught that. What matters is the count afterwards.
+   */
+  @Test
+  void createMatchRequest_withTwoFightersOfOneColour_isRejectedAndWritesNothing() {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    String bothRed =
+        """
+        {
+          "playersMap": {
+            "red":  { "name": "Kenji", "color": "RED" },
+            "blue": { "name": "Sato",  "color": "RED" }
+          },
+          "refereeList": ["Referee One"],
+          "gameDuration": "90"
+        }
+        """;
+
+    ResponseEntity<String> response =
+        rest.postForEntity("/api/kumitegame", new HttpEntity<>(bothRed, headers), String.class);
+
+    assertThat(response.getStatusCode())
+        .as("a request that cannot produce a valid match is the caller's mistake, not a 500")
+        .isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(mongoTemplate.getCollection("kumiteGame").countDocuments())
+        .as("no match was stored")
+        .isZero();
+    assertThat(mongoTemplate.getCollection("player").countDocuments())
+        .as("and no fighter was left orphaned by the rejected request")
+        .isZero();
+  }
+
   private KumiteGameResponse createMatch() {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
