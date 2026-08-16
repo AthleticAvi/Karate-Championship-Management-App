@@ -2,8 +2,10 @@ package com.management.testsupport;
 
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
+import com.management.models.Foul;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
+import com.management.models.Points;
 import com.management.models.Referee;
 import com.management.util.GameConfig;
 import java.time.Duration;
@@ -26,7 +28,10 @@ import org.springframework.test.util.ReflectionTestUtils;
  * that durations are never hardcoded. A test that cares about a specific duration says so
  * explicitly.
  *
- * <p>Never returns a shared instance: each {@link #build()} produces a new object.
+ * <p>Never returns a shared instance: each {@link #build()} produces a new match, with its own
+ * fighters carrying their own score objects. Copying the map alone was not enough — the {@code
+ * Player} values inside it were the same instances on every build, so scoring against a fighter
+ * from one match moved the score of the fighter in another.
  */
 public final class KumiteGameBuilder {
 
@@ -133,8 +138,27 @@ public final class KumiteGameBuilder {
     return this;
   }
 
+  /**
+   * Copies a fighter so the built match owns it outright.
+   *
+   * <p>{@code Player} stores its {@code Points} and {@code Foul} by reference, so handing the same
+   * instance to two matches gives them one shared score.
+   */
+  private static Player copyOf(Player source) {
+    Points points = new Points();
+    points.setNumOfPoints(source.getPoints().getNumOfPoints());
+
+    Foul fouls = new Foul();
+    fouls.setNumOfFouls(source.getFouls().getNumOfFouls());
+
+    return new Player(source.getId(), source.getName(), points, fouls);
+  }
+
   public KumiteGame build() {
-    KumiteGame game = new KumiteGame(new EnumMap<>(players), referees, gameDuration);
+    Map<PlayerColor, Player> ownFighters = new EnumMap<>(PlayerColor.class);
+    players.forEach((color, player) -> ownFighters.put(color, copyOf(player)));
+
+    KumiteGame game = new KumiteGame(ownFighters, referees, gameDuration);
     game.setGameState(gameState);
     if (remainingTime != null) {
       game.setRemainingTime(remainingTime);
