@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.management.enums.PlayerColor;
 import com.management.enums.PointsType;
 import com.management.exceptions.GameNotFoundException;
+import com.management.exceptions.IllegalStateTransitionException;
 import com.management.exceptions.InvalidGameRequestException;
 import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PlayerNotFoundException;
@@ -377,6 +378,28 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .param("pointType", "IPPON"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.title").value("Fighter not found"));
+  }
+
+  /**
+   * The #29 guard on the wire: an operation the match's state forbids is 409 Conflict.
+   *
+   * <p>No lifecycle endpoint exists yet, so the throw is staged through an endpoint that does; the
+   * advice maps the type the same way regardless of where it is thrown. The detail is echoed
+   * because the guard writes it, and it names the two states — which is what the caller needs.
+   */
+  @Test
+  void anyOperationTheMatchStateForbids_returns409AsProblemDetail() throws Exception {
+    given(kumiteGameService.updateKumiteGameWinner(anyString(), anyString()))
+        .willThrow(
+            new IllegalStateTransitionException("Match game-1 is FINISHED and cannot be started."));
+
+    mockMvc
+        .perform(put("/api/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
+        .andExpect(status().isConflict())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(409))
+        .andExpect(jsonPath("$.title").value("Illegal match-state transition"))
+        .andExpect(jsonPath("$.detail").value("Match game-1 is FINISHED and cannot be started."));
   }
 
   @Test

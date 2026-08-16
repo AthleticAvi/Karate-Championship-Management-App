@@ -94,6 +94,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * A lifecycle operation on a match whose state does not allow it.
+   *
+   * <p>409 rather than 400: the request was syntactically fine and the match exists — it is the
+   * resource's current state that forbids the operation, which is exactly what Conflict means. The
+   * detail is echoed because the message is written by this project's own guard and names the
+   * current state and the attempted transition, which is what the caller needs to recover.
+   */
+  @ExceptionHandler(IllegalStateTransitionException.class)
+  public ProblemDetail handleIllegalStateTransition(IllegalStateTransitionException ex) {
+    return clientError(HttpStatus.CONFLICT, "Illegal match-state transition", ex);
+  }
+
+  /**
    * Any other illegal argument, reported as bad input but <strong>without its message</strong>.
    *
    * <p>#36 requires that {@link IllegalArgumentException} and {@code NumberFormatException} answer

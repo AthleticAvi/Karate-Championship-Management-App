@@ -10,35 +10,35 @@ import com.management.services.KumiteGameService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * The game lifecycle exercised across a real save-and-reload boundary.
  *
- * <p>{@code GameTimer} is {@code @Transient}, so a game fetched from storage never has one. Every
- * lifecycle method fetches before it acts, which makes the reload the interesting part rather than
- * an incidental detail.
+ * <p>{@code GameTimer} is {@code @Transient}, so a game fetched from storage never carries one —
+ * {@code KumiteGame.getTimer()} rebuilds it from the persisted {@code remainingTime} and {@code
+ * startTime}. Every lifecycle method fetches before it acts, which makes the reload the interesting
+ * part rather than an incidental detail.
  *
- * <p>Two tests here are {@code @Disabled} because they assert the behaviour #25 will introduce. To
- * watch them fail against the current code, run them with the disabling condition switched off:
+ * <p>This class replaced {@code KumiteGameTimerTest}, whose repository stub handed back the same
+ * in-memory instance on every read. That stub preserved the transient timer across "reloads", so
+ * all five of its tests passed against code that crashed on the first real pause (#25, #27).
  *
- * <pre>
- * mvn test -Dtest=KumiteGameReloadTest \
- *          -DargLine="-Djunit.jupiter.conditions.deactivate=*"
- * </pre>
- *
- * <p>Both fail with a {@code NullPointerException} on the return value of {@code
- * KumiteGame.getTimer()} being null — {@code pause()} for the first, {@code stop()} for the second,
- * since {@code endGame} stops the timer rather than pausing it. That is #25 exactly.
+ * <p>Elapsed-time behaviour is asserted without sleeping: a match saved with a {@code startTime} a
+ * known offset in the past has a known amount of elapsed time the moment it is paused. The exact
+ * clock arithmetic, including the clamp at zero, is unit-tested in {@code GameTimerTest} with an
+ * injected clock; here the point is that the values survive persistence.
  */
 class KumiteGameReloadTest {
 
+  private static final Duration FULL_MATCH = Duration.ofSeconds(120);
+
   private InMemoryMongo storage;
   private KumiteGameService service;
-  private String gameId;
 
   @BeforeEach
   void setUp() {
@@ -47,36 +47,39 @@ class KumiteGameReloadTest {
 
     service = new KumiteGameService();
     ReflectionTestUtils.setField(service, "kumiteGameRepository", repository);
-
-    gameId = storage.save(KumiteGameBuilder.newGame().build()).getId();
   }
 
   @Test
   void startGame_setsTheGameRunning() {
+    String gameId = saveQueuedGame();
+
     KumiteGame started = service.startGame(gameId);
 
     assertThat(started.getGameState()).isEqualTo(GameState.RUNNING);
     assertThat(started.getStartTime()).isNotNull();
+    assertThat(started.getRemainingTime())
+        .as("remainingTime is defined as the time left when startTime was set — exactly full")
+        .isEqualTo(FULL_MATCH);
   }
 
   @Test
-  void startGame_thenReload_leavesNoTimerOnTheStoredGame() {
+  void startGame_thenReload_leavesNoTimerInTheStoredDocument() {
+    String gameId = saveQueuedGame();
+
     service.startGame(gameId);
 
     KumiteGame reloaded = storage.findById(KumiteGame.class, gameId).orElseThrow();
-
     assertThat(reloaded.getGameState())
         .as("the running state is persisted")
         .isEqualTo(GameState.RUNNING);
-    assertThat(reloaded.getTimer()).as("but the timer is not, because it is @Transient").isNull();
+    assertThat(storage.writeForInspection(reloaded).containsKey("timer"))
+        .as("the timer object itself is @Transient and never stored")
+        .isFalse();
   }
 
   @Test
-  @Disabled(
-      "Fails until #25 is fixed. pauseGame calls getTimer().pause() on a game it has just fetched"
-          + " from storage, where the @Transient timer is always null. Delete this annotation as"
-          + " part of #25 and this becomes its regression test.")
   void pauseGame_afterTheGameWasReloaded_pausesWithoutCrashing() {
+    String gameId = saveQueuedGame();
     service.startGame(gameId);
 
     assertThatCode(() -> service.pauseGame(gameId)).doesNotThrowAnyException();
@@ -87,15 +90,85 @@ class KumiteGameReloadTest {
   }
 
   @Test
-  @Disabled(
-      "Fails until #25 is fixed. endGame has the same defect as pauseGame: it dereferences the"
-          + " transient timer on a freshly fetched game. Delete this annotation as part of #25.")
   void endGame_afterTheGameWasReloaded_finishesWithoutCrashing() {
+    String gameId = saveQueuedGame();
     service.startGame(gameId);
 
     assertThatCode(() -> service.endGame(gameId)).doesNotThrowAnyException();
 
     KumiteGame finished = storage.findById(KumiteGame.class, gameId).orElseThrow();
     assertThat(finished.getGameState()).isEqualTo(GameState.FINISHED);
+    assertThat(finished.getRemainingTime()).isEqualTo(Duration.ZERO);
+    assertThat(finished.getStartTime())
+        .as("a finished match has no running-clock marker left behind")
+        .isNull();
+  }
+
+  /**
+   * The proof that the rebuilt clock actually counted down.
+   *
+   * <p>The naive fix for #25 — rebuilding the timer from {@code remainingTime} alone — passes every
+   * crash test and silently freezes the clock, because a timer with no {@code startTime} treats
+   * {@code pause()} as a no-op. This test fails against that fix: the persisted remaining time must
+   * have decreased by roughly the time the match has been running.
+   */
+  @Test
+  void pauseGame_whenTheMatchHasRunForThirtySeconds_persistsTheElapsedTime() {
+    String gameId =
+        storage
+            .save(
+                KumiteGameBuilder.newGame()
+                    .runningSince(LocalDateTime.now().minusSeconds(30), FULL_MATCH)
+                    .build())
+            .getId();
+
+    service.pauseGame(gameId);
+
+    KumiteGame paused = storage.findById(KumiteGame.class, gameId).orElseThrow();
+    assertThat(paused.getRemainingTime())
+        .as("about thirty seconds elapsed, with slack for a slow machine")
+        .isBetween(Duration.ofSeconds(85), Duration.ofSeconds(90));
+  }
+
+  @Test
+  void pauseGame_thenResume_countsDownAgainFromWhereItPaused() {
+    String gameId =
+        storage
+            .save(
+                KumiteGameBuilder.newGame()
+                    .runningSince(LocalDateTime.now().minusSeconds(30), FULL_MATCH)
+                    .build())
+            .getId();
+    final Duration atPause = service.pauseGame(gameId).getRemainingTime();
+
+    service.resumeGame(gameId);
+
+    KumiteGame resumed = storage.findById(KumiteGame.class, gameId).orElseThrow();
+    assertThat(resumed.getGameState()).isEqualTo(GameState.RUNNING);
+    assertThat(resumed.getStartTime()).as("the clock is counting again").isNotNull();
+    assertThat(resumed.getRemainingTime())
+        .as("resuming does not give time back or take extra away")
+        .isEqualTo(atPause);
+  }
+
+  /** #26 at the service level: a match left running past its own duration reports zero. */
+  @Test
+  void pauseGame_whenTheMatchRanLongPastItsDuration_persistsZeroNotNegative() {
+    String gameId =
+        storage
+            .save(
+                KumiteGameBuilder.newGame()
+                    .runningSince(LocalDateTime.now().minusHours(2), FULL_MATCH)
+                    .build())
+            .getId();
+
+    service.pauseGame(gameId);
+
+    KumiteGame paused = storage.findById(KumiteGame.class, gameId).orElseThrow();
+    assertThat(paused.getRemainingTime()).isEqualTo(Duration.ZERO);
+  }
+
+  private String saveQueuedGame() {
+    return storage.save(KumiteGameBuilder.newGame().build()).getId();
   }
 }

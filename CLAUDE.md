@@ -44,7 +44,7 @@ Settled rules. Anything not listed here is either unbuilt (tracked as a GitHub i
 | RUNNING | PAUSED, FINISHED |
 | PAUSED | RUNNING, FINISHED |
 
-No transition guard is currently enforced — every transition is permitted by the code. Guards are tracked as an issue.
+The table is enforced. Each lifecycle method in `KumiteGameService` names its allowed starting states (start: QUEUED; pause: RUNNING; resume: PAUSED; end: RUNNING or PAUSED — the verbs are narrower than the state machine, since only a paused match can be *resumed*), and an illegal call surfaces as HTTP 409 via `IllegalStateTransitionException`. The full transition table also lives as data on `GameState` (`canTransitionTo`) for the planned Game Orchestrator.
 
 **Known vocabulary deviations in code** (each has an issue):
 - `PointsType.WAZARI` is missing the hyphen of the WKF's **WAZA-ARI**. It is public API surface — clients send `pointType=WAZARI`. #102 renamed `YOKO` to `YUKO` on the same grounds, so this is the last spelling left out of step with the rulebook.
@@ -80,10 +80,10 @@ mvn verify
 mvn test
 
 # Run a single test class
-mvn test -Dtest=KumiteGameTimerTest
+mvn test -Dtest=KumiteGameReloadTest
 
 # Run a single test method
-mvn test -Dtest=KumiteGameTimerTest#testStartGame
+mvn test -Dtest=KumiteGameReloadTest#startGame_setsTheGameRunning
 
 # Select a single integration test (the fast suite still runs first)
 mvn verify -Dit.test=ActuatorHealthIT
@@ -162,7 +162,7 @@ There are two aggregate roots with their own controller/service/repository stack
 
 **How scoring works across aggregates:** Points and fouls are stored on `Player` (persisted via `PlayerRepository`). When a point or foul is recorded, `PlayerService` mutates and saves the `Player`, then calls `GameHelperService.updateKumiteGame()` to re-sync the player snapshot embedded inside `KumiteGame`. The `KumiteGameController` routes these mutations to `PlayerService`, not `KumiteGameService`.
 
-**GameTimer is `@Transient`** — it is never persisted to MongoDB. `KumiteGame.initializeTimer()` must be called on every `startGame` and `resumeGame` to reconstruct it from `remainingTime`. Any feature touching the timer must account for this.
+**GameTimer is `@Transient`** — it is never persisted to MongoDB. `KumiteGame.getTimer()` rebuilds it on demand from the two persisted values, `remainingTime` **and** `startTime` — both, because a timer rebuilt without its `startTime` treats `pause()` as a no-op and silently freezes the clock. No caller has to (or can) initialise the timer explicitly; the one rule is to read the timer before mutating the fields it rebuilds from. The clock clamps at zero, never negative.
 
 **Circular dependency:** `KumiteGameService` and `PlayerService` mutually depend on each other. `GameHelperService` breaks this cycle as a delegating intermediary, injected with `@Lazy` in both services. This is a workaround, not a pattern — see `workflow/patterns/service-interaction.md` before touching any of these three services.
 
@@ -205,6 +205,7 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 | Not a point type | 400 | `PointTypeNotFoundException` | the message |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
+| A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
 | No such match | 404 | `GameNotFoundException` | the message |
 | No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
 | Anything else | 500 | catch-all | **generic**, message logged |

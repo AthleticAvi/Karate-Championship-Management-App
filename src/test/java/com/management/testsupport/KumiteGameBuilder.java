@@ -55,7 +55,6 @@ public final class KumiteGameBuilder {
   @Nullable private LocalDateTime startTime;
   @Nullable private PlayerColor winner;
   @Nullable private String id;
-  private boolean timerInitialized;
 
   private KumiteGameBuilder() {
     players.put(PlayerColor.RED, PlayerBuilder.newPlayer().named("Red Fighter").build());
@@ -89,7 +88,20 @@ public final class KumiteGameBuilder {
     this.gameState = GameState.RUNNING;
     this.remainingTime = remaining;
     this.startTime = FIXED_START;
-    this.timerInitialized = true;
+    return this;
+  }
+
+  /**
+   * A match in progress whose clock started counting at the given instant.
+   *
+   * <p>For tests about elapsed time: the persisted {@code startTime} is what a rebuilt {@link
+   * com.management.models.GameTimer} measures against, so a start instant a known offset in the
+   * past yields a known amount of elapsed time without sleeping.
+   */
+  public KumiteGameBuilder runningSince(LocalDateTime since, Duration remaining) {
+    this.gameState = GameState.RUNNING;
+    this.remainingTime = remaining;
+    this.startTime = since;
     return this;
   }
 
@@ -127,18 +139,6 @@ public final class KumiteGameBuilder {
   }
 
   /**
-   * Gives the match a live timer object, as {@code startGame} and {@code resumeGame} do.
-   *
-   * <p>Rarely wanted directly. The timer is {@code @Transient}, so a match loaded from storage
-   * never has one — a test that sets it here is asserting behaviour that only holds before a
-   * reload.
-   */
-  public KumiteGameBuilder withLiveTimer() {
-    this.timerInitialized = true;
-    return this;
-  }
-
-  /**
    * Copies a fighter so the built match owns it outright.
    *
    * <p>{@code Player} stores its {@code Points} and {@code Foul} by reference, so handing the same
@@ -167,9 +167,6 @@ public final class KumiteGameBuilder {
     game.setWinner(winner);
     if (id != null) {
       ReflectionTestUtils.setField(game, "id", id);
-    }
-    if (timerInitialized) {
-      game.initializeTimer(game.getRemainingTime());
     }
     return game;
   }

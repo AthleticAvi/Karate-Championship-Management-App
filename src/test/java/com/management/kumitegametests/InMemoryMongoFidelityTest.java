@@ -44,16 +44,15 @@ class InMemoryMongoFidelityTest {
   }
 
   @Test
-  void findById_afterSave_dropsTheTransientTimer() {
-    KumiteGame withTimer = KumiteGameBuilder.newGame().withLiveTimer().build();
-    assertThat(withTimer.getTimer()).as("precondition: the timer is set before saving").isNotNull();
+  void save_neverWritesTheTransientTimerIntoTheDocument() {
+    KumiteGame game = KumiteGameBuilder.newGame().build();
+    assertThat(game.getTimer())
+        .as("precondition: the timer object exists in memory before saving")
+        .isNotNull();
 
-    KumiteGame saved = storage.save(withTimer);
-    KumiteGame reloaded = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
-
-    assertThat(reloaded.getTimer())
-        .as("@Transient GameTimer is never persisted, so a reloaded game has none")
-        .isNull();
+    assertThat(storage.writeForInspection(game).containsKey("timer"))
+        .as("@Transient GameTimer is never persisted; only remainingTime and startTime are")
+        .isFalse();
   }
 
   @Test
