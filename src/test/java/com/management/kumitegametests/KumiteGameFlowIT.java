@@ -53,7 +53,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
     assertThat(afterRedScored.blue().points()).isZero();
 
     KumiteGameResponse afterBlueScored =
-        put("/api/kumitegame/" + gameId + "/add-point?color=BLUE&pointType=YOKO");
+        put("/api/kumitegame/" + gameId + "/add-point?color=BLUE&pointType=YUKO");
     assertThat(afterBlueScored.blue().points()).isEqualTo(1);
     assertThat(afterBlueScored.red().points())
         .as("scoring for one fighter must not disturb the other")

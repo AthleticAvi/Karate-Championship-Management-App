@@ -47,6 +47,7 @@ Settled rules. Anything not listed here is either unbuilt (tracked as a GitHub i
 No transition guard is currently enforced — every transition is permitted by the code. Guards are tracked as an issue.
 
 **Known vocabulary deviations in code** (each has an issue):
+- `PointsType.WAZARI` is missing the hyphen of the WKF's **WAZA-ARI**. It is public API surface — clients send `pointType=WAZARI`. #102 renamed `YOKO` to `YUKO` on the same grounds, so this is the last spelling left out of step with the rulebook.
 - `PlayerColor` has only `RED` / `BLUE`; the AKA/AO names appear nowhere in code.
 - `FoulTypes` (`CHUI1, CHUI2, CHUI3, HANSOKU_CHUI, HANSOKU, SHIKKAKU`) is declared but **never referenced**. Fouls are currently a plain counter with no progression.
 - The project wiki calls the in-progress state `STARTED`; the code says `RUNNING`. **The code is authoritative.**
