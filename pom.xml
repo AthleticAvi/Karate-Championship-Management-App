@@ -25,6 +25,8 @@
     <error-prone.version>2.39.0</error-prone.version>
     <nullaway.version>0.12.7</nullaway.version>
     <jacoco.version>0.8.15</jacoco.version>
+    <!-- Flipped to true by the selective-run profiles at the bottom of this file. -->
+    <coverage.check.skip>false</coverage.check.skip>
     <git-build-hook.version>3.5.0</git-build-hook.version>
   </properties>
 
@@ -273,6 +275,40 @@
         </executions>
       </plugin>
 
+      <!--
+        Removes last run's coverage data before this one starts.
+
+        <append>false</append> on the agents stops a run adding to its own previous data, but it
+        only takes effect where the agent actually runs. A build that skips a suite - the documented
+        selective commands do exactly that - leaves the earlier file in place, and the merge below
+        globs whatever it finds, so the report would mix this run's unit data with an older run's
+        integration data. Deleting first means the merged number always describes one run.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>discard-stale-coverage-data</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <configuration>
+              <excludeDefaultDirectories>true</excludeDefaultDirectories>
+              <filesets>
+                <fileset>
+                  <directory>${project.build.directory}</directory>
+                  <includes>
+                    <include>jacoco-*.exec</include>
+                  </includes>
+                </fileset>
+              </filesets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -285,6 +321,14 @@
             </goals>
             <configuration>
               <destFile>${project.build.directory}/jacoco-unit.exec</destFile>
+              <!--
+                The agent appends by default, so without this a build that does not start from
+                clean adds this run's data to the previous run's rather than replacing it. The
+                coverage number then describes a union of runs instead of this one: delete a test
+                class, rebuild without clean, and its coverage is still counted. A floor that
+                cannot notice a removed test is not a floor.
+              -->
+              <append>false</append>
             </configuration>
           </execution>
 
@@ -295,6 +339,8 @@
             </goals>
             <configuration>
               <destFile>${project.build.directory}/jacoco-integration.exec</destFile>
+              <!-- Same reason as the unit agent above. -->
+              <append>false</append>
             </configuration>
           </execution>
 
@@ -354,6 +400,17 @@
               <goal>check</goal>
             </goals>
             <configuration>
+              <!--
+                Skipped when a test filter is active. The floor is calibrated for the whole suite,
+                so running part of it and then checking the total is a guaranteed failure that says
+                nothing about the code: `mvn verify -Dit.test=ActuatorHealthIT`, documented in
+                CLAUDE.md, failed on coverage rather than on the test the developer selected. The
+                profiles below set this property whenever -Dtest or -Dit.test is given.
+
+                Nothing is weakened: no filter means no skip, so CI and a plain `mvn verify` always
+                check. Skipping a check that cannot be meaningful is not the same as lowering it.
+              -->
+              <skip>${coverage.check.skip}</skip>
               <dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
               <rules>
                 <rule>
@@ -378,4 +435,41 @@
       </plugin>
     </plugins>
   </build>
+
+  <!--
+    Selective test runs.
+
+    The coverage floor describes the whole suite. Running one test class and then checking the
+    total is a failure that is guaranteed and meaningless - it reports the suite you did not run,
+    not the code you are working on. These profiles activate on the presence of the filter
+    properties and turn the check off for that build only.
+
+    One profile per property because Maven activates on a single property per profile; both set the
+    same flag, and either one is enough.
+  -->
+  <profiles>
+    <profile>
+      <id>selective-unit-tests</id>
+      <activation>
+        <property>
+          <name>test</name>
+        </property>
+      </activation>
+      <properties>
+        <coverage.check.skip>true</coverage.check.skip>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>selective-integration-tests</id>
+      <activation>
+        <property>
+          <name>it.test</name>
+        </property>
+      </activation>
+      <properties>
+        <coverage.check.skip>true</coverage.check.skip>
+      </properties>
+    </profile>
+  </profiles>
 </project>

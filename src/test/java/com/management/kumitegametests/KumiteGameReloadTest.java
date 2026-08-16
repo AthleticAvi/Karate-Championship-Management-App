@@ -30,8 +30,9 @@ import org.springframework.test.util.ReflectionTestUtils;
  *          -DargLine="-Djunit.jupiter.conditions.deactivate=*"
  * </pre>
  *
- * <p>Both fail with {@code NullPointerException: Cannot invoke "GameTimer.pause()" because the
- * return value of "KumiteGame.getTimer()" is null}, which is #25 exactly.
+ * <p>Both fail with a {@code NullPointerException} on the return value of {@code
+ * KumiteGame.getTimer()} being null — {@code pause()} for the first, {@code stop()} for the second,
+ * since {@code endGame} stops the timer rather than pausing it. That is #25 exactly.
  */
 class KumiteGameReloadTest {
 

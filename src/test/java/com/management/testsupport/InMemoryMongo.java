@@ -1,16 +1,18 @@
 package com.management.testsupport;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bson.Document;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 import org.springframework.data.mongodb.core.convert.NoOpDbRefResolver;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
+import org.springframework.data.mongodb.core.mapping.MongoPersistentProperty;
 
 /**
  * A persistence double that behaves like MongoDB, without a MongoDB.
@@ -39,7 +41,7 @@ public final class InMemoryMongo {
   private final Map<Class<?>, Map<String, Document>> collections = new ConcurrentHashMap<>();
 
   public InMemoryMongo() {
-    MongoCustomConversions conversions = new MongoCustomConversions(java.util.List.of());
+    MongoCustomConversions conversions = new MongoCustomConversions(List.of());
     this.context = new MongoMappingContext();
     this.context.setSimpleTypeHolder(conversions.getSimpleTypeHolder());
     this.context.afterPropertiesSet();
@@ -52,8 +54,15 @@ public final class InMemoryMongo {
   /**
    * Stores the entity and returns what a subsequent read would produce.
    *
-   * <p>The returned object is never the one passed in. Assigns an identifier when the entity does
-   * not already have one, as an insert does.
+   * <p>The returned object is never the one passed in — that non-identity is the whole point of
+   * this class. Assigns an identifier when the entity does not already have one, as an insert does.
+   *
+   * <p><strong>The identifier is also written back onto the entity passed in</strong>, which is
+   * what {@code MongoRepository.save} does. Leaving it off looked harmless — code that reads the id
+   * from the argument rather than the return value would simply fail in tests — but it made a
+   * second save of the same instance insert a second document instead of updating the first, and
+   * left {@link #delete} unable to find anything to remove. Both of those are false greens, in a
+   * class whose entire purpose is to remove them.
    */
   public <T> T save(T entity) {
     Document document = new Document();
@@ -63,6 +72,7 @@ public final class InMemoryMongo {
     if (id == null) {
       id = UUID.randomUUID().toString();
       document.put("_id", id);
+      assignIdentifier(entity, id);
     }
 
     collectionFor(entity.getClass()).put(id, document);
@@ -72,20 +82,41 @@ public final class InMemoryMongo {
     return read(type, document);
   }
 
+  /** Sets the generated identifier on the saved instance, as the real mapping layer does. */
+  private void assignIdentifier(Object entity, String id) {
+    MongoPersistentEntity<?> persistentEntity =
+        context.getRequiredPersistentEntity(entity.getClass());
+    MongoPersistentProperty idProperty = persistentEntity.getIdProperty();
+    if (idProperty != null) {
+      persistentEntity.getPropertyAccessor(entity).setProperty(idProperty, id);
+    }
+  }
+
   /** Returns a freshly converted instance, or empty. Never returns a stored reference. */
   public <T> Optional<T> findById(Class<T> type, String id) {
     Document stored = collectionFor(type).get(id);
     return Optional.ofNullable(stored).map(document -> read(type, document));
   }
 
-  /** Removes the entity by its identifier. */
+  /**
+   * Removes the entity by its identifier.
+   *
+   * <p>Rejects an entity with no identifier rather than quietly doing nothing. Silently succeeding
+   * is how {@code save(p); delete(p);} used to leave the document in storage while reporting that
+   * it had gone — a test asserting the deletion would pass against code that never deleted
+   * anything.
+   */
   public void delete(Object entity) {
     MongoPersistentEntity<?> persistentEntity =
         context.getRequiredPersistentEntity(entity.getClass());
     Object id = persistentEntity.getIdentifierAccessor(entity).getIdentifier();
-    if (id != null) {
-      collectionFor(entity.getClass()).remove(id.toString());
+    if (id == null) {
+      throw new IllegalArgumentException(
+          "Cannot delete a "
+              + entity.getClass().getSimpleName()
+              + " with no identifier: it was never saved, so there is nothing to remove.");
     }
+    collectionFor(entity.getClass()).remove(id.toString());
   }
 
   /** Number of stored documents for a type. */
@@ -115,9 +146,37 @@ public final class InMemoryMongo {
    *
    * <p>Deep-copies the document first, so a caller mutating the returned entity cannot reach back
    * into stored state — the same isolation a real driver gives.
+   *
+   * <p>The copy used to be {@code new Document(new HashMap<>(stored))}, which copies the top level
+   * and leaves every nested {@code Document} and {@code List} shared with storage. No leak was ever
+   * observed: this converter rebuilds the value of every property it reads, including loosely-typed
+   * ones, so the shallow copy was in practice indistinguishable from a deep one.
+   *
+   * <p>It is deep anyway, because the paragraph above states a guarantee and the code should be the
+   * reason it holds rather than an implementation detail of a dependency. <strong>No test here can
+   * fail on the difference</strong> — that was checked by reverting to the shallow copy and running
+   * this class, which stayed green, and a test that cannot fail is not worth keeping.
    */
   private <T> T read(Class<T> type, Document stored) {
-    return converter.read(type, new Document(new HashMap<>(stored)));
+    return converter.read(type, deepCopy(stored));
+  }
+
+  /** Copies a document and everything nested inside it. */
+  private static Document deepCopy(Document source) {
+    Document copy = new Document();
+    source.forEach((key, value) -> copy.put(key, copyValue(value)));
+    return copy;
+  }
+
+  private static @Nullable Object copyValue(@Nullable Object value) {
+    if (value instanceof Document document) {
+      return deepCopy(document);
+    }
+    if (value instanceof List<?> list) {
+      return list.stream().map(InMemoryMongo::copyValue).toList();
+    }
+    // Everything else Mongo stores is immutable: strings, numbers, booleans, dates, ObjectIds.
+    return value;
   }
 
   private Map<String, Document> collectionFor(Class<?> type) {
