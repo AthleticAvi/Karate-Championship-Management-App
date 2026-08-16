@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
+import com.management.models.converters.LegacyWinnerConverter;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
+import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document
@@ -30,8 +32,14 @@ public class KumiteGame {
    * tell whether a match had been decided without comparing strings, and the fighter's name was
    * baked into a field that changes when the fighter is renamed. {@code java.md} forbids a magic
    * string for absent state; {@code null} is the absence.
+   *
+   * <p>{@link LegacyWinnerConverter} keeps documents written before that change readable — without
+   * it, {@code Enum.valueOf} fails on the stored sentence and the whole match becomes unloadable.
+   * See that class for why the conversion is bound to this property rather than to the type.
    */
-  @Nullable private PlayerColor winner;
+  @ValueConverter(LegacyWinnerConverter.class)
+  @Nullable
+  private PlayerColor winner;
 
   private LocalDateTime startTime;
   private Duration remainingTime;

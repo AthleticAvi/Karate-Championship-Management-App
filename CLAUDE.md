@@ -208,6 +208,8 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 
 The two colour failures are deliberately different types: *not a colour* is the caller's mistake (400), *a colour this match does not have* is a missing resource (404).
 
+**Documents written before the `winner` field became a `PlayerColor` are still readable.** `LegacyWinnerConverter`, bound to that one property with `@ValueConverter`, reads the old display sentence (`"RED player: Kenji"` → `RED`, `"Pending game ending"` → `null`) and always writes the enum name, so each document migrates itself on its next save. Without it `Enum.valueOf` fails and the whole match becomes unloadable. `LegacyWinnerIT` inserts raw pre-change BSON to prove it, because every other test writes its fixtures through the current mapping and so can never see the old form. Delete the converter once no legacy documents remain.
+
 ## What Is Not Built Yet
 
 - **Timer lifecycle wiring** — `GameTimer` class exists with basic structure and a test, but is not yet integrated into game lifecycle methods. WebSocket push to frontend not implemented. Persistence strategy for `remainingTime` recalculation on point/foul events not implemented.
