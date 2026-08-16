@@ -93,7 +93,11 @@ class KumiteGameFlowIT extends IntegrationTestBase {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getHeaders().getContentType())
         .isNotNull()
-        .satisfies(type -> assertThat(type.isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)));
+        .satisfies(
+            type ->
+                assertThat(type.isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .as("error bodies are served as application/problem+json, not plain JSON")
+                    .isTrue());
   }
 
   private KumiteGameResponse createMatch() {
