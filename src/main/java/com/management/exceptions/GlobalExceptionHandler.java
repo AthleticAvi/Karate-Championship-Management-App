@@ -134,6 +134,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * A concurrent modification the application could not absorb.
+   *
+   * <p>Optimistic-lock conflicts on scoring are retried inside {@code PlayerService}; this handler
+   * sees only a conflict that persisted through every attempt, or one raised on a path with no
+   * retry — updating or deleting a fighter, for instance. The detail names neither a match nor a
+   * fighter, because it covers both, and the framework's own message can carry document identifiers
+   * and query fragments, which is internal text.
+   */
+  @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+  public ProblemDetail handleOptimisticLockConflict(
+      org.springframework.dao.OptimisticLockingFailureException ex) {
+    log.warn("Optimistic lock conflict reached the handler", ex);
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "Someone else changed this at the same moment. Retry the operation.");
+    problem.setTitle("Concurrent update");
+    return problem;
+  }
+
+  /**
    * A lifecycle operation on a match whose state does not allow it.
    *
    * <p>409 rather than 400: the request was syntactically fine and the match exists — it is the

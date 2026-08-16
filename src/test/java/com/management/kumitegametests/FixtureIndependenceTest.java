@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.management.enums.PlayerColor;
 import com.management.enums.PointsType;
-import com.management.models.KumiteGame;
+import com.management.models.GameWithFighters;
 import com.management.models.Player;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
@@ -74,32 +74,33 @@ class FixtureIndependenceTest {
   }
 
   @Test
-  void twoMatchesFromOneBuilder_doNotShareFighters() {
+  void twoCompositionsFromOneBuilder_doNotShareFighters() {
     KumiteGameBuilder builder = KumiteGameBuilder.newGame();
-    KumiteGame first = builder.build();
-    KumiteGame second = builder.build();
+    GameWithFighters first = builder.buildWithFighters();
+    GameWithFighters second = builder.buildWithFighters();
 
-    Player firstRed = first.getPlayersMap().get(PlayerColor.RED);
-    Player secondRed = second.getPlayersMap().get(PlayerColor.RED);
+    Player firstRed = first.fighters().get(PlayerColor.RED);
+    Player secondRed = second.fighters().get(PlayerColor.RED);
 
     assertThat(firstRed).isNotSameAs(secondRed);
 
     firstRed.addPoint(PointsType.IPPON);
 
     assertThat(secondRed.getPoints().getNumOfPoints())
-        .as("two matches built from one builder are independent all the way down")
+        .as("two fixtures built from one builder are independent all the way down")
         .isZero();
   }
 
   @Test
-  void suppliedFighter_isNotMutatedByTheMatch() {
+  void suppliedFighter_isNotMutatedThroughTheBuiltComposition() {
     Player supplied = PlayerBuilder.newPlayer().named("Kenji").build();
 
-    KumiteGame game = KumiteGameBuilder.newGame().with(PlayerColor.RED, supplied).build();
-    game.getPlayersMap().get(PlayerColor.RED).addPoint(PointsType.IPPON);
+    GameWithFighters game =
+        KumiteGameBuilder.newGame().with(PlayerColor.RED, supplied).buildWithFighters();
+    game.fighters().get(PlayerColor.RED).addPoint(PointsType.IPPON);
 
     assertThat(supplied.getPoints().getNumOfPoints())
-        .as("the caller's object is theirs; the match takes a copy")
+        .as("the caller's object is theirs; the fixture takes a copy")
         .isZero();
   }
 }

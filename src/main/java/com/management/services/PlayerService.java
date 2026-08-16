@@ -3,16 +3,35 @@ package com.management.services;
 import com.management.dto.PlayerRequestDTO;
 import com.management.enums.PointsType;
 import com.management.exceptions.PlayerNotFoundException;
-import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
-import com.management.util.KumiteGameManagementUtils;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
+/**
+ * The fighter aggregate: creation, retrieval, and score mutation, all keyed by fighter id.
+ *
+ * <p>A leaf service — it knows nothing about matches. Which fighter a colour refers to in a given
+ * match is {@code KumiteGameService}'s knowledge; it resolves the id and calls down here. That one
+ * direction of dependency is what replaced the {@code KumiteGameService} and {@code PlayerService}
+ * cycle and the {@code GameHelperService}/{@code @Lazy} workaround that papered over it (#53).
+ *
+ * <p><strong>Scoring retries on conflict.</strong> Every mutation is read-modify-write, and two
+ * referees scoring the same fighter at the same moment used to lose one of the points silently.
+ * {@code @Version} on {@link Player} turns the overwrite into an {@code
+ * OptimisticLockingFailureException}; {@code @Retryable} re-runs the whole method — a fresh read,
+ * the change re-applied, a new save — a bounded number of times. The attempt count and jitter are
+ * sized for a realistic burst of simultaneous referees: with N contenders one write wins each
+ * round, so a loser needs up to N-1 rounds, and jittered short delays stop the losers colliding
+ * again in lockstep (three fixed-delay retries demonstrably exhausted under a six-way burst).
+ * Retrying is safe precisely because these are relative changes ("add a point"), not absolute ones.
+ * Exhausting the attempts propagates the exception, which the handler maps to 409 rather than
+ * letting it vanish.
+ */
 @Service
 public class PlayerService {
   private static final Logger log = LoggerFactory.getLogger(PlayerService.class);
@@ -20,16 +39,9 @@ public class PlayerService {
   private static final String PLAYER_ID = " Player ID: ";
 
   private final PlayerRepository playerRepository;
-  private final GameHelperService gameHelperService;
 
-  /**
-   * {@code @Lazy} injects a proxy for {@link GameHelperService} to break the constructor cycle with
-   * {@link KumiteGameService}. A workaround, not a pattern — #53 retires it.
-   */
-  public PlayerService(
-      PlayerRepository playerRepository, @Lazy GameHelperService gameHelperService) {
+  public PlayerService(PlayerRepository playerRepository) {
     this.playerRepository = playerRepository;
-    this.gameHelperService = gameHelperService;
   }
 
   public Player createPlayer(PlayerRequestDTO playerDTO) {
@@ -61,48 +73,55 @@ public class PlayerService {
     playerRepository.delete(player);
   }
 
-  /**
-   * Records a point and returns the match as it now stands.
-   *
-   * <p>These four methods returned {@code void}, which left the controller with nothing to report
-   * but a fixed English sentence. Returning the saved match instead costs nothing — the re-sync it
-   * already performs reads and writes the match anyway — and gives a scoreboard the new score
-   * without a follow-up request.
-   */
-  public KumiteGame addPoint(String gameId, String color, String pointType) {
-    String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
+  @Retryable(
+      includes = OptimisticLockingFailureException.class,
+      maxRetries = 9,
+      delay = 20,
+      jitter = 20,
+      multiplier = 1.5,
+      maxDelay = 200)
+  public Player addPoint(String playerId, PointsType pointType) {
     Player player = getPlayer(playerId);
-    PointsType scoredPoint = KumiteGameManagementUtils.mapPointToPointType(pointType);
-    player.addPoint(scoredPoint);
-    playerRepository.save(player);
-    return gameHelperService.updateKumiteGame(gameId, color);
+    player.addPoint(pointType);
+    return playerRepository.save(player);
   }
 
-  public KumiteGame removePoint(String gameId, String color, String pointType) {
-
-    String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
+  @Retryable(
+      includes = OptimisticLockingFailureException.class,
+      maxRetries = 9,
+      delay = 20,
+      jitter = 20,
+      multiplier = 1.5,
+      maxDelay = 200)
+  public Player removePoint(String playerId, PointsType pointType) {
     Player player = getPlayer(playerId);
-    PointsType pointToRemove = KumiteGameManagementUtils.mapPointToPointType(pointType);
-    player.removePoint(pointToRemove);
-    playerRepository.save(player);
-    return gameHelperService.updateKumiteGame(gameId, color);
+    player.removePoint(pointType);
+    return playerRepository.save(player);
   }
 
-  public KumiteGame addFoul(String gameId, String color) {
-
-    String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
+  @Retryable(
+      includes = OptimisticLockingFailureException.class,
+      maxRetries = 9,
+      delay = 20,
+      jitter = 20,
+      multiplier = 1.5,
+      maxDelay = 200)
+  public Player addFoul(String playerId) {
     Player player = getPlayer(playerId);
     player.addFoul();
-    playerRepository.save(player);
-    return gameHelperService.updateKumiteGame(gameId, color);
+    return playerRepository.save(player);
   }
 
-  public KumiteGame removeFoul(String gameId, String color) {
-
-    String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
+  @Retryable(
+      includes = OptimisticLockingFailureException.class,
+      maxRetries = 9,
+      delay = 20,
+      jitter = 20,
+      multiplier = 1.5,
+      maxDelay = 200)
+  public Player removeFoul(String playerId) {
     Player player = getPlayer(playerId);
     player.removeFoul();
-    playerRepository.save(player);
-    return gameHelperService.updateKumiteGame(gameId, color);
+    return playerRepository.save(player);
   }
 }

@@ -21,10 +21,10 @@ import org.springframework.http.ResponseEntity;
  *
  * <p><strong>What only this layer can catch.</strong> The slice tests mock the services, so they
  * prove the web layer's contract and nothing about whether the layers fit together. Scoring in this
- * application crosses two aggregates — the point lands on a {@code Player} document and is then
- * re-synced into the copy embedded in the match — and that path involves two repositories, a
- * circular service dependency broken by {@code @Lazy}, and a save-and-reload round trip. It can
- * only fail with all of that present.
+ * application crosses two aggregates — the point lands on the {@code Player} document, and the
+ * match resolves which fighter wears which colour and composes the response from both — and that
+ * path involves two repositories and a save-and-reload round trip. It can only fail with all of
+ * that present.
  *
  * <p><strong>Deliberately one test, not a suite.</strong> A full-context test costs seconds where a
  * slice costs milliseconds, so this covers the one flow that matters end to end and leaves

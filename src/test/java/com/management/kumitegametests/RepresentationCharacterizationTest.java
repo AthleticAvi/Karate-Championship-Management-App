@@ -70,9 +70,14 @@ class RepresentationCharacterizationTest {
     assertThat(stored).doesNotContainKey("timer");
     // Spring Data writes a type hint alongside the data.
     assertThat(stored.get("_class")).isEqualTo("com.management.models.KumiteGame");
+    // The optimistic-lock version is part of the stored form (#48). Written as 0 pre-save; the
+    // real increment happens in MongoTemplate, which this double deliberately does not model.
+    assertThat(stored.get("version")).isEqualTo(0L);
 
-    Document players = (Document) stored.get("playersMap");
+    // Fighters are stored as id references keyed by colour, never as embedded copies (#49).
+    Document players = (Document) stored.get("playerIds");
     assertThat(players).containsKeys(PlayerColor.RED.name(), PlayerColor.BLUE.name());
+    assertThat(players.get(PlayerColor.RED.name())).isInstanceOf(String.class);
   }
 
   @Test
