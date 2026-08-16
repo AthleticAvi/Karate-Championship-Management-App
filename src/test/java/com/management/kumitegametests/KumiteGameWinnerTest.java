@@ -6,9 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.KumiteGame;
-import com.management.models.Player;
 import com.management.testsupport.KumiteGameBuilder;
-import com.management.testsupport.PlayerBuilder;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.List;
@@ -43,8 +41,8 @@ class KumiteGameWinnerTest {
 
   @Test
   void updateWinner_whenTheColourIsNotInTheGame_throwsPlayerNotFound() {
-    Map<PlayerColor, Player> onlyRed = new EnumMap<>(PlayerColor.class);
-    onlyRed.put(PlayerColor.RED, PlayerBuilder.newPlayer().build());
+    Map<PlayerColor, String> onlyRed = new EnumMap<>(PlayerColor.class);
+    onlyRed.put(PlayerColor.RED, "red-fighter-id");
     KumiteGame game = new KumiteGame(onlyRed, List.of(), Duration.ofSeconds(120));
 
     assertThatThrownBy(() -> game.updateWinner(PlayerColor.BLUE))

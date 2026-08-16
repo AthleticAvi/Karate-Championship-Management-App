@@ -6,8 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import com.management.enums.GameState;
 import com.management.models.KumiteGame;
 import com.management.repositories.KumiteGameRepository;
-import com.management.services.GameHelperService;
 import com.management.services.KumiteGameService;
+import com.management.services.PlayerService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
@@ -49,7 +49,7 @@ class KumiteGameReloadTest {
 
     service =
         new KumiteGameService(
-            repository, TestGameProperties.standard(), Mockito.mock(GameHelperService.class));
+            repository, TestGameProperties.standard(), Mockito.mock(PlayerService.class));
   }
 
   @Test

@@ -3,6 +3,7 @@ package com.management.testsupport;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.models.Foul;
+import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Points;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -19,20 +21,19 @@ import org.springframework.test.util.ReflectionTestUtils;
  * Builds a {@link KumiteGame} for a test, stating only the field the test is about.
  *
  * <p>A default build is a valid queued match: exactly one RED fighter, exactly one BLUE fighter,
- * one referee, and the default duration read from configuration. That default encodes the domain
- * rule that a match has exactly one of each colour, so no test has to know it and no test can
- * violate it by accident.
+ * one referee, and the default duration. That default encodes the domain rule that a match has
+ * exactly one of each colour, so no test has to know it and no test can violate it by accident.
+ *
+ * <p>Since #49 the match document stores fighter <em>ids</em>, not fighters. {@link #build()}
+ * returns the match alone; {@link #buildWithFighters()} returns the {@link GameWithFighters}
+ * composition the mapper and the slice tests consume, with each fighter copied so the built fixture
+ * owns its score objects outright.
  *
  * <p>The default duration comes from {@link TestGameProperties}, the single place the test suite
  * states its duration values, so the number appears once rather than in every fixture. A test that
  * cares about a specific duration says so explicitly. Drift between those test values and the
  * shipped {@code application.properties} is caught by the integration suite, which binds the real
  * file.
- *
- * <p>Never returns a shared instance: each {@link #build()} produces a new match, with its own
- * fighters carrying their own score objects. Copying the map alone was not enough — the {@code
- * Player} values inside it were the same instances on every build, so scoring against a fighter
- * from one match moved the score of the fighter in another.
  */
 public final class KumiteGameBuilder {
 
@@ -48,7 +49,7 @@ public final class KumiteGameBuilder {
    */
   private static final LocalDateTime FIXED_START = LocalDateTime.of(2026, 1, 1, 12, 0, 0);
 
-  private final Map<PlayerColor, Player> players = new EnumMap<>(PlayerColor.class);
+  private final Map<PlayerColor, Player> fighters = new EnumMap<>(PlayerColor.class);
   private List<Referee> referees = List.of(new Referee("Test Referee"));
   private Duration gameDuration = DEFAULT_DURATION;
   private GameState gameState = GameState.QUEUED;
@@ -58,18 +59,28 @@ public final class KumiteGameBuilder {
   @Nullable private String id;
 
   private KumiteGameBuilder() {
-    players.put(PlayerColor.RED, PlayerBuilder.newPlayer().named("Red Fighter").build());
-    players.put(PlayerColor.BLUE, PlayerBuilder.newPlayer().named("Blue Fighter").build());
+    fighters.put(
+        PlayerColor.RED,
+        PlayerBuilder.newPlayer()
+            .alreadyPersistedAs("red-fighter-id")
+            .named("Red Fighter")
+            .build());
+    fighters.put(
+        PlayerColor.BLUE,
+        PlayerBuilder.newPlayer()
+            .alreadyPersistedAs("blue-fighter-id")
+            .named("Blue Fighter")
+            .build());
   }
 
-  /** A valid queued match: one RED, one BLUE, one referee, default duration from config. */
+  /** A valid queued match: one RED, one BLUE, one referee, the standard default duration. */
   public static KumiteGameBuilder newGame() {
     return new KumiteGameBuilder();
   }
 
   /** Replaces the fighter of the given colour, keeping the one-of-each-colour rule intact. */
   public KumiteGameBuilder with(PlayerColor color, Player player) {
-    players.put(color, player);
+    fighters.put(color, player);
     return this;
   }
 
@@ -130,9 +141,8 @@ public final class KumiteGameBuilder {
   /**
    * Gives the match a persistent identifier, as though it had been saved.
    *
-   * <p>Assigned reflectively because {@link KumiteGame} has no constructor that takes an id and no
-   * setter for one — the mapping layer populates the field directly. #52 adds an explicit
-   * persistence constructor, at which point this can call it instead.
+   * <p>Assigned reflectively because the id field is populated by the mapping layer through the
+   * persistence constructor, and application code has no setter for it — deliberately.
    */
   public KumiteGameBuilder alreadyPersistedAs(String gameId) {
     this.id = gameId;
@@ -140,26 +150,39 @@ public final class KumiteGameBuilder {
   }
 
   /**
-   * Copies a fighter so the built match owns it outright.
+   * Copies a fighter so the built fixture owns it outright.
    *
    * <p>{@code Player} stores its {@code Points} and {@code Foul} by reference, so handing the same
-   * instance to two matches gives them one shared score.
+   * instance to two fixtures gives them one shared score.
    */
-  private static Player copyOf(Player source) {
+  private static Player copyOf(Player source, String resolvedId) {
     Points points = new Points();
     points.setNumOfPoints(source.getPoints().getNumOfPoints());
 
     Foul fouls = new Foul();
     fouls.setNumOfFouls(source.getFouls().getNumOfFouls());
 
-    return new Player(source.getId(), source.getName(), points, fouls);
+    return new Player(resolvedId, source.getName(), points, fouls);
+  }
+
+  /**
+   * The fighter's id, invented if the caller's fighter has none.
+   *
+   * <p>The same value is used for the match's reference and for the copied fighter, so the two
+   * halves of {@link #buildWithFighters()} always describe the same fighter. Resolving them
+   * separately let a test build a match referring to {@code red-fighter-id} while its RED fighter
+   * carried a null id, which serialised as {@code "id": null}.
+   */
+  private String fighterId(PlayerColor color) {
+    String fighterId = fighters.get(color).getId();
+    return fighterId != null ? fighterId : color.name().toLowerCase(Locale.ROOT) + "-fighter-id";
   }
 
   public KumiteGame build() {
-    Map<PlayerColor, Player> ownFighters = new EnumMap<>(PlayerColor.class);
-    players.forEach((color, player) -> ownFighters.put(color, copyOf(player)));
+    Map<PlayerColor, String> playerIds = new EnumMap<>(PlayerColor.class);
+    fighters.keySet().forEach(color -> playerIds.put(color, fighterId(color)));
 
-    KumiteGame game = new KumiteGame(ownFighters, referees, gameDuration);
+    KumiteGame game = new KumiteGame(playerIds, referees, gameDuration);
     game.setGameState(gameState);
     if (remainingTime != null) {
       game.setRemainingTime(remainingTime);
@@ -170,5 +193,12 @@ public final class KumiteGameBuilder {
       ReflectionTestUtils.setField(game, "id", id);
     }
     return game;
+  }
+
+  /** The match composed with copies of its fighters, as the response mapper consumes it. */
+  public GameWithFighters buildWithFighters() {
+    Map<PlayerColor, Player> ownFighters = new EnumMap<>(PlayerColor.class);
+    fighters.forEach((color, fighter) -> ownFighters.put(color, copyOf(fighter, fighterId(color))));
+    return new GameWithFighters(build(), ownFighters);
   }
 }

@@ -38,9 +38,9 @@ class InMemoryMongoFidelityTest {
     KumiteGame reloaded = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
 
     assertThat(reloaded).isNotSameAs(saved);
-    assertThat(reloaded.getPlayersMap().get(PlayerColor.RED))
-        .as("nested objects must be distinct too, not shared references")
-        .isNotSameAs(saved.getPlayersMap().get(PlayerColor.RED));
+    assertThat(reloaded.getPlayerIds())
+        .as("nested structures must be distinct too, not shared references")
+        .isNotSameAs(saved.getPlayerIds());
   }
 
   @Test
@@ -74,7 +74,7 @@ class InMemoryMongoFidelityTest {
     assertThat(reloaded.getGameState()).isEqualTo(GameState.RUNNING);
     assertThat(reloaded.getRemainingTime()).isEqualTo(Duration.ofSeconds(87));
     assertThat(reloaded.getStartTime()).isEqualTo(running.getStartTime());
-    assertThat(reloaded.getPlayersMap()).containsOnlyKeys(PlayerColor.RED, PlayerColor.BLUE);
+    assertThat(reloaded.getPlayerIds()).containsOnlyKeys(PlayerColor.RED, PlayerColor.BLUE);
     assertThat(reloaded.getReferees()).hasSize(1);
   }
 

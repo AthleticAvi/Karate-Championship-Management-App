@@ -160,17 +160,19 @@ Do not propose adding other MCPs (JetBrains, Postman, Docker, etc.) unless the u
 
 There are two aggregate roots with their own controller/service/repository stack: **KumiteGame** and **Player**.
 
-**How scoring works across aggregates:** Points and fouls are stored on `Player` (persisted via `PlayerRepository`). When a point or foul is recorded, `PlayerService` mutates and saves the `Player`, then calls `GameHelperService.updateKumiteGame()` to re-sync the player snapshot embedded inside `KumiteGame`. The `KumiteGameController` routes these mutations to `PlayerService`, not `KumiteGameService`.
+**How scoring works across aggregates:** `KumiteGame` stores only fighter **ids** keyed by colour (`playerIds`); names, points and fouls live solely on the `Player` documents — one fact, one owner, no embedded snapshot to re-sync (#49). `KumiteGameService` owns every cross-aggregate operation: it resolves colour → fighter id and calls down into `PlayerService`, a leaf that mutates and saves the `Player`. Reads compose the two aggregates into `GameWithFighters`, which is what `KumiteGameMapper` consumes. Recording a point is exactly one document write.
+
+**Concurrency:** both documents carry `@Version private long` (#48), so a stale save raises `OptimisticLockingFailureException` instead of silently losing an update. The scoring mutations in `PlayerService` are `@Retryable` (Spring Framework core resilience, enabled by `@EnableResilientMethods` on the application class) — re-read, re-apply, bounded attempts; exhaustion surfaces as HTTP 409. **Documents written before the version field existed cannot be re-saved.** Spring Data reads an absent version as 0, treats the entity as new, and turns the next `save` into an insert, which fails with a duplicate-key error on the existing `_id` — it is not a silent adoption. No backfill is provided, for the same reason pre-#49 documents (embedded fighters, no `playerIds`) are not migrated: there is no production data. **Drop the dev database** rather than migrating it.
 
 **GameTimer is `@Transient`** — it is never persisted to MongoDB. `KumiteGame.getTimer()` rebuilds it on demand from the two persisted values, `remainingTime` **and** `startTime` — both, because a timer rebuilt without its `startTime` treats `pause()` as a no-op and silently freezes the clock. No caller has to (or can) initialise the timer explicitly; the one rule is to read the timer before mutating the fields it rebuilds from. The clock clamps at zero, never negative.
 
-**Circular dependency:** `KumiteGameService` and `PlayerService` mutually depend on each other. `GameHelperService` breaks this cycle as a delegating intermediary, injected via a `@Lazy` constructor parameter in both services. This is a workaround, not a pattern — #53 retires it; see `workflow/patterns/service-interaction.md` before touching any of these three services.
+**Service dependencies are one-directional:** `KumiteGameService` → `PlayerService`, acyclically. The old mutual dependency, the `GameHelperService` pass-through and the `@Lazy` workaround are gone (#53); no `@Lazy` remains anywhere. Keep it that way — see `workflow/patterns/service-interaction.md`.
 
 **Game lifecycle endpoints do not exist yet.** `startGame`, `pauseGame`, `resumeGame`, and `endGame` are implemented in `KumiteGameService` but have no controller mappings. They are intentionally withheld pending timer implementation.
 
 ## Key Wiring to Know
 
-- `KumiteGameController` at `/api/kumitegame` — owns game creation, retrieval, point/foul mutations, and winner assignment
+- `KumiteGameController` at `/api/kumitegame` — owns game creation, retrieval, point/foul mutations, and winner assignment; every route delegates to `KumiteGameService`
 - `PlayerController` at `/api/players` — owns player CRUD
 - `PointsType` enum carries its `PointStrategy` instance — `PointStrategy` declares `addPoint(Points)` / `removePoint(Points)`, which mutate the score in place. There is no method that returns a value.
 - `GameProperties` (a `@ConfigurationProperties("game")` record, validated at startup) binds game durations from `game.*` in `application.properties` — durations are configuration, not code
@@ -234,6 +236,6 @@ The two colour failures are deliberately different types: *not a colour* is the 
 - Do not hardcode game durations, point thresholds, or rule values — all must come from config
 - Do not expose domain models directly via the API — always use DTOs
 - Do not add business logic to controllers — delegate to services
-- Do not build on top of the `@Lazy` circular dependency workaround as if it is stable
+- Do not reintroduce a service cycle, a `@Lazy` injection, or a second stored copy of a fighter — one fact, one owner
 - Do not make architectural or feature decisions — those are made outside Claude Code first
 - Do not start a new feature until the current one is confirmed built, tested, and signed off

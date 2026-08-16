@@ -10,18 +10,44 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Transient;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+/**
+ * A match: two fighter references, the officials, the clock, the state, and the result.
+ *
+ * <p><strong>Fighters are referenced, never embedded.</strong> The match stores each fighter's
+ * document id keyed by colour; the fighter documents own their names and scores. The previous shape
+ * embedded a full copy of each fighter here, which made every score two writes to two collections
+ * with nothing tying them together — on a standalone MongoDB, with no transaction to span them, a
+ * failure between the writes left the copies permanently disagreeing. One fact, one owner: the
+ * score lives on {@link Player} and nowhere else, and reads compose the two aggregates (see {@link
+ * GameWithFighters}).
+ */
 @Document
 public class KumiteGame {
   @Id private String id;
+
+  /**
+   * Detects concurrent modification: a save against a stale version matches no document and raises
+   * {@code OptimisticLockingFailureException} instead of silently overwriting.
+   *
+   * <p>Primitive {@code long}, so an unset version reads as {@code 0} — which Spring Data treats as
+   * <em>new</em>. A document written before this field existed therefore cannot be updated: its
+   * next save is attempted as an insert and fails on the duplicate identifier. That is accepted
+   * rather than backfilled, because there is no production data; see {@code CLAUDE.md}.
+   */
+  @Version private long version;
+
   private GameState gameState;
-  private Map<PlayerColor, Player> playersMap;
+
+  /** Fighter document ids keyed by colour. Absent on a document written before #49. */
+  @Nullable private Map<PlayerColor, String> playerIds;
+
   private List<Referee> referees;
 
   /**
@@ -46,39 +72,39 @@ public class KumiteGame {
   private Duration gameDuration;
   @JsonIgnore @Transient private GameTimer timer;
 
-  private static final Logger log = LoggerFactory.getLogger(KumiteGame.class);
-  private static final String PLAYER_COLOR_NOT_FOUND = "Player color not found in the game";
-  private static final String PLAYER_COLOR = " Player color: ";
+  /**
+   * The mapper's way in (#52): builds an empty shell that the mapping layer populates field by
+   * field from the stored document. Explicit, so loading no longer runs the new-match constructor
+   * below and then overwrites its work — and so a future constructor-only field cannot be silently
+   * reset on every read.
+   */
+  @PersistenceCreator
+  KumiteGame() {}
 
+  /** A new match: queued, undecided, full time on the clock. */
   public KumiteGame(
-      Map<PlayerColor, Player> playersMap, List<Referee> referees, Duration gameDuration) {
+      Map<PlayerColor, String> playerIds, List<Referee> referees, Duration gameDuration) {
     this.gameState = GameState.QUEUED;
-    this.playersMap = playersMap;
+    this.playerIds = playerIds;
     this.referees = referees;
     this.gameDuration = gameDuration;
     this.remainingTime = gameDuration;
   }
 
-  public void updatePlayer(PlayerColor color, Player updatedPlayer) {
-    if (!(playersMap.containsKey(color))) {
-      log.error(
-          "KumiteGame - updatePlayer - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
-      throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
-    }
-    playersMap.put(color, updatedPlayer);
-  }
-
   public void updateWinner(PlayerColor color) {
-    if (!(playersMap.containsKey(color))) {
-      log.error(
-          "KumiteGame - updateWinner - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
-      throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
+    if (playerIds == null || !playerIds.containsKey(color)) {
+      throw new PlayerNotFoundException(
+          "Match " + id + " has no " + color + " fighter to declare the winner.");
     }
     setWinner(color);
   }
 
   public String getId() {
     return id;
+  }
+
+  public long getVersion() {
+    return version;
   }
 
   public GameState getGameState() {
@@ -89,12 +115,8 @@ public class KumiteGame {
     this.gameState = gameState;
   }
 
-  public Map<PlayerColor, Player> getPlayersMap() {
-    return playersMap;
-  }
-
-  public void setPlayersMap(Map<PlayerColor, Player> playersMap) {
-    this.playersMap = playersMap;
+  public @Nullable Map<PlayerColor, String> getPlayerIds() {
+    return playerIds;
   }
 
   public List<Referee> getReferees() {
@@ -155,5 +177,49 @@ public class KumiteGame {
       timer = new GameTimer(remainingTime, startTime);
     }
     return timer;
+  }
+
+  /**
+   * Identity equality on the persistent id (#60): two objects with the same id are the same stored
+   * match, even if one is stale. An unsaved match has no id and is equal only to itself.
+   */
+  @Override
+  public boolean equals(@Nullable Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof KumiteGame otherGame)) {
+      return false;
+    }
+    return id != null && id.equals(otherGame.id);
+  }
+
+  /**
+   * Constant, deliberately.
+   *
+   * <p>Hashing the identifier looks better distributed but breaks the contract: {@code save}
+   * assigns the id, so an entity put in a {@code HashSet} before saving lands in one bucket and is
+   * looked for in another afterwards — silently unreachable. A constant keeps the hash stable
+   * across that transition, which is the property collections actually require; equality still
+   * separates the instances.
+   */
+  @Override
+  public int hashCode() {
+    return KumiteGame.class.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return "KumiteGame{id="
+        + id
+        + ", state="
+        + gameState
+        + ", playerIds="
+        + playerIds
+        + ", winner="
+        + winner
+        + ", remainingTime="
+        + remainingTime
+        + "}";
   }
 }

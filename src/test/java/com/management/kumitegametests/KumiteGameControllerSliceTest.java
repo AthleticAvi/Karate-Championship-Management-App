@@ -23,7 +23,7 @@ import com.management.exceptions.InvalidGameRequestException;
 import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.exceptions.PointTypeNotFoundException;
-import com.management.models.KumiteGame;
+import com.management.models.GameWithFighters;
 import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
 import com.management.testsupport.KumiteGameBuilder;
@@ -58,7 +58,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Test
   void createKumiteGame_whenTheRequestIsAccepted_returns201WithLocationHeader() throws Exception {
     given(kumiteGameService.createKumiteGame(any()))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").build());
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
 
     mockMvc
         .perform(
@@ -83,9 +83,11 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void getKumiteGame_whenTheGameExists_returns200AndTheGameAsJson() throws Exception {
-    KumiteGame game =
-        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
-    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+    GameWithFighters game =
+        KumiteGameBuilder.newGame()
+            .runningWithRemaining(Duration.ofSeconds(87))
+            .buildWithFighters();
+    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
         .perform(get("/api/kumitegame/{gameId}", "game-1"))
@@ -107,15 +109,19 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
    */
   @Test
   void getKumiteGame_response_carriesNoPersistenceDetail() throws Exception {
-    KumiteGame game =
-        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
-    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+    GameWithFighters game =
+        KumiteGameBuilder.newGame()
+            .runningWithRemaining(Duration.ofSeconds(87))
+            .buildWithFighters();
+    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
         .perform(get("/api/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isOk())
-        // The colour-keyed map is internal structure; the response names red and blue.
+        // The colour-keyed structure is internal; the response names red and blue.
         .andExpect(jsonPath("$.playersMap").doesNotExist())
+        .andExpect(jsonPath("$.playerIds").doesNotExist())
+        .andExpect(jsonPath("$.version").doesNotExist())
         // Points and fouls are counts, not the wrapper objects the scoring strategies mutate.
         .andExpect(jsonPath("$.red.points").isNumber())
         .andExpect(jsonPath("$.red.fouls").isNumber())
@@ -151,7 +157,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
    */
   @Test
   void getKumiteGame_whenTheMatchIsRunning_returnsExactlyThisBody() throws Exception {
-    KumiteGame game =
+    GameWithFighters game =
         KumiteGameBuilder.newGame()
             .alreadyPersistedAs("game-1")
             .with(
@@ -169,8 +175,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                     .withFouls(1)
                     .build())
             .runningWithRemaining(Duration.ofSeconds(87))
-            .build();
-    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+            .buildWithFighters();
+    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
         .perform(get("/api/kumitegame/{gameId}", "game-1"))
@@ -202,13 +208,13 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
    */
   @Test
   void getKumiteGame_whenTheMatchHasBeenWon_reportsTheWinningColour() throws Exception {
-    KumiteGame game =
+    GameWithFighters game =
         KumiteGameBuilder.newGame()
             .alreadyPersistedAs("game-1")
             .finished()
             .wonBy(PlayerColor.RED)
-            .build();
-    given(kumiteGameService.getKumiteGame("game-1")).willReturn(game);
+            .buildWithFighters();
+    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
         .perform(get("/api/kumitegame/{gameId}", "game-1"))
@@ -226,7 +232,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
    */
   @Test
   void addPoint_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(playerService.addPoint("game-1", "RED", "IPPON"))
+    given(kumiteGameService.addPoint("game-1", "RED", "IPPON"))
         .willReturn(matchWhereRedHasScored(PointsType.IPPON));
 
     mockMvc
@@ -241,8 +247,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void removePoint_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(playerService.removePoint("game-1", "RED", "IPPON"))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").build());
+    given(kumiteGameService.removePoint("game-1", "RED", "IPPON"))
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
 
     mockMvc
         .perform(
@@ -255,7 +261,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void addFoul_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(playerService.addFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(1));
+    given(kumiteGameService.addFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(1));
 
     mockMvc
         .perform(put("/api/kumitegame/{gameId}/add-foul", "game-1").param("color", "BLUE"))
@@ -265,7 +271,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void removeFoul_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(playerService.removeFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(0));
+    given(kumiteGameService.removeFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(0));
 
     mockMvc
         .perform(put("/api/kumitegame/{gameId}/remove-foul", "game-1").param("color", "BLUE"))
@@ -281,7 +287,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .alreadyPersistedAs("game-1")
                 .finished()
                 .wonBy(PlayerColor.RED)
-                .build());
+                .buildWithFighters());
 
     mockMvc
         .perform(put("/api/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
@@ -290,23 +296,23 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.gameState").value("FINISHED"));
   }
 
-  private static KumiteGame matchWhereRedHasScored(PointsType pointsType) {
+  private static GameWithFighters matchWhereRedHasScored(PointsType pointsType) {
     return KumiteGameBuilder.newGame()
         .alreadyPersistedAs("game-1")
         .with(PlayerColor.RED, PlayerBuilder.newPlayer().named("Kenji").scoring(pointsType).build())
-        .build();
+        .buildWithFighters();
   }
 
-  private static KumiteGame matchWhereBlueHasFouled(int fouls) {
+  private static GameWithFighters matchWhereBlueHasFouled(int fouls) {
     return KumiteGameBuilder.newGame()
         .alreadyPersistedAs("game-1")
         .with(PlayerColor.BLUE, PlayerBuilder.newPlayer().named("Sato").withFouls(fouls).build())
-        .build();
+        .buildWithFighters();
   }
 
   @Test
   void getKumiteGame_whenTheGameIsMissing_returns404AsProblemDetail() throws Exception {
-    given(kumiteGameService.getKumiteGame(anyString()))
+    given(kumiteGameService.getGameWithFighters(anyString()))
         .willThrow(new GameNotFoundException("Game not found! Game Id: nope"));
 
     mockMvc
@@ -330,7 +336,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Test
   void addPoint_whenTheColourIsNotRecognised_returns400() throws Exception {
     willThrow(new InvalidPlayerColorException("Unknown player colour: purple"))
-        .given(playerService)
+        .given(kumiteGameService)
         .addPoint(anyString(), anyString(), anyString());
 
     mockMvc
@@ -347,7 +353,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Test
   void addPoint_whenThePointTypeIsNotRecognised_returns400() throws Exception {
     willThrow(new PointTypeNotFoundException("Unknown point type: triple-axel"))
-        .given(playerService)
+        .given(kumiteGameService)
         .addPoint(anyString(), anyString(), anyString());
 
     mockMvc
@@ -369,7 +375,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Test
   void addPoint_whenTheMatchDoesNotFieldThatColour_returns404() throws Exception {
     willThrow(new PlayerNotFoundException("Match game-1 has no BLUE fighter."))
-        .given(playerService)
+        .given(kumiteGameService)
         .addPoint(anyString(), anyString(), anyString());
 
     mockMvc
@@ -512,7 +518,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   void addPoint_whenAnUnexpectedIllegalArgumentEscapes_returns400WithoutLeakingTheMessage()
       throws Exception {
     willThrow(new IllegalArgumentException("invalid id for mongodb://user:secret@host/db"))
-        .given(playerService)
+        .given(kumiteGameService)
         .addPoint(anyString(), anyString(), anyString());
 
     mockMvc
@@ -551,7 +557,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Test
   void getKumiteGame_whenSomethingUnexpectedFails_returns500WithoutLeakingTheMessage()
       throws Exception {
-    given(kumiteGameService.getKumiteGame(anyString()))
+    given(kumiteGameService.getGameWithFighters(anyString()))
         .willThrow(new IllegalStateException("connection string mongodb://user:secret@host/db"));
 
     mockMvc
