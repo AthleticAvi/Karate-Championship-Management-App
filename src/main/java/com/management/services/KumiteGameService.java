@@ -6,6 +6,7 @@ import com.management.dto.PlayerRequestDTO;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.GameNotFoundException;
+import com.management.exceptions.IllegalStateTransitionException;
 import com.management.exceptions.InvalidGameRequestException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.KumiteGame;
@@ -82,18 +83,25 @@ public class KumiteGameService {
     return saveGame(kumiteGame);
   }
 
+  /**
+   * Starts a queued match. Setting {@code startTime} is what starts the clock: the timer is derived
+   * from the persisted fields on demand, so no timer object needs touching here, and the remaining
+   * time is left exactly as it was — it is defined as the time left when {@code startTime} was last
+   * set.
+   */
   public KumiteGame startGame(String gameId) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
-    kumiteGame.initializeTimer(kumiteGame.getRemainingTime());
+    requireCurrentState(kumiteGame, "started", EnumSet.of(GameState.QUEUED));
     kumiteGame.setGameState(GameState.RUNNING);
     kumiteGame.setStartTime(LocalDateTime.now());
-    kumiteGame.getTimer().start();
-    updateRemainingTime(kumiteGame);
     return saveGame(kumiteGame);
   }
 
   public KumiteGame pauseGame(String gameId) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
+    requireCurrentState(kumiteGame, "paused", EnumSet.of(GameState.RUNNING));
+    // The timer must be read before startTime is cleared: getTimer() rebuilds it from the
+    // persisted startTime, which is what the elapsed time is measured against.
     kumiteGame.getTimer().pause();
     updateRemainingTime(kumiteGame);
     kumiteGame.setStartTime(null);
@@ -103,19 +111,42 @@ public class KumiteGameService {
 
   public KumiteGame resumeGame(String gameId) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
-    kumiteGame.initializeTimer(kumiteGame.getRemainingTime());
+    requireCurrentState(kumiteGame, "resumed", EnumSet.of(GameState.PAUSED));
     kumiteGame.setGameState(GameState.RUNNING);
     kumiteGame.setStartTime(LocalDateTime.now());
-    kumiteGame.getTimer().resume();
     return saveGame(kumiteGame);
   }
 
   public KumiteGame endGame(String gameId) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
+    requireCurrentState(kumiteGame, "ended", EnumSet.of(GameState.RUNNING, GameState.PAUSED));
     kumiteGame.getTimer().stop();
     updateRemainingTime(kumiteGame);
+    kumiteGame.setStartTime(null);
     kumiteGame.setGameState(GameState.FINISHED);
     return saveGame(kumiteGame);
+  }
+
+  /**
+   * Rejects a lifecycle call the match's current state does not allow.
+   *
+   * <p>Each method names its own allowed starting states rather than checking target legality on
+   * {@link GameState}, because the verbs are narrower than the state machine: {@code QUEUED} and
+   * {@code PAUSED} both transition legally to {@code RUNNING}, but only one of them may be
+   * <em>started</em> and only the other <em>resumed</em>. The enum keeps the full transition table
+   * as data for the planned Game Orchestrator; every allowed set here is a subset of it.
+   *
+   * <p>Rejecting before anything is touched matters for {@code endGame} in particular, which zeroes
+   * the clock — ending a queued match and then starting it used to produce a match that began with
+   * no time on it.
+   */
+  private static void requireCurrentState(
+      KumiteGame kumiteGame, String action, Set<GameState> allowedCurrent) {
+    GameState current = kumiteGame.getGameState();
+    if (!allowedCurrent.contains(current)) {
+      throw new IllegalStateTransitionException(
+          "Match " + kumiteGame.getId() + " is " + current + " and cannot be " + action + ".");
+    }
   }
 
   private void updateRemainingTime(KumiteGame kumiteGame) {

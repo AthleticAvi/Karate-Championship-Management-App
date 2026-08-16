@@ -59,10 +59,6 @@ public class KumiteGame {
     this.remainingTime = gameDuration;
   }
 
-  public void initializeTimer(Duration gameDuration) {
-    this.timer = new GameTimer(gameDuration);
-  }
-
   public void updatePlayer(PlayerColor color, Player updatedPlayer) {
     if (!(playersMap.containsKey(color))) {
       log.error(
@@ -141,7 +137,23 @@ public class KumiteGame {
     this.gameDuration = gameDuration;
   }
 
+  /**
+   * The match clock, rebuilt on demand from persisted state.
+   *
+   * <p>The {@code timer} field is {@code @Transient}, so a game loaded from MongoDB never has one.
+   * Rebuilding here — from both {@code remainingTime} and {@code startTime} — is what makes every
+   * lifecycle method safe against a freshly loaded game; a caller cannot forget a rebuild it never
+   * has to perform. Dropping {@code startTime} from the reconstruction would silently freeze a
+   * running clock (see {@link GameTimer}), so both values go in.
+   *
+   * <p>Order matters for callers that also mutate {@code startTime}: the rebuild captures the
+   * persisted value at the first {@code getTimer()} call, so read the timer before overwriting the
+   * field it rebuilds from.
+   */
   public GameTimer getTimer() {
+    if (timer == null) {
+      timer = new GameTimer(remainingTime, startTime);
+    }
     return timer;
   }
 }
