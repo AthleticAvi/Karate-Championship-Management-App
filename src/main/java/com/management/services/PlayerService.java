@@ -10,7 +10,6 @@ import com.management.util.KumiteGameManagementUtils;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -19,8 +18,19 @@ public class PlayerService {
   private static final Logger log = LoggerFactory.getLogger(PlayerService.class);
   private static final String PLAYER_NOT_FOUND = "Player not found";
   private static final String PLAYER_ID = " Player ID: ";
-  @Autowired private PlayerRepository playerRepository;
-  @Autowired @Lazy private GameHelperService gameHelperService;
+
+  private final PlayerRepository playerRepository;
+  private final GameHelperService gameHelperService;
+
+  /**
+   * {@code @Lazy} injects a proxy for {@link GameHelperService} to break the constructor cycle with
+   * {@link KumiteGameService}. A workaround, not a pattern — #53 retires it.
+   */
+  public PlayerService(
+      PlayerRepository playerRepository, @Lazy GameHelperService gameHelperService) {
+    this.playerRepository = playerRepository;
+    this.gameHelperService = gameHelperService;
+  }
 
   public Player createPlayer(PlayerRequestDTO playerDTO) {
     Player newPlayer = new Player(playerDTO.name());

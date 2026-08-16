@@ -7,7 +7,6 @@ import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Points;
 import com.management.models.Referee;
-import com.management.util.GameConfig;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
@@ -24,9 +23,11 @@ import org.springframework.test.util.ReflectionTestUtils;
  * rule that a match has exactly one of each colour, so no test has to know it and no test can
  * violate it by accident.
  *
- * <p>The duration comes from {@link GameConfig} rather than a literal, because the project rule is
- * that durations are never hardcoded. A test that cares about a specific duration says so
- * explicitly.
+ * <p>The default duration comes from {@link TestGameProperties}, the single place the test suite
+ * states its duration values, so the number appears once rather than in every fixture. A test that
+ * cares about a specific duration says so explicitly. Drift between those test values and the
+ * shipped {@code application.properties} is caught by the integration suite, which binds the real
+ * file.
  *
  * <p>Never returns a shared instance: each {@link #build()} produces a new match, with its own
  * fighters carrying their own score objects. Copying the map alone was not enough — the {@code
@@ -35,7 +36,7 @@ import org.springframework.test.util.ReflectionTestUtils;
  */
 public final class KumiteGameBuilder {
 
-  private static final GameConfig CONFIG = new GameConfig();
+  private static final Duration DEFAULT_DURATION = TestGameProperties.standard().defaultDuration();
 
   /**
    * A fixed instant, never {@code LocalDateTime.now()}.
@@ -49,7 +50,7 @@ public final class KumiteGameBuilder {
 
   private final Map<PlayerColor, Player> players = new EnumMap<>(PlayerColor.class);
   private List<Referee> referees = List.of(new Referee("Test Referee"));
-  private Duration gameDuration = CONFIG.getDefaultDuration();
+  private Duration gameDuration = DEFAULT_DURATION;
   private GameState gameState = GameState.QUEUED;
   @Nullable private Duration remainingTime;
   @Nullable private LocalDateTime startTime;

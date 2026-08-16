@@ -5,7 +5,6 @@ import com.management.dto.PlayerResponse;
 import com.management.mappers.PlayerMapper;
 import com.management.services.PlayerService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +13,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/players")
 public class PlayerController {
 
-  @Autowired private PlayerService playerService;
+  private final PlayerService playerService;
+
+  public PlayerController(PlayerService playerService) {
+    this.playerService = playerService;
+  }
 
   @PostMapping
   public ResponseEntity<PlayerResponse> createPlayer(

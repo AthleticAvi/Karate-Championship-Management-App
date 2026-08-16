@@ -7,14 +7,16 @@ import com.management.enums.GameState;
 import com.management.exceptions.IllegalStateTransitionException;
 import com.management.models.KumiteGame;
 import com.management.repositories.KumiteGameRepository;
+import com.management.services.GameHelperService;
 import com.management.services.KumiteGameService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
+import com.management.testsupport.TestGameProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.mockito.Mockito;
 
 /**
  * The transition guards on the four lifecycle methods (#29).
@@ -34,8 +36,9 @@ class KumiteGameStateTransitionTest {
     storage = new InMemoryMongo();
     KumiteGameRepository repository = FakeRepositories.kumiteGames(storage);
 
-    service = new KumiteGameService();
-    ReflectionTestUtils.setField(service, "kumiteGameRepository", repository);
+    service =
+        new KumiteGameService(
+            repository, TestGameProperties.standard(), Mockito.mock(GameHelperService.class));
   }
 
   @Test

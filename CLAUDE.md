@@ -138,7 +138,7 @@ It is a **convenience, not a gate** — bypassable with `git push --no-verify`, 
 
 **Deliberately not used: SonarQube.** It would duplicate most of the above — SonarSource has itself deprecated 158 Checkstyle/PMD rules as redundant with SonarJava. More decisively, its value here would be the PR gate, and GitHub withholds secrets from `pull_request` runs originating in forks. Most PRs on this repo come from forks, so Sonar would silently skip them. The usual workaround is `pull_request_target`, which hands secrets to fork-authored code — see the warning in `.github/workflows/ci.yml`. Revisit only if contribution stops coming through forks.
 
-- Main class: `com.management.kumitegame.KumiteGameStarter` (component scan covers `com.management`)
+- Main class: `com.management.KumiteGameStarter`, at the root of the package tree — component scanning, repository discovery and the test slices' configuration search all derive from its location, so no `scanBasePackages` or `@EnableMongoRepositories` arguments are needed
 - Spring Boot 4.1.0, Java 21 (pinned via `<java.version>` in `pom.xml`; CI provisions the same)
 - Windows dev setup: see `karate-app-dev-setup-windows.pdf` in the repo root.
 
@@ -164,7 +164,7 @@ There are two aggregate roots with their own controller/service/repository stack
 
 **GameTimer is `@Transient`** — it is never persisted to MongoDB. `KumiteGame.getTimer()` rebuilds it on demand from the two persisted values, `remainingTime` **and** `startTime` — both, because a timer rebuilt without its `startTime` treats `pause()` as a no-op and silently freezes the clock. No caller has to (or can) initialise the timer explicitly; the one rule is to read the timer before mutating the fields it rebuilds from. The clock clamps at zero, never negative.
 
-**Circular dependency:** `KumiteGameService` and `PlayerService` mutually depend on each other. `GameHelperService` breaks this cycle as a delegating intermediary, injected with `@Lazy` in both services. This is a workaround, not a pattern — see `workflow/patterns/service-interaction.md` before touching any of these three services.
+**Circular dependency:** `KumiteGameService` and `PlayerService` mutually depend on each other. `GameHelperService` breaks this cycle as a delegating intermediary, injected via a `@Lazy` constructor parameter in both services. This is a workaround, not a pattern — #53 retires it; see `workflow/patterns/service-interaction.md` before touching any of these three services.
 
 **Game lifecycle endpoints do not exist yet.** `startGame`, `pauseGame`, `resumeGame`, and `endGame` are implemented in `KumiteGameService` but have no controller mappings. They are intentionally withheld pending timer implementation.
 
@@ -173,7 +173,7 @@ There are two aggregate roots with their own controller/service/repository stack
 - `KumiteGameController` at `/api/kumitegame` — owns game creation, retrieval, point/foul mutations, and winner assignment
 - `PlayerController` at `/api/players` — owns player CRUD
 - `PointsType` enum carries its `PointStrategy` instance — `PointStrategy` declares `addPoint(Points)` / `removePoint(Points)`, which mutate the score in place. There is no method that returns a value.
-- `GameConfig` reads from `src/main/resources/config.properties` — game durations are loaded there, not hardcoded
+- `GameProperties` (a `@ConfigurationProperties("game")` record, validated at startup) binds game durations from `game.*` in `application.properties` — durations are configuration, not code
 - MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`. They bind through **`spring.mongodb.*`**, not `spring.data.mongodb.*` — Boot 4 split that namespace into driver-level (`spring.mongodb`) and repository-level (`spring.data.mongodb`). Both still resolve, so using the wrong one fails silently by falling back to the default host.
 
 ## The API Response Contract
