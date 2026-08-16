@@ -171,7 +171,14 @@
     </module>
     <module name="NoFinalizer" />
 
+    <!--
+      'IT' is permitted. workflow/patterns/testing-strategy.md requires integration tests to end in
+      that suffix, and the build selects the test phase on it, so the name is functional rather than
+      stylistic. Without this the two rules contradict: every correctly named integration test would
+      be a permanent violation, and the only way to satisfy the analyser would be to break the build.
+    -->
     <module name="AbbreviationAsWordInName">
+      <property name="allowedAbbreviations" value="IT" />
       <property name="ignoreFinal" value="false" />
       <property name="allowedAbbreviationLength" value="0" />
       <property name="tokens" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, ANNOTATION_DEF, ANNOTATION_FIELD_DEF,&#xA;                    PARAMETER_DEF, VARIABLE_DEF, METHOD_DEF, PATTERN_VARIABLE_DEF, RECORD_DEF,&#xA;                    RECORD_COMPONENT_DEF" />

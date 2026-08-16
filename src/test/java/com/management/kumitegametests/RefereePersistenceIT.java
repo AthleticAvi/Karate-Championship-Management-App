@@ -1,53 +1,41 @@
 package com.management.kumitegametests;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.enums.PlayerColor;
-import com.management.kumitegame.KumiteGameStarter;
 import com.management.models.KumiteGame;
-import com.management.models.Player;
 import com.management.models.Referee;
 import com.management.repositories.KumiteGameRepository;
-import java.time.Duration;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import com.management.testsupport.IntegrationTestBase;
+import com.management.testsupport.KumiteGameBuilder;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.MongoDBContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest(classes = KumiteGameStarter.class)
-@Testcontainers
-class RefereePersistenceIT {
-
-  @Container @ServiceConnection
-  static MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:7");
+/** Referees survive a real save and reload through MongoDB. */
+class RefereePersistenceIT extends IntegrationTestBase {
 
   @Autowired private KumiteGameRepository kumiteGameRepository;
 
   @Test
-  void shouldPersistAndReloadReferees() {
-    Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
-    playersMap.put(PlayerColor.RED, new Player("Player 1"));
-    playersMap.put(PlayerColor.BLUE, new Player("Player 2"));
+  void referees_survivePersistenceAndReload() {
+    KumiteGame game =
+        KumiteGameBuilder.newGame()
+            .refereedBy(new Referee("Referee 1"), new Referee("Referee 2"))
+            .build();
 
-    List<Referee> referees = List.of(new Referee("Referee 1"), new Referee("Referee 2"));
+    KumiteGame saved = kumiteGameRepository.save(game);
+    assertThat(saved.getId()).isNotNull();
 
-    KumiteGame game = new KumiteGame(playersMap, referees, Duration.ofSeconds(120));
+    KumiteGame reloaded = kumiteGameRepository.findById(saved.getId()).orElseThrow();
 
-    KumiteGame savedGame = kumiteGameRepository.save(game);
+    assertThat(reloaded.getReferees()).hasSize(2);
+    assertThat(reloaded.getReferees().get(0).name()).isEqualTo("Referee 1");
+    assertThat(reloaded.getReferees().get(1).name()).isEqualTo("Referee 2");
+  }
 
-    assertNotNull(savedGame.getId());
-
-    KumiteGame reloadedGame = kumiteGameRepository.findById(savedGame.getId()).orElseThrow();
-
-    assertEquals(2, reloadedGame.getReferees().size());
-    assertEquals("Referee 1", reloadedGame.getReferees().get(0).name());
-    assertEquals("Referee 2", reloadedGame.getReferees().get(1).name());
+  @Test
+  void eachTestStartsWithAnEmptyDatabase() {
+    assertThat(kumiteGameRepository.count())
+        .as("the previous test saved a game; cleaning happens before each test, not after")
+        .isZero();
   }
 }
