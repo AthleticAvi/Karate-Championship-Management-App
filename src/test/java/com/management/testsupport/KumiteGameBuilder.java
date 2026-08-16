@@ -12,6 +12,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Builds a {@link KumiteGame} for a test, stating only the field the test is about.
@@ -47,6 +48,8 @@ public final class KumiteGameBuilder {
   private GameState gameState = GameState.QUEUED;
   @Nullable private Duration remainingTime;
   @Nullable private LocalDateTime startTime;
+  @Nullable private PlayerColor winner;
+  @Nullable private String id;
   private boolean timerInitialized;
 
   private KumiteGameBuilder() {
@@ -100,6 +103,24 @@ public final class KumiteGameBuilder {
     return this;
   }
 
+  /** A match decided in favour of the given colour. */
+  public KumiteGameBuilder wonBy(PlayerColor color) {
+    this.winner = color;
+    return this;
+  }
+
+  /**
+   * Gives the match a persistent identifier, as though it had been saved.
+   *
+   * <p>Assigned reflectively because {@link KumiteGame} has no constructor that takes an id and no
+   * setter for one — the mapping layer populates the field directly. #52 adds an explicit
+   * persistence constructor, at which point this can call it instead.
+   */
+  public KumiteGameBuilder alreadyPersistedAs(String gameId) {
+    this.id = gameId;
+    return this;
+  }
+
   /**
    * Gives the match a live timer object, as {@code startGame} and {@code resumeGame} do.
    *
@@ -119,6 +140,10 @@ public final class KumiteGameBuilder {
       game.setRemainingTime(remainingTime);
     }
     game.setStartTime(startTime);
+    game.setWinner(winner);
+    if (id != null) {
+      ReflectionTestUtils.setField(game, "id", id);
+    }
     if (timerInitialized) {
       game.initializeTimer(game.getRemainingTime());
     }

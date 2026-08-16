@@ -4,14 +4,17 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
+import com.management.models.converters.LegacyWinnerConverter;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
+import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document
@@ -20,7 +23,24 @@ public class KumiteGame {
   private GameState gameState;
   private Map<PlayerColor, Player> playersMap;
   private List<Referee> referees;
-  private String winner;
+
+  /**
+   * The colour that won, or {@code null} while the match has no winner.
+   *
+   * <p>Was a display sentence — {@code "RED player: Kenji"}, starting life as the literal {@code
+   * "Pending game ending"}. That is a value field doing a rendering job: no client could reliably
+   * tell whether a match had been decided without comparing strings, and the fighter's name was
+   * baked into a field that changes when the fighter is renamed. {@code java.md} forbids a magic
+   * string for absent state; {@code null} is the absence.
+   *
+   * <p>{@link LegacyWinnerConverter} keeps documents written before that change readable — without
+   * it, {@code Enum.valueOf} fails on the stored sentence and the whole match becomes unloadable.
+   * See that class for why the conversion is bound to this property rather than to the type.
+   */
+  @ValueConverter(LegacyWinnerConverter.class)
+  @Nullable
+  private PlayerColor winner;
+
   private LocalDateTime startTime;
   private Duration remainingTime;
   private Duration gameDuration;
@@ -37,7 +57,6 @@ public class KumiteGame {
     this.referees = referees;
     this.gameDuration = gameDuration;
     this.remainingTime = gameDuration;
-    this.winner = "Pending game ending";
   }
 
   public void initializeTimer(Duration gameDuration) {
@@ -59,8 +78,7 @@ public class KumiteGame {
           "KumiteGame - updateWinner - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
       throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
     }
-    String gameWinner = color.name() + " player: " + playersMap.get(color).getName();
-    setWinner(gameWinner);
+    setWinner(color);
   }
 
   public String getId() {
@@ -91,11 +109,11 @@ public class KumiteGame {
     this.referees = referees;
   }
 
-  public String getWinner() {
+  public @Nullable PlayerColor getWinner() {
     return winner;
   }
 
-  public void setWinner(String winner) {
+  public void setWinner(@Nullable PlayerColor winner) {
     this.winner = winner;
   }
 

@@ -3,6 +3,7 @@ package com.management.services;
 import com.management.dto.PlayerRequestDTO;
 import com.management.enums.PointsType;
 import com.management.exceptions.PlayerNotFoundException;
+import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import com.management.util.KumiteGameManagementUtils;
@@ -50,40 +51,48 @@ public class PlayerService {
     playerRepository.delete(player);
   }
 
-  public void addPoint(String gameId, String color, String pointType) {
+  /**
+   * Records a point and returns the match as it now stands.
+   *
+   * <p>These four methods returned {@code void}, which left the controller with nothing to report
+   * but a fixed English sentence. Returning the saved match instead costs nothing — the re-sync it
+   * already performs reads and writes the match anyway — and gives a scoreboard the new score
+   * without a follow-up request.
+   */
+  public KumiteGame addPoint(String gameId, String color, String pointType) {
     String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
     Player player = getPlayer(playerId);
     PointsType scoredPoint = KumiteGameManagementUtils.mapPointToPointType(pointType);
     player.addPoint(scoredPoint);
     playerRepository.save(player);
-    gameHelperService.updateKumiteGame(gameId, color);
+    return gameHelperService.updateKumiteGame(gameId, color);
   }
 
-  public void removePoint(String gameId, String color, String pointType) {
+  public KumiteGame removePoint(String gameId, String color, String pointType) {
 
     String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
     Player player = getPlayer(playerId);
     PointsType pointToRemove = KumiteGameManagementUtils.mapPointToPointType(pointType);
     player.removePoint(pointToRemove);
     playerRepository.save(player);
-    gameHelperService.updateKumiteGame(gameId, color);
+    return gameHelperService.updateKumiteGame(gameId, color);
   }
 
-  public void addFoul(String gameId, String color) {
+  public KumiteGame addFoul(String gameId, String color) {
 
     String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
     Player player = getPlayer(playerId);
     player.addFoul();
     playerRepository.save(player);
-    gameHelperService.updateKumiteGame(gameId, color);
+    return gameHelperService.updateKumiteGame(gameId, color);
   }
 
-  public void removeFoul(String gameId, String color) {
+  public KumiteGame removeFoul(String gameId, String color) {
 
     String playerId = gameHelperService.getPlayerIdByGameAndColor(gameId, color);
     Player player = getPlayer(playerId);
     player.removeFoul();
     playerRepository.save(player);
-    gameHelperService.updateKumiteGame(gameId, color);
+    return gameHelperService.updateKumiteGame(gameId, color);
   }
 }

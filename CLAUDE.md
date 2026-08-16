@@ -47,6 +47,7 @@ Settled rules. Anything not listed here is either unbuilt (tracked as a GitHub i
 No transition guard is currently enforced — every transition is permitted by the code. Guards are tracked as an issue.
 
 **Known vocabulary deviations in code** (each has an issue):
+- `PointsType.WAZARI` is missing the hyphen of the WKF's **WAZA-ARI**. It is public API surface — clients send `pointType=WAZARI`. #102 renamed `YOKO` to `YUKO` on the same grounds, so this is the last spelling left out of step with the rulebook.
 - `PlayerColor` has only `RED` / `BLUE`; the AKA/AO names appear nowhere in code.
 - `FoulTypes` (`CHUI1, CHUI2, CHUI3, HANSOKU_CHUI, HANSOKU, SHIKKAKU`) is declared but **never referenced**. Fouls are currently a plain counter with no progression.
 - The project wiki calls the in-progress state `STARTED`; the code says `RUNNING`. **The code is authoritative.**
@@ -104,11 +105,11 @@ Three engines, three non-overlapping jobs. All run inside `mvn verify`; gate ord
 | Tool | Owns | Configured in | Mode | Baseline |
 |---|---|---|---|---|
 | **Spotless** + google-java-format | **Layout** — indentation, wrapping, import order, whitespace | `pom.xml` → `spotless-maven-plugin` | **Enforced.** Build fails; `mvn spotless:apply` fixes | 0 |
-| **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **21** |
-| **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **4** |
+| **Checkstyle** (published) | **Conventions** — naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **17** |
+| **Checkstyle** (project) | **`java.md`'s own rules** — logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **3** |
 | **Error Prone + NullAway** | **Correctness** — null analysis, API misuse, time/locale bugs | `pom.xml` → `maven-compiler-plugin` `compilerArgs` + `annotationProcessorPaths` | Report only | **45** across main and test (26 NullAway) |
 | **javac** | Compiler warnings | `pom.xml` → `-Xlint:all,-serial` | Report only | 0 |
-| **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | **Enforced floor** | LINE **37%**, BRANCH **15%** |
+| **JaCoCo** | **Coverage** — merged across both suites | `pom.xml` → `jacoco-maven-plugin` | **Enforced floor** | LINE **80%**, BRANCH **64%** |
 
 ```bash
 mvn spotless:apply    # fix formatting — run this if the build fails on layout
@@ -117,7 +118,7 @@ mvn verify            # everything, including the coverage report
 
 **Coverage** is measured across *both* suites: an agent runs under surefire and another under failsafe, the two execution files are merged, and one report is written to `target/site/jacoco/`. Open `index.html` from there, or download the `coverage-report` artifact from any CI run. A number from one suite alone is misleading — most of this codebase is only reachable through integration tests.
 
-The floor is enforced and **ratchets upward only**: raise it in `pom.xml` as coverage rises, never lower it. It is a floor, not a target — `workflow/patterns/testing-strategy.md` lists what must *not* be tested, and coverage bought that way is a worse suite with a better number. BRANCH sits low because the harness work exercised happy paths; #37 and the timer epic are where it should climb.
+The floor is enforced and **ratchets upward only**: raise it in `pom.xml` as coverage rises, never lower it. It is a floor, not a target — `workflow/patterns/testing-strategy.md` lists what must *not* be tested, and coverage bought that way is a worse suite with a better number. #37 raised it from LINE 37% / BRANCH 15% by covering every controller endpoint and every branch of the exception handler — the error paths were the untested branches. The #32 review fixes took it further, to a measured 81% / 67%, by covering the legacy-winner converter, the write-path colour guard and the non-leaking `IllegalArgumentException` handler. What remains uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 
 **How to change each one**
 
@@ -172,6 +173,47 @@ There are two aggregate roots with their own controller/service/repository stack
 - `PointsType` enum carries its `PointStrategy` instance — `PointStrategy` declares `addPoint(Points)` / `removePoint(Points)`, which mutate the score in place. There is no method that returns a value.
 - `GameConfig` reads from `src/main/resources/config.properties` — game durations are loaded there, not hardcoded
 - MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`. They bind through **`spring.mongodb.*`**, not `spring.data.mongodb.*` — Boot 4 split that namespace into driver-level (`spring.mongodb`) and repository-level (`spring.data.mongodb`). Both still resolve, so using the wrong one fails silently by falling back to the default host.
+
+## The API Response Contract
+
+Settled in Epic #32. Persistence types do not cross the HTTP boundary in either direction; `KumiteGameMapper` and `PlayerMapper` are the only places a document becomes a response.
+
+| Response type | Endpoint | Shape |
+|---|---|---|
+| `KumiteGameResponse` | everything under `/api/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner` |
+| `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
+| `PlayerResponse` | `/api/players` | `id`, `name`, `points`, `fouls` |
+
+**The wire formats, and why.** Every one of these is pinned by a strict whole-body assertion in `KumiteGameControllerSliceTest` — change one and that test fails, which is the only thing standing between this contract and a silent shift under a dependency upgrade.
+
+- **The clock is `remainingSeconds`, a whole number of seconds.** Not a `Duration`, which Jackson can render as `PT1M27S` or as a decimal depending on configuration nobody on this project has set. An integer has one reading, needs no `spring.jackson.*` property, and drives a countdown directly.
+- **No timestamp is exposed at all.** `startTime` is internal bookkeeping for computing elapsed time; a client holding `remainingSeconds` has no use for it. Omitting a field is the cheapest way to avoid specifying its format. If a timestamp is ever genuinely needed, it goes out as an ISO-8601 UTC string — decided here so the question is not reopened.
+- **`winner` is a `PlayerColor` or `null`.** Never a sentence, never a placeholder string. The client renders the wording.
+- **Points and fouls are bare integers.** The `Points` and `Foul` wrappers exist so scoring strategies have something to mutate in place; that is an implementation detail of scoring.
+- **Referees are names.** A `List<String>`, not a list of objects, until a referee has more than a name.
+- **Enums serialise as their names**, uppercase, exactly as declared.
+
+**Mutations return the new state.** The four scoring endpoints answer with the updated `KumiteGameResponse` rather than a confirmation sentence, so a scoreboard never needs a follow-up read. `DELETE /api/players/{id}` answers 204 with no body.
+
+**Errors are RFC 9457 problem details** — `application/problem+json`, carrying `status`, `title` and `detail`. `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`, so the exceptions the framework itself raises are mapped too rather than falling through to the catch-all as 500s.
+
+| Failure | Status | Exception | Detail |
+|---|---|---|---|
+| Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` | the message |
+| Not a point type | 400 | `PointTypeNotFoundException` | the message |
+| A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
+| Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
+| No such match | 404 | `GameNotFoundException` | the message |
+| No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
+| Anything else | 500 | catch-all | **generic**, message logged |
+
+The two colour failures are deliberately different types: *not a colour* is the caller's mistake (400), *a colour this match does not have* is a missing resource (404).
+
+**Only messages this project wrote are returned.** `InvalidGameRequestException` marks validation whose wording is meant for the caller, so its detail is echoed. A bare `IllegalArgumentException` can come from anywhere beneath the controller — Spring Data's *"The given id must not be null"*, an enum conversion failing on a legacy document — so it still answers 400 as #36 requires, but with a fixed detail and the real message in the log. Echoing it blamed the caller for a server fault and leaked internal text through the same handler that the catch-all is careful not to.
+
+**A match is validated before anything is written.** Exactly one RED and one BLUE is checked in `KumiteGameService` at creation, not just in `KumiteGameMapper` on the way out. A duplicate colour used to persist both fighters and the half-formed match, then fail out of the mapper as a 500 with no id returned — unrecoverable, since a standalone MongoDB gives no transaction to roll back. The mapper keeps its own check: this one guards what enters the database, that one guards what leaves it.
+
+**Documents written before the `winner` field became a `PlayerColor` are still readable.** `LegacyWinnerConverter`, bound to that one property with `@ValueConverter`, reads the old display sentence (`"RED player: Kenji"` → `RED`, `"Pending game ending"` → `null`) and always writes the enum name, so each document migrates itself on its next save. Without it `Enum.valueOf` fails and the whole match becomes unloadable. `LegacyWinnerIT` inserts raw pre-change BSON to prove it, because every other test writes its fixtures through the current mapping and so can never see the old form. Delete the converter once no legacy documents remain.
 
 ## What Is Not Built Yet
 

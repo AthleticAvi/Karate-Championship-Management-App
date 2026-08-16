@@ -1,10 +1,13 @@
 package com.management.services;
 
 import com.management.dto.KumiteGameRequestDTO;
+import com.management.dto.PlayerDTO;
 import com.management.dto.PlayerRequestDTO;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.GameNotFoundException;
+import com.management.exceptions.InvalidGameRequestException;
+import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Referee;
@@ -14,9 +17,11 @@ import com.management.util.KumiteGameManagementUtils;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,19 +42,35 @@ public class KumiteGameService {
   public KumiteGame createKumiteGame(KumiteGameRequestDTO gameRequestDTO) {
 
     validateGameRequestDTO(gameRequestDTO);
-    Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
 
+    // Resolve every colour before creating anything. The colours are what decide whether this
+    // request can produce a valid match, and a player saved for a request that turns out to be
+    // malformed cannot be taken back -- this service has no transaction to roll back with, because
+    // the database is a standalone MongoDB. See validateColours for what makes a set valid.
+    Map<PlayerColor, PlayerDTO> byColour = new EnumMap<>(PlayerColor.class);
     gameRequestDTO
         .getPlayersMap()
         .forEach(
             (key, playerDTO) -> {
               PlayerColor playerColor =
                   KumiteGameManagementUtils.mapPlayerColor(playerDTO.getColor());
-              PlayerRequestDTO playerRequestDTO = new PlayerRequestDTO();
-              playerRequestDTO.setName(playerDTO.getName());
-              Player player = gameHelperService.createNewPlayer(playerRequestDTO);
-              playersMap.put(playerColor, player);
+              PlayerDTO clash = byColour.put(playerColor, playerDTO);
+              if (clash != null) {
+                throw new InvalidGameRequestException(
+                    "A match fields exactly one fighter per colour, but two were given as "
+                        + playerColor
+                        + ".");
+              }
             });
+    validateColours(byColour.keySet());
+
+    Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
+    byColour.forEach(
+        (playerColor, requested) -> {
+          PlayerRequestDTO playerRequestDTO = new PlayerRequestDTO();
+          playerRequestDTO.setName(requested.getName());
+          playersMap.put(playerColor, gameHelperService.createNewPlayer(playerRequestDTO));
+        });
 
     List<Referee> refereesList =
         gameRequestDTO.getRefereeList().stream().map(Referee::new).toList();
@@ -116,8 +137,11 @@ public class KumiteGameService {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(color);
 
-    String playerId = kumiteGame.getPlayersMap().get(playerColor).getId();
-    Player updatedPlayer = gameHelperService.getPlayerById(playerId);
+    Player snapshot = kumiteGame.getPlayersMap().get(playerColor);
+    if (snapshot == null) {
+      throw new PlayerNotFoundException("Match " + gameId + " has no " + playerColor + " fighter.");
+    }
+    Player updatedPlayer = gameHelperService.getPlayerById(snapshot.getId());
 
     kumiteGame.updatePlayer(playerColor, updatedPlayer);
     return saveGame(kumiteGame);
@@ -134,10 +158,37 @@ public class KumiteGameService {
 
   private void validateGameRequestDTO(KumiteGameRequestDTO gameRequestDTO) {
     if (gameRequestDTO.getPlayersMap() == null || gameRequestDTO.getPlayersMap().isEmpty()) {
-      throw new IllegalArgumentException("Players cannot be empty");
+      throw new InvalidGameRequestException("Players cannot be empty");
     }
     if (gameRequestDTO.getRefereeList() == null || gameRequestDTO.getRefereeList().isEmpty()) {
-      throw new IllegalArgumentException("Referee list cannot be empty");
+      throw new InvalidGameRequestException("Referee list cannot be empty");
+    }
+  }
+
+  /**
+   * Enforces the one-of-each-colour rule at the point of creation.
+   *
+   * <p>A match fields exactly one RED and one BLUE — a settled domain rule, not a request-time
+   * option. Nothing checked it before: the colour is read from each entry's own {@code color}
+   * field, so two entries could both claim RED, and the resulting {@code EnumMap} would simply hold
+   * one of them. The half-formed match was then saved along with both fighters, and the failure
+   * surfaced later out of the response mapper as a 500 — after the writes had committed, with no id
+   * returned and three orphaned documents left behind.
+   *
+   * <p>Checking here turns that into a 400 that changes nothing in the database, which is what the
+   * caller can actually act on. {@code KumiteGameMapper} keeps its own check for the same
+   * invariant: this one guards what enters the database, that one guards what leaves it, and a
+   * document predating this guard can still be read back.
+   */
+  private void validateColours(Set<PlayerColor> colours) {
+    Set<PlayerColor> required = EnumSet.allOf(PlayerColor.class);
+    if (!colours.equals(required)) {
+      throw new InvalidGameRequestException(
+          "A match needs exactly one fighter of each colour "
+              + required
+              + ", but the request gave "
+              + colours
+              + ".");
     }
   }
 
