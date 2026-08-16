@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.management.config.GameProperties;
 import com.management.dto.KumiteGameRequestDTO;
 import com.management.dto.PlayerDTO;
 import com.management.exceptions.InvalidGameRequestException;
@@ -15,11 +16,12 @@ import com.management.services.GameHelperService;
 import com.management.services.KumiteGameService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
+import com.management.testsupport.TestGameProperties;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * The fighter-count rule at creation (#28): a match is exactly one RED and one BLUE, checked before
@@ -32,20 +34,57 @@ import org.springframework.test.util.ReflectionTestUtils;
 class KumiteGameCreationTest {
 
   private InMemoryMongo storage;
+  private GameHelperService helper;
   private KumiteGameService service;
 
   @BeforeEach
   void setUp() {
     storage = new InMemoryMongo();
 
-    GameHelperService helper = mock(GameHelperService.class);
+    helper = mock(GameHelperService.class);
     when(helper.createNewPlayer(any()))
         .thenAnswer(call -> storage.save(new Player("Created Fighter")));
 
-    service = new KumiteGameService();
-    ReflectionTestUtils.setField(
-        service, "kumiteGameRepository", FakeRepositories.kumiteGames(storage));
-    ReflectionTestUtils.setField(service, "gameHelperService", helper);
+    service = serviceWith(TestGameProperties.standard(), helper);
+  }
+
+  private KumiteGameService serviceWith(GameProperties properties, GameHelperService helper) {
+    return new KumiteGameService(FakeRepositories.kumiteGames(storage), properties, helper);
+  }
+
+  /**
+   * The substitution #42 exists for: a test supplies its own {@link GameProperties} and that
+   * configuration actually takes effect. Under the old {@code new GameConfig()} field this was
+   * impossible — a mock never reached the service, and every test silently ran against the real
+   * file.
+   */
+  @Test
+  void createKumiteGame_withNoDuration_usesTheInjectedDefault() {
+    GameProperties fiveMinutes =
+        new GameProperties(Duration.ofMinutes(5), List.of(Duration.ofMinutes(5)));
+    KumiteGameService customised = serviceWith(fiveMinutes, helper);
+
+    KumiteGame created =
+        customised.createKumiteGame(
+            request(new PlayerDTO("Kenji", "RED"), new PlayerDTO("Sato", "BLUE")));
+
+    assertThat(created.getGameDuration()).isEqualTo(Duration.ofMinutes(5));
+  }
+
+  @Test
+  void createKumiteGame_withDurationOutsideTheConfiguredSet_fallsBackToTheDefault() {
+    KumiteGameRequestDTO oddDuration =
+        new KumiteGameRequestDTO(
+            Map.of(
+                "red", new PlayerDTO("Kenji", "RED"),
+                "blue", new PlayerDTO("Sato", "BLUE")),
+            List.of("Referee One"),
+            100);
+
+    KumiteGame created = service.createKumiteGame(oddDuration);
+
+    assertThat(created.getGameDuration())
+        .isEqualTo(TestGameProperties.standard().defaultDuration());
   }
 
   @Test

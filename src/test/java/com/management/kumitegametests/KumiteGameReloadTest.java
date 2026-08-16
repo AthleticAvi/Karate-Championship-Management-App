@@ -6,15 +6,17 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import com.management.enums.GameState;
 import com.management.models.KumiteGame;
 import com.management.repositories.KumiteGameRepository;
+import com.management.services.GameHelperService;
 import com.management.services.KumiteGameService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
+import com.management.testsupport.TestGameProperties;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.mockito.Mockito;
 
 /**
  * The game lifecycle exercised across a real save-and-reload boundary.
@@ -45,8 +47,9 @@ class KumiteGameReloadTest {
     storage = new InMemoryMongo();
     KumiteGameRepository repository = FakeRepositories.kumiteGames(storage);
 
-    service = new KumiteGameService();
-    ReflectionTestUtils.setField(service, "kumiteGameRepository", repository);
+    service =
+        new KumiteGameService(
+            repository, TestGameProperties.standard(), Mockito.mock(GameHelperService.class));
   }
 
   @Test

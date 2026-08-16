@@ -1,5 +1,6 @@
 package com.management.services;
 
+import com.management.config.GameProperties;
 import com.management.dto.KumiteGameRequestDTO;
 import com.management.dto.PlayerDTO;
 import com.management.dto.PlayerRequestDTO;
@@ -13,7 +14,6 @@ import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.models.Referee;
 import com.management.repositories.KumiteGameRepository;
-import com.management.util.GameConfig;
 import com.management.util.KumiteGameManagementUtils;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -35,10 +34,24 @@ public class KumiteGameService {
   private static final Logger log = LoggerFactory.getLogger(KumiteGameService.class);
   private static final String GAME_NOT_FOUND = "Game not found!";
   private static final String GAME_ID = " Game Id: ";
-  @Autowired private KumiteGameRepository kumiteGameRepository;
 
-  private final GameConfig config = new GameConfig();
-  @Autowired @Lazy private GameHelperService gameHelperService;
+  private final KumiteGameRepository kumiteGameRepository;
+  private final GameProperties gameProperties;
+  private final GameHelperService gameHelperService;
+
+  /**
+   * {@code @Lazy} injects a proxy for {@link GameHelperService} to break the constructor cycle
+   * between this service and {@link PlayerService}. A workaround, not a pattern — #53 retires it;
+   * see {@code workflow/patterns/service-interaction.md}.
+   */
+  public KumiteGameService(
+      KumiteGameRepository kumiteGameRepository,
+      GameProperties gameProperties,
+      @Lazy GameHelperService gameHelperService) {
+    this.kumiteGameRepository = kumiteGameRepository;
+    this.gameProperties = gameProperties;
+    this.gameHelperService = gameHelperService;
+  }
 
   public KumiteGame createKumiteGame(KumiteGameRequestDTO gameRequestDTO) {
 
@@ -212,11 +225,11 @@ public class KumiteGameService {
   private Duration determineGameDuration(KumiteGameRequestDTO gameRequestDTO) {
     if (gameRequestDTO.gameDuration() != null) {
       Duration requestedDuration = Duration.ofSeconds(gameRequestDTO.gameDuration());
-      if (config.getOptionalDurations().contains(requestedDuration)) {
+      if (gameProperties.optionalDurations().contains(requestedDuration)) {
         return requestedDuration;
       }
     }
-    return config.getDefaultDuration();
+    return gameProperties.defaultDuration();
   }
 
   private KumiteGame saveGame(KumiteGame kumiteGame) {

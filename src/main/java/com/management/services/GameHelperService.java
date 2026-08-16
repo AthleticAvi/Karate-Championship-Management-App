@@ -6,14 +6,18 @@ import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
 import com.management.util.KumiteGameManagementUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class GameHelperService {
 
-  @Autowired private KumiteGameService kumiteGameService;
-  @Autowired private PlayerService playerService;
+  private final KumiteGameService kumiteGameService;
+  private final PlayerService playerService;
+
+  public GameHelperService(KumiteGameService kumiteGameService, PlayerService playerService) {
+    this.kumiteGameService = kumiteGameService;
+    this.playerService = playerService;
+  }
 
   /**
    * Finds the fighter of the given colour in the given match.

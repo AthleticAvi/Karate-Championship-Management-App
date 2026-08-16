@@ -1,6 +1,6 @@
 package com.management.testsupport;
 
-import com.management.kumitegame.KumiteGameStarter;
+import com.management.KumiteGameStarter;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;

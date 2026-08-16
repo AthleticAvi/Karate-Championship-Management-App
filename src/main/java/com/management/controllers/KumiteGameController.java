@@ -6,7 +6,6 @@ import com.management.mappers.KumiteGameMapper;
 import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +14,13 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/kumitegame")
 public class KumiteGameController {
 
-  @Autowired private KumiteGameService kumiteGameService;
+  private final KumiteGameService kumiteGameService;
+  private final PlayerService playerService;
 
-  @Autowired private PlayerService playerService;
+  public KumiteGameController(KumiteGameService kumiteGameService, PlayerService playerService) {
+    this.kumiteGameService = kumiteGameService;
+    this.playerService = playerService;
+  }
 
   @PostMapping
   public ResponseEntity<KumiteGameResponse> createKumiteGame(
