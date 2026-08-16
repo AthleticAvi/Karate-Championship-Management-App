@@ -341,10 +341,11 @@
             LINE and BRANCH rather than JaCoCo's default INSTRUCTION, which counts bytecode and
             moves for reasons unrelated to testing.
 
-            Raised by #37 from LINE 37% / BRANCH 15% to 78% / 55%. The suite now achieves 79% and
-            57%; the floor sits a point or two under, so a genuine drop fails the build while a
-            counting wobble does not. What moved it was covering every controller endpoint and
-            every branch of the exception handler - the error paths were the untested branches.
+            Raised by #37 from LINE 37% / BRANCH 15% to 78% / 55%, and again to 80% / 64% by the
+            review fixes: the legacy-winner converter, the write-path colour guard and the
+            non-leaking IllegalArgumentException handler are all branch-heavy. The suite now
+            achieves 81% and 67%; the floor sits a point or two under, so a genuine drop fails the
+            build while a counting wobble does not.
           -->
           <execution>
             <id>coverage-check</id>
@@ -361,12 +362,12 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>0.78</minimum>
+                      <minimum>0.80</minimum>
                     </limit>
                     <limit>
                       <counter>BRANCH</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>0.55</minimum>
+                      <minimum>0.64</minimum>
                     </limit>
                   </limits>
                 </rule>
