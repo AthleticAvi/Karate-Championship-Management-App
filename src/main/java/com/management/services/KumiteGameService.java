@@ -42,19 +42,16 @@ public class KumiteGameService {
 
   public KumiteGame createKumiteGame(KumiteGameRequestDTO gameRequestDTO) {
 
-    validateGameRequestDTO(gameRequestDTO);
-
     // Resolve every colour before creating anything. The colours are what decide whether this
     // request can produce a valid match, and a player saved for a request that turns out to be
     // malformed cannot be taken back -- this service has no transaction to roll back with, because
     // the database is a standalone MongoDB. See validateColours for what makes a set valid.
     Map<PlayerColor, PlayerDTO> byColour = new EnumMap<>(PlayerColor.class);
     gameRequestDTO
-        .getPlayersMap()
+        .playersMap()
         .forEach(
             (key, playerDTO) -> {
-              PlayerColor playerColor =
-                  KumiteGameManagementUtils.mapPlayerColor(playerDTO.getColor());
+              PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(playerDTO.color());
               PlayerDTO clash = byColour.put(playerColor, playerDTO);
               if (clash != null) {
                 throw new InvalidGameRequestException(
@@ -67,14 +64,12 @@ public class KumiteGameService {
 
     Map<PlayerColor, Player> playersMap = new EnumMap<>(PlayerColor.class);
     byColour.forEach(
-        (playerColor, requested) -> {
-          PlayerRequestDTO playerRequestDTO = new PlayerRequestDTO();
-          playerRequestDTO.setName(requested.getName());
-          playersMap.put(playerColor, gameHelperService.createNewPlayer(playerRequestDTO));
-        });
+        (playerColor, requested) ->
+            playersMap.put(
+                playerColor,
+                gameHelperService.createNewPlayer(new PlayerRequestDTO(requested.name()))));
 
-    List<Referee> refereesList =
-        gameRequestDTO.getRefereeList().stream().map(Referee::new).toList();
+    List<Referee> refereesList = gameRequestDTO.refereeList().stream().map(Referee::new).toList();
 
     Duration gameDuration = determineGameDuration(gameRequestDTO);
 
@@ -187,15 +182,6 @@ public class KumiteGameService {
     return saveGame(kumiteGame);
   }
 
-  private void validateGameRequestDTO(KumiteGameRequestDTO gameRequestDTO) {
-    if (gameRequestDTO.getPlayersMap() == null || gameRequestDTO.getPlayersMap().isEmpty()) {
-      throw new InvalidGameRequestException("Players cannot be empty");
-    }
-    if (gameRequestDTO.getRefereeList() == null || gameRequestDTO.getRefereeList().isEmpty()) {
-      throw new InvalidGameRequestException("Referee list cannot be empty");
-    }
-  }
-
   /**
    * Enforces the one-of-each-colour rule at the point of creation.
    *
@@ -224,9 +210,8 @@ public class KumiteGameService {
   }
 
   private Duration determineGameDuration(KumiteGameRequestDTO gameRequestDTO) {
-    if (gameRequestDTO.getGameDuration() != null) {
-      Duration requestedDuration =
-          Duration.ofSeconds(Integer.parseInt(gameRequestDTO.getGameDuration()));
+    if (gameRequestDTO.gameDuration() != null) {
+      Duration requestedDuration = Duration.ofSeconds(gameRequestDTO.gameDuration());
       if (config.getOptionalDurations().contains(requestedDuration)) {
         return requestedDuration;
       }

@@ -123,7 +123,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
             "blue": { "name": "Sato",  "color": "RED" }
           },
           "refereeList": ["Referee One"],
-          "gameDuration": "90"
+          "gameDuration": 90
         }
         """;
 
@@ -152,7 +152,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
             "blue": { "name": "Sato",  "color": "BLUE" }
           },
           "refereeList": ["Referee One"],
-          "gameDuration": "90"
+          "gameDuration": 90
         }
         """;
 

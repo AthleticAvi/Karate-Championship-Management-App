@@ -1,11 +1,19 @@
 package com.management.exceptions;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -94,6 +102,38 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * Bean Validation failures, with every failing field listed.
+   *
+   * <p>Overrides the base class's hook rather than declaring a separate {@code @ExceptionHandler} —
+   * two handlers competing for the same exception is the failure mode {@code
+   * workflow/patterns/error-handling.md} warns about. The per-field messages go in an {@code
+   * errors} extension property so the body stays machine-readable: a caller fixing three fields
+   * gets all three in one round trip, keyed by field path.
+   */
+  @Override
+  protected @Nullable ResponseEntity<Object> handleMethodArgumentNotValid(
+      MethodArgumentNotValidException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    Map<String, String> errors = new LinkedHashMap<>();
+    ex.getBindingResult()
+        .getFieldErrors()
+        .forEach(
+            fieldError ->
+                errors.merge(
+                    fieldError.getField(),
+                    String.valueOf(fieldError.getDefaultMessage()),
+                    (first, second) -> first + "; " + second));
+
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(status, "The request failed validation.");
+    problem.setTitle("Invalid request");
+    problem.setProperty("errors", errors);
+    return handleExceptionInternal(ex, problem, headers, status, request);
+  }
+
+  /**
    * A lifecycle operation on a match whose state does not allow it.
    *
    * <p>409 rather than 400: the request was syntactically fine and the match exists — it is the
@@ -120,10 +160,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    *
    * <p>So the message goes to the log, exactly as the catch-all does it, and the caller gets a
    * fixed detail. Validation whose wording is genuinely useful raises {@link
-   * InvalidGameRequestException} instead and keeps its message.
-   *
-   * <p>Still a stopgap: the service parses the match duration out of a string by hand, and hand
-   * validation inside a service is what Epic #38 replaces with constraints at the edge.
+   * InvalidGameRequestException} instead and keeps its message; request-shape validation is
+   * constraints at the edge since #39 and never reaches this handler.
    */
   @ExceptionHandler(IllegalArgumentException.class)
   public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {

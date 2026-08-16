@@ -93,6 +93,25 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
                     JsonCompareMode.STRICT));
   }
 
+  /**
+   * Bean Validation on the fighter body (#39): a blank name is rejected at the boundary, naming the
+   * field, and the service is never consulted.
+   */
+  @Test
+  void createPlayer_whenTheNameIsBlank_returns400NamingTheField() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/players")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"  \"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.errors.name").value("a fighter needs a name"));
+
+    then(playerService).shouldHaveNoInteractions();
+  }
+
   @Test
   void getPlayer_whenTheFighterIsMissing_returns404AsProblemDetail() throws Exception {
     given(playerService.getPlayer(anyString()))

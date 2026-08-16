@@ -201,6 +201,7 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 
 | Failure | Status | Exception | Detail |
 |---|---|---|---|
+| Request fails Bean Validation | 400 | `MethodArgumentNotValidException` (framework) | generic, plus an `errors` extension property mapping each failing field path to its message |
 | Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` | the message |
 | Not a point type | 400 | `PointTypeNotFoundException` | the message |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
@@ -211,6 +212,8 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 | Anything else | 500 | catch-all | **generic**, message logged |
 
 The two colour failures are deliberately different types: *not a colour* is the caller's mistake (400), *a colour this match does not have* is a missing resource (404).
+
+**Requests are validated at the boundary.** The request DTOs are records carrying Jakarta Bean Validation constraints, triggered by `@Valid` on the `@RequestBody` parameters; `spring-boot-starter-validation` supplies the engine. `gameDuration` is an `Integer` (seconds) — non-numeric input dies at binding as a 400, never as a hand-parse failure. What constraints cannot see — the one-RED-one-BLUE rule — stays domain validation in `KumiteGameService`.
 
 **Only messages this project wrote are returned.** `InvalidGameRequestException` marks validation whose wording is meant for the caller, so its detail is echoed. A bare `IllegalArgumentException` can come from anywhere beneath the controller — Spring Data's *"The given id must not be null"*, an enum conversion failing on a legacy document — so it still answers 400 as #36 requires, but with a fixed detail and the real message in the log. Echoing it blamed the caller for a server fault and leaked internal text through the same handler that the catch-all is careful not to.
 
