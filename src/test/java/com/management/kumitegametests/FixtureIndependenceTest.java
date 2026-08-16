@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 class FixtureIndependenceTest {
 
   @Test
-  void twoPlayersFromOneBuilder_doNotShareAScore() {
+  void twoPlayersFromOneBuilder_doNotShareScoreObjects() {
     PlayerBuilder builder = PlayerBuilder.newPlayer().named("Fighter");
     Player first = builder.build();
     Player second = builder.build();
@@ -92,7 +92,7 @@ class FixtureIndependenceTest {
   }
 
   @Test
-  void aFighterSuppliedByTheCaller_isNotMutatedByTheMatch() {
+  void suppliedFighter_isNotMutatedByTheMatch() {
     Player supplied = PlayerBuilder.newPlayer().named("Kenji").build();
 
     KumiteGame game = KumiteGameBuilder.newGame().with(PlayerColor.RED, supplied).build();

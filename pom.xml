@@ -273,6 +273,40 @@
         </executions>
       </plugin>
 
+      <!--
+        Removes last run's coverage data before this one starts.
+
+        <append>false</append> on the agents stops a run adding to its own previous data, but it
+        only takes effect where the agent actually runs. A build that skips a suite - the documented
+        selective commands do exactly that - leaves the earlier file in place, and the merge below
+        globs whatever it finds, so the report would mix this run's unit data with an older run's
+        integration data. Deleting first means the merged number always describes one run.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>discard-stale-coverage-data</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <configuration>
+              <excludeDefaultDirectories>true</excludeDefaultDirectories>
+              <filesets>
+                <fileset>
+                  <directory>${project.build.directory}</directory>
+                  <includes>
+                    <include>jacoco-*.exec</include>
+                  </includes>
+                </fileset>
+              </filesets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -285,6 +319,14 @@
             </goals>
             <configuration>
               <destFile>${project.build.directory}/jacoco-unit.exec</destFile>
+              <!--
+                The agent appends by default, so without this a build that does not start from
+                clean adds this run's data to the previous run's rather than replacing it. The
+                coverage number then describes a union of runs instead of this one: delete a test
+                class, rebuild without clean, and its coverage is still counted. A floor that
+                cannot notice a removed test is not a floor.
+              -->
+              <append>false</append>
             </configuration>
           </execution>
 
@@ -295,6 +337,8 @@
             </goals>
             <configuration>
               <destFile>${project.build.directory}/jacoco-integration.exec</destFile>
+              <!-- Same reason as the unit agent above. -->
+              <append>false</append>
             </configuration>
           </execution>
 
