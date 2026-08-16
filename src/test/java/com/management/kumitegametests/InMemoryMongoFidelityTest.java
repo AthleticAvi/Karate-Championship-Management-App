@@ -1,6 +1,7 @@
 package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
@@ -103,6 +104,58 @@ class InMemoryMongoFidelityTest {
 
     assertThat(storage.count(Player.class)).isZero();
     assertThat(storage.findById(Player.class, saved.getId())).isEmpty();
+  }
+
+  /**
+   * The instance handed to {@code save} is usable afterwards, as it is with a real repository.
+   *
+   * <p>Deleting through it used to be a silent no-op: {@code save} never wrote the generated
+   * identifier back, so {@code delete} found none and removed nothing while reporting success.
+   */
+  @Test
+  void delete_throughTheSavedInstance_removesTheEntity() {
+    Player fresh = PlayerBuilder.newPlayer().named("Doomed Fighter").build();
+    storage.save(fresh);
+
+    assertThat(fresh.getId())
+        .as("save assigns the identifier to the instance it was given")
+        .isNotNull();
+
+    storage.delete(fresh);
+
+    assertThat(storage.count(Player.class)).isZero();
+  }
+
+  @Test
+  void delete_forAnUnsavedEntity_isRejectedRatherThanIgnored() {
+    Player neverSaved = PlayerBuilder.newPlayer().named("Unsaved Fighter").build();
+
+    assertThatThrownBy(() -> storage.delete(neverSaved))
+        .as("silently succeeding would let a deletion test pass against code that deletes nothing")
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("no identifier");
+  }
+
+  /** A second save of the same instance updates the document, as an upsert on an id does. */
+  @Test
+  void save_calledTwiceOnTheSameInstance_storesOneDocument() {
+    Player player = PlayerBuilder.newPlayer().named("Scoring Fighter").build();
+
+    storage.save(player);
+    player.addPoint(com.management.enums.PointsType.IPPON);
+    storage.save(player);
+
+    assertThat(storage.count(Player.class))
+        .as("one fighter, saved twice, is one document")
+        .isEqualTo(1);
+    assertThat(
+            storage
+                .findById(Player.class, player.getId())
+                .orElseThrow()
+                .getPoints()
+                .getNumOfPoints())
+        .as("the second save updated the stored document")
+        .isEqualTo(3);
   }
 
   @Test

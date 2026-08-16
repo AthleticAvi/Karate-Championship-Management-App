@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 import org.springframework.data.mongodb.core.convert.NoOpDbRefResolver;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
+import org.springframework.data.mongodb.core.mapping.MongoPersistentProperty;
 
 /**
  * A persistence double that behaves like MongoDB, without a MongoDB.
@@ -52,8 +53,15 @@ public final class InMemoryMongo {
   /**
    * Stores the entity and returns what a subsequent read would produce.
    *
-   * <p>The returned object is never the one passed in. Assigns an identifier when the entity does
-   * not already have one, as an insert does.
+   * <p>The returned object is never the one passed in — that non-identity is the whole point of
+   * this class. Assigns an identifier when the entity does not already have one, as an insert does.
+   *
+   * <p><strong>The identifier is also written back onto the entity passed in</strong>, which is
+   * what {@code MongoRepository.save} does. Leaving it off looked harmless — code that reads the id
+   * from the argument rather than the return value would simply fail in tests — but it made a
+   * second save of the same instance insert a second document instead of updating the first, and
+   * left {@link #delete} unable to find anything to remove. Both of those are false greens, in a
+   * class whose entire purpose is to remove them.
    */
   public <T> T save(T entity) {
     Document document = new Document();
@@ -63,6 +71,7 @@ public final class InMemoryMongo {
     if (id == null) {
       id = UUID.randomUUID().toString();
       document.put("_id", id);
+      assignIdentifier(entity, id);
     }
 
     collectionFor(entity.getClass()).put(id, document);
@@ -72,20 +81,41 @@ public final class InMemoryMongo {
     return read(type, document);
   }
 
+  /** Sets the generated identifier on the saved instance, as the real mapping layer does. */
+  private void assignIdentifier(Object entity, String id) {
+    MongoPersistentEntity<?> persistentEntity =
+        context.getRequiredPersistentEntity(entity.getClass());
+    MongoPersistentProperty idProperty = persistentEntity.getIdProperty();
+    if (idProperty != null) {
+      persistentEntity.getPropertyAccessor(entity).setProperty(idProperty, id);
+    }
+  }
+
   /** Returns a freshly converted instance, or empty. Never returns a stored reference. */
   public <T> Optional<T> findById(Class<T> type, String id) {
     Document stored = collectionFor(type).get(id);
     return Optional.ofNullable(stored).map(document -> read(type, document));
   }
 
-  /** Removes the entity by its identifier. */
+  /**
+   * Removes the entity by its identifier.
+   *
+   * <p>Rejects an entity with no identifier rather than quietly doing nothing. Silently succeeding
+   * is how {@code save(p); delete(p);} used to leave the document in storage while reporting that
+   * it had gone — a test asserting the deletion would pass against code that never deleted
+   * anything.
+   */
   public void delete(Object entity) {
     MongoPersistentEntity<?> persistentEntity =
         context.getRequiredPersistentEntity(entity.getClass());
     Object id = persistentEntity.getIdentifierAccessor(entity).getIdentifier();
-    if (id != null) {
-      collectionFor(entity.getClass()).remove(id.toString());
+    if (id == null) {
+      throw new IllegalArgumentException(
+          "Cannot delete a "
+              + entity.getClass().getSimpleName()
+              + " with no identifier: it was never saved, so there is nothing to remove.");
     }
+    collectionFor(entity.getClass()).remove(id.toString());
   }
 
   /** Number of stored documents for a type. */
