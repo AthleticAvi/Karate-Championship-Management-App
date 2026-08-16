@@ -197,16 +197,19 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 
 **Errors are RFC 9457 problem details** — `application/problem+json`, carrying `status`, `title` and `detail`. `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`, so the exceptions the framework itself raises are mapped too rather than falling through to the catch-all as 500s.
 
-| Failure | Status | Exception |
-|---|---|---|
-| Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` |
-| Not a point type | 400 | `PointTypeNotFoundException` |
-| Bad input reaching a service | 400 | `IllegalArgumentException`, incl. `NumberFormatException` |
-| No such match | 404 | `GameNotFoundException` |
-| No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` |
-| Anything else | 500 | catch-all, generic detail, message logged not returned |
+| Failure | Status | Exception | Detail |
+|---|---|---|---|
+| Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` | the message |
+| Not a point type | 400 | `PointTypeNotFoundException` | the message |
+| A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
+| Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
+| No such match | 404 | `GameNotFoundException` | the message |
+| No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
+| Anything else | 500 | catch-all | **generic**, message logged |
 
 The two colour failures are deliberately different types: *not a colour* is the caller's mistake (400), *a colour this match does not have* is a missing resource (404).
+
+**Only messages this project wrote are returned.** `InvalidGameRequestException` marks validation whose wording is meant for the caller, so its detail is echoed. A bare `IllegalArgumentException` can come from anywhere beneath the controller — Spring Data's *"The given id must not be null"*, an enum conversion failing on a legacy document — so it still answers 400 as #36 requires, but with a fixed detail and the real message in the log. Echoing it blamed the caller for a server fault and leaked internal text through the same handler that the catch-all is careful not to.
 
 **Documents written before the `winner` field became a `PlayerColor` are still readable.** `LegacyWinnerConverter`, bound to that one property with `@ValueConverter`, reads the old display sentence (`"RED player: Kenji"` → `RED`, `"Pending game ending"` → `null`) and always writes the enum name, so each document migrates itself on its next save. Without it `Enum.valueOf` fails and the whole match becomes unloadable. `LegacyWinnerIT` inserts raw pre-change BSON to prove it, because every other test writes its fixtures through the current mapping and so can never see the old form. Delete the converter once no legacy documents remain.
 

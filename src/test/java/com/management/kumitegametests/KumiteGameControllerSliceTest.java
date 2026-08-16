@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.management.enums.PlayerColor;
 import com.management.enums.PointsType;
 import com.management.exceptions.GameNotFoundException;
+import com.management.exceptions.InvalidGameRequestException;
 import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.exceptions.PointTypeNotFoundException;
@@ -379,9 +380,9 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   }
 
   @Test
-  void createKumiteGame_whenTheServiceRejectsTheRequest_returns400() throws Exception {
+  void createKumiteGame_whenTheServiceRejectsTheRequest_returns400WithTheReason() throws Exception {
     given(kumiteGameService.createKumiteGame(any()))
-        .willThrow(new IllegalArgumentException("Players cannot be empty"));
+        .willThrow(new InvalidGameRequestException("Players cannot be empty"));
 
     mockMvc
         .perform(
@@ -391,7 +392,35 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         // Reached the catch-all and reported a client mistake as a server fault before #36.
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
+        // Echoed because this project wrote it: the caller can act on it and it says nothing
+        // internal.
         .andExpect(jsonPath("$.detail").value("Players cannot be empty"));
+  }
+
+  /**
+   * An illegal argument from somewhere below the controller: still 400, but never its message.
+   *
+   * <p>The blanket {@code IllegalArgumentException} handler catches exceptions raised inside the
+   * framework and the driver as well as our own — Spring Data's "The given id must not be null" is
+   * one. Echoing those blamed the caller for a server fault <em>and</em> handed them internal text.
+   * The message it must not leak here is a database credential, the same thing the catch-all test
+   * guards.
+   */
+  @Test
+  void addPoint_whenAnUnexpectedIllegalArgumentEscapes_returns400WithoutLeakingTheMessage()
+      throws Exception {
+    willThrow(new IllegalArgumentException("invalid id for mongodb://user:secret@host/db"))
+        .given(playerService)
+        .addPoint(anyString(), anyString(), anyString());
+
+    mockMvc
+        .perform(
+            put("/api/kumitegame/{gameId}/add-point", "game-1")
+                .param("color", "RED")
+                .param("pointType", "IPPON"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value("The request contained an invalid value."))
+        .andExpect(content().string(not(containsString("secret"))));
   }
 
   @Test

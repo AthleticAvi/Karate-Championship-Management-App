@@ -5,6 +5,7 @@ import com.management.dto.PlayerRequestDTO;
 import com.management.enums.GameState;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.GameNotFoundException;
+import com.management.exceptions.InvalidGameRequestException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.KumiteGame;
 import com.management.models.Player;
@@ -138,10 +139,10 @@ public class KumiteGameService {
 
   private void validateGameRequestDTO(KumiteGameRequestDTO gameRequestDTO) {
     if (gameRequestDTO.getPlayersMap() == null || gameRequestDTO.getPlayersMap().isEmpty()) {
-      throw new IllegalArgumentException("Players cannot be empty");
+      throw new InvalidGameRequestException("Players cannot be empty");
     }
     if (gameRequestDTO.getRefereeList() == null || gameRequestDTO.getRefereeList().isEmpty()) {
-      throw new IllegalArgumentException("Referee list cannot be empty");
+      throw new InvalidGameRequestException("Referee list cannot be empty");
     }
   }
 

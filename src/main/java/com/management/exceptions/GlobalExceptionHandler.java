@@ -83,18 +83,43 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * Bad input reaching the service layer, reported as the client's fault rather than the server's.
+   * Input this application inspected and rejected, with a message it wrote itself.
    *
-   * <p>One handler covers {@code NumberFormatException} too, because it is a subclass. A second
-   * handler naming it would be dead code that suggests coverage the first one already provides.
+   * <p>The detail is echoed because {@link InvalidGameRequestException} is only ever raised by this
+   * project's own validation, so the text is known to be safe and useful to the caller.
+   */
+  @ExceptionHandler(InvalidGameRequestException.class)
+  public ProblemDetail handleInvalidGameRequest(InvalidGameRequestException ex) {
+    return badRequest("Invalid request", ex);
+  }
+
+  /**
+   * Any other illegal argument, reported as bad input but <strong>without its message</strong>.
    *
-   * <p>Both are a stopgap: the service parses the match duration out of a string by hand, and hand
-   * validation inside a service is what Epic #38 replaces with constraints at the edge. Until then,
-   * these failures are 400 rather than 500.
+   * <p>#36 requires that {@link IllegalArgumentException} and {@code NumberFormatException} answer
+   * 400 rather than 500, and they still do — one handler covers both, since the latter is a
+   * subclass. What changed is the body. This handler catches illegal arguments raised anywhere
+   * beneath the controller, including inside the framework and the driver: Spring Data's "The given
+   * id must not be null" and the enum conversion failures a legacy document can provoke are both
+   * {@code IllegalArgumentException}s that say nothing a client should see and describe a fault the
+   * client did not cause. Echoing them leaked internal text through a status that blamed the
+   * caller.
+   *
+   * <p>So the message goes to the log, exactly as the catch-all does it, and the caller gets a
+   * fixed detail. Validation whose wording is genuinely useful raises {@link
+   * InvalidGameRequestException} instead and keeps its message.
+   *
+   * <p>Still a stopgap: the service parses the match duration out of a string by hand, and hand
+   * validation inside a service is what Epic #38 replaces with constraints at the edge.
    */
   @ExceptionHandler(IllegalArgumentException.class)
   public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
-    return badRequest("Invalid request", ex);
+    log.warn("Illegal argument surfaced below the controller", ex);
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, "The request contained an invalid value.");
+    problem.setTitle("Invalid request");
+    return problem;
   }
 
   private ProblemDetail notFound(String title, Exception ex) {
