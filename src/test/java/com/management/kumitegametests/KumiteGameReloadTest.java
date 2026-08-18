@@ -7,11 +7,13 @@ import com.management.enums.GameState;
 import com.management.models.KumiteGame;
 import com.management.repositories.KumiteGameRepository;
 import com.management.services.KumiteGameService;
+import com.management.services.MatchStateWriter;
 import com.management.services.PlayerService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.TestGameProperties;
+import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +51,11 @@ class KumiteGameReloadTest {
 
     service =
         new KumiteGameService(
-            repository, TestGameProperties.standard(), Mockito.mock(PlayerService.class));
+            repository,
+            TestGameProperties.standard(),
+            Mockito.mock(PlayerService.class),
+            TestRulesEngine.standard(),
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
   }
 
   @Test

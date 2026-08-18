@@ -13,8 +13,15 @@ public final class TestGameProperties {
 
   private TestGameProperties() {}
 
+  public static final int WINNING_POINTS = 8;
+  public static final int FOULS_ENDING_MATCH = 4;
+
   public static GameProperties standard() {
     return new GameProperties(
-        Duration.ofSeconds(120), List.of(Duration.ofSeconds(90), Duration.ofSeconds(180)));
+        Duration.ofSeconds(120),
+        List.of(Duration.ofSeconds(90), Duration.ofSeconds(180)),
+        WINNING_POINTS,
+        FOULS_ENDING_MATCH,
+        List.of(Duration.ofSeconds(10), Duration.ofSeconds(30)));
   }
 }

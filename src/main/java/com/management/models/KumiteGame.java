@@ -2,13 +2,16 @@ package com.management.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.management.enums.GameState;
+import com.management.enums.MatchEndReason;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.converters.LegacyWinnerConverter;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
@@ -67,6 +70,27 @@ public class KumiteGame {
   @Nullable
   private PlayerColor winner;
 
+  /**
+   * The colour that scored first — SENSHU — or {@code null} while nobody has scored.
+   *
+   * <p>Captured as it happens, because it cannot be reconstructed afterwards: the score alone does
+   * not say who reached it first. Without it a level match at time expiry has nothing to resolve
+   * on.
+   */
+  @Nullable private PlayerColor senshu;
+
+  /** Why the match ended, or {@code null} while it is still open. */
+  @Nullable private MatchEndReason endReason;
+
+  /** The rule that decided the winner, or {@code null} while undecided. */
+  @Nullable private String decidedBy;
+
+  /** The referee's override, or {@code null} when the result is the rules engine's. */
+  @Nullable private RefereeOverride refereeOverride;
+
+  /** Every time addition a referee applied, in the order they were applied. */
+  private List<ClockAdjustment> clockAdjustments = new ArrayList<>();
+
   private LocalDateTime startTime;
   private Duration remainingTime;
   private Duration gameDuration;
@@ -92,11 +116,135 @@ public class KumiteGame {
   }
 
   public void updateWinner(PlayerColor color) {
+    requireFields(color);
+    setWinner(color);
+  }
+
+  private void requireFields(PlayerColor color) {
     if (playerIds == null || !playerIds.containsKey(color)) {
       throw new PlayerNotFoundException(
           "Match " + id + " has no " + color + " fighter to declare the winner.");
     }
-    setWinner(color);
+  }
+
+  /**
+   * Records who scored first, once.
+   *
+   * <p>SENSHU is "the first to score", so the second call is deliberately a no-op rather than an
+   * overwrite — otherwise the last scorer would end up holding it.
+   */
+  public void recordFirstScorer(PlayerColor color) {
+    if (senshu == null) {
+      senshu = color;
+    }
+  }
+
+  public Optional<PlayerColor> getSenshu() {
+    return Optional.ofNullable(senshu);
+  }
+
+  /**
+   * Forgets who scored first.
+   *
+   * <p>For a score corrected back to zero: the fighter did not, after all, score first, and leaving
+   * the claim in place would let it decide a level match at time expiry.
+   */
+  public void clearFirstScorer() {
+    this.senshu = null;
+  }
+
+  /**
+   * Applies an outcome and finishes the match, if it has not finished already.
+   *
+   * <p>Idempotent by design: two conditions can become true in the same instant — a point that
+   * crosses the threshold as the clock expires — and the first one to arrive is the one that
+   * happened. A later call changes nothing, which is what lets the evaluator run after every event
+   * without guarding each call site.
+   */
+  public void applyOutcome(MatchOutcome outcome) {
+    if (gameState == GameState.FINISHED) {
+      return;
+    }
+    if (outcome.winner() != null) {
+      requireFields(outcome.winner());
+    }
+    this.winner = outcome.winner();
+    this.endReason = outcome.reason();
+    this.decidedBy = outcome.decidedBy();
+    this.gameState = GameState.FINISHED;
+    // The clock is read before startTime is cleared: getTimer() rebuilds from that field, so
+    // clearing it first would hand back a timer that never started and report the match's full
+    // remaining time, making an early finish look like one that ran its distance.
+    this.remainingTime = getTimer().stopAndReport();
+    this.startTime = null;
+  }
+
+  public Optional<MatchEndReason> getEndReason() {
+    return Optional.ofNullable(endReason);
+  }
+
+  public Optional<String> getDecidedBy() {
+    return Optional.ofNullable(decidedBy);
+  }
+
+  /** The outcome as it currently stands, or empty while the match is undecided. */
+  public Optional<MatchOutcome> outcome() {
+    return endReason == null
+        ? Optional.empty()
+        : Optional.of(new MatchOutcome(winner, endReason, decidedBy == null ? "" : decidedBy));
+  }
+
+  public Optional<RefereeOverride> getRefereeOverride() {
+    return Optional.ofNullable(refereeOverride);
+  }
+
+  /**
+   * Records a referee's override of the result.
+   *
+   * <p>Sets the state directly rather than going through {@link #applyOutcome}, because an override
+   * applies to a match the rules engine may already have finished — that is its whole purpose. What
+   * the engine had decided is preserved inside the override record.
+   */
+  public void applyOverride(RefereeOverride override) {
+    if (override.winner() != null) {
+      requireFields(override.winner());
+    }
+    this.refereeOverride = override;
+    this.winner = override.winner();
+    this.endReason = MatchEndReason.REFEREE_OVERRIDE;
+    this.decidedBy = "RefereeOverride";
+    if (gameState != GameState.FINISHED) {
+      this.gameState = GameState.FINISHED;
+      // Read the clock before clearing startTime, for the reason applyOutcome states.
+      this.remainingTime = getTimer().stopAndReport();
+      this.startTime = null;
+    }
+  }
+
+  /** Whether the rules engine may still set this match's result. */
+  public boolean isDecidedByReferee() {
+    return refereeOverride != null;
+  }
+
+  public List<ClockAdjustment> getClockAdjustments() {
+    return List.copyOf(clockAdjustments);
+  }
+
+  /**
+   * Adds time to the clock and records that it happened.
+   *
+   * <p>Delegates the arithmetic to the timer, then copies the result back into the persisted fields
+   * — the timer is rebuilt from those on every load, so a change kept only in the timer object
+   * would vanish on the next read.
+   */
+  public void addTime(ClockAdjustment adjustment) {
+    GameTimer clock = getTimer();
+    clock.add(adjustment.added());
+    this.remainingTime = clock.getRemainingTime();
+    if (clock.isRunning()) {
+      this.startTime = clock.startedAt();
+    }
+    this.clockAdjustments.add(adjustment);
   }
 
   public String getId() {

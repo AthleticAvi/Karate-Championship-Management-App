@@ -35,6 +35,11 @@ Settled rules. Anything not listed here is either unbuilt (tracked as a GitHub i
 | Scoring | IPPON = 3, WAZA-ARI = 2, YUKO = 1 |
 | Game durations | 90s / **120s default** / 180s, loaded from config |
 | Game states | QUEUED, RUNNING, PAUSED, FINISHED |
+| Winning score | **8 by default** (`game.winning-points`) — a trigger, never a cap |
+| Foul limit | **4 by default** (`game.fouls-ending-match`) ends the match against the offender |
+| Foul stages | CHUI1 → CHUI2 → CHUI3 → HANSOKU_CHUI → HANSOKU → SHIKKAKU, derived from the count |
+| Clock increments | 10s / 30s (`game.clock-increments`) |
+| Match end reasons | POINTS_THRESHOLD, FOUL_LIMIT, TIME_EXPIRED, DISQUALIFICATION, KIKEN, REFEREE_OVERRIDE |
 
 **Valid state transitions.** Anything not in this table is illegal.
 
@@ -44,12 +49,16 @@ Settled rules. Anything not listed here is either unbuilt (tracked as a GitHub i
 | RUNNING | PAUSED, FINISHED |
 | PAUSED | RUNNING, FINISHED |
 
-The table is enforced. Each lifecycle method in `KumiteGameService` names its allowed starting states (start: QUEUED; pause: RUNNING; resume: PAUSED; end: RUNNING or PAUSED — the verbs are narrower than the state machine, since only a paused match can be *resumed*), and an illegal call surfaces as HTTP 409 via `IllegalStateTransitionException`. The full transition table also lives as data on `GameState` (`canTransitionTo`) for the planned Game Orchestrator.
+The table is enforced. Each lifecycle method in `KumiteGameService` names its allowed starting states (start: QUEUED; pause: RUNNING; resume: PAUSED; end: RUNNING or PAUSED — the verbs are narrower than the state machine, since only a paused match can be *resumed*), and an illegal call surfaces as HTTP 409 via `IllegalStateTransitionException`. The full transition table also lives as data on `GameState` (`canTransitionTo`). A match also finishes on its own, without any lifecycle call, when the rules engine says so — see below.
+
+**The rules engine** (`com.management.rules`) decides outcomes; it is the component the docs call the Game Orchestrator. `MatchOutcomeEvaluator` holds two injected lists — `MatchEndCondition` beans (is the match over, and why) and `WinnerRule` beans sorted by `@Order` (who won, first rule to answer wins) — and `KumiteGameService` calls it after every point, foul and disqualification, then applies and persists the answer. Adding a rule means adding a class; no existing rule changes.
+
+Winner priority: disqualification → higher score → SENSHU → draw. **SENSHU is captured as it happens** (first fighter to score, recorded on the match), because it cannot be reconstructed later. Ending is idempotent: the first condition to fire owns the result, and a finished match cannot be scored against.
 
 **Known vocabulary deviations in code** (each has an issue):
 - `PointsType.WAZARI` is missing the hyphen of the WKF's **WAZA-ARI**. It is public API surface — clients send `pointType=WAZARI`. #102 renamed `YOKO` to `YUKO` on the same grounds, so this is the last spelling left out of step with the rulebook.
 - `PlayerColor` has only `RED` / `BLUE`; the AKA/AO names appear nowhere in code.
-- `FoulTypes` (`CHUI1, CHUI2, CHUI3, HANSOKU_CHUI, HANSOKU, SHIKKAKU`) is declared but **never referenced**. Fouls are currently a plain counter with no progression.
+- `FoulTypes` is now derived from the foul count (`FoulTypes.forCount`). With the default limit of 4 the match ends at `HANSOKU_CHUI`, so `HANSOKU`'s point award and `SHIKKAKU`'s disqualification are only reached by accumulation if the limit is raised — the two rules the issues state ("CHUI up to 3, then HANSOKU CHUI" and "4 fouls ends the match") do not both fit one progression. Both are expressed as configuration rather than picked between in code. **Worth an explicit decision.**
 - The project wiki calls the in-progress state `STARTED`; the code says `RUNNING`. **The code is authoritative.**
 
 ## Stack
@@ -172,10 +181,10 @@ There are two aggregate roots with their own controller/service/repository stack
 
 ## Key Wiring to Know
 
-- `KumiteGameController` at `/api/kumitegame` — owns game creation, retrieval, point/foul mutations, and winner assignment; every route delegates to `KumiteGameService`
+- `KumiteGameController` at `/api/kumitegame` — owns game creation, retrieval, point/foul mutations, winner assignment, disqualification, KIKEN, referee override and clock extension; every route delegates to `KumiteGameService`
 - `PlayerController` at `/api/players` — owns player CRUD
 - `PointsType` enum carries its `PointStrategy` instance — `PointStrategy` declares `addPoint(Points)` / `removePoint(Points)`, which mutate the score in place. There is no method that returns a value.
-- `GameProperties` (a `@ConfigurationProperties("game")` record, validated at startup) binds game durations from `game.*` in `application.properties` — durations are configuration, not code
+- `GameProperties` (a `@ConfigurationProperties("game")` record, validated at startup) binds every rule value from `game.*` in `application.properties` — durations, the winning score, the foul limit and the clock increments are configuration, not code
 - MongoDB connection is configured via environment variables (`MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`), defaulting to `localhost:27017/kumitedb`. They bind through **`spring.mongodb.*`**, not `spring.data.mongodb.*` — Boot 4 split that namespace into driver-level (`spring.mongodb`) and repository-level (`spring.data.mongodb`). Both still resolve, so using the wrong one fails silently by falling back to the default host.
 
 ## The API Response Contract
@@ -184,7 +193,7 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | everything under `/api/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner` |
+| `KumiteGameResponse` | everything under `/api/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
 | `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
 | `PlayerResponse` | `/api/players` | `id`, `name`, `points`, `fouls` |
 
@@ -197,7 +206,7 @@ Settled in Epic #32. Persistence types do not cross the HTTP boundary in either 
 - **Referees are names.** A `List<String>`, not a list of objects, until a referee has more than a name.
 - **Enums serialise as their names**, uppercase, exactly as declared.
 
-**Mutations return the new state.** The four scoring endpoints answer with the updated `KumiteGameResponse` rather than a confirmation sentence, so a scoreboard never needs a follow-up read. `DELETE /api/players/{id}` answers 204 with no body.
+**Mutations return the new state.** The scoring, disqualification, KIKEN, override and add-time endpoints all answer with the updated `KumiteGameResponse` rather than a confirmation sentence, so a scoreboard never needs a follow-up read — including when the mutation is what finished the match. `DELETE /api/players/{id}` answers 204 with no body.
 
 **Errors are RFC 9457 problem details** — `application/problem+json`, carrying `status`, `title` and `detail`. `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`, so the exceptions the framework itself raises are mapped too rather than falling through to the catch-all as 500s.
 
@@ -227,7 +236,7 @@ The two colour failures are deliberately different types: *not a colour* is the 
 
 - **Timer lifecycle wiring** — `GameTimer` class exists with basic structure and a test, but is not yet integrated into game lifecycle methods. WebSocket push to frontend not implemented. Persistence strategy for `remainingTime` recalculation on point/foul events not implemented.
 - **Game lifecycle endpoints** — `startGame`, `pauseGame`, `resumeGame`, `endGame` have no controller mappings
-- **Game Orchestrator** — evaluates game ending conditions after every point/foul, determines winner, updates state
+- **Clock-driven time expiry** — expiry is *observed* on the next scoring event, not pushed. A match left untouched past its duration stays open until something asks. Closing that needs the timer to emit events (see the timer item above).
 - **Spring Security and JWT** — not started
 - **Frontend** — not started
 

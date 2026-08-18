@@ -1,6 +1,8 @@
 package com.management.models;
 
+import com.management.enums.FoulTypes;
 import com.management.enums.PointsType;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -24,6 +26,9 @@ public class Player {
   private String name;
   private Points points;
   private Foul fouls;
+
+  /** Set by a referee's SHIKKAKU or explicit disqualification, never derived from the count. */
+  private boolean disqualified;
 
   public Player() {}
 
@@ -86,6 +91,20 @@ public class Player {
 
   public void removeFoul() {
     this.fouls.removeFoul();
+  }
+
+  /** The penalty stage this fighter is at, derived from the foul count. Empty when unpenalised. */
+  public Optional<FoulTypes> foulStage() {
+    return FoulTypes.forCount(fouls.getNumOfFouls());
+  }
+
+  public boolean isDisqualified() {
+    return disqualified;
+  }
+
+  /** Puts the fighter out of the match. Irreversible: a disqualification is not un-issued. */
+  public void disqualify() {
+    this.disqualified = true;
   }
 
   public long getVersion() {
