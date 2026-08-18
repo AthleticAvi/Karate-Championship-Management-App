@@ -59,7 +59,6 @@ Winner priority: disqualification → higher score → SENSHU → draw. **SENSHU
 - `PointsType.WAZARI` is missing the hyphen of the WKF's **WAZA-ARI**. It is public API surface — clients send `pointType=WAZARI`. #102 renamed `YOKO` to `YUKO` on the same grounds, so this is the last spelling left out of step with the rulebook.
 - `PlayerColor` has only `RED` / `BLUE`; the AKA/AO names appear nowhere in code.
 - `FoulTypes` is now derived from the foul count (`FoulTypes.forCount`). With the default limit of 4 the match ends at `HANSOKU_CHUI`, so `HANSOKU`'s point award and `SHIKKAKU`'s disqualification are only reached by accumulation if the limit is raised — the two rules the issues state ("CHUI up to 3, then HANSOKU CHUI" and "4 fouls ends the match") do not both fit one progression. Both are expressed as configuration rather than picked between in code. **Worth an explicit decision.**
-- The project wiki calls the in-progress state `STARTED`; the code says `RUNNING`. **The code is authoritative.**
 
 ## Stack
 
