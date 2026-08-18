@@ -1,6 +1,7 @@
 package com.management.dto;
 
 import com.management.enums.GameState;
+import com.management.enums.MatchEndReason;
 import com.management.enums.PlayerColor;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -25,6 +26,16 @@ import org.jspecify.annotations.Nullable;
  * See {@code workflow/patterns/service-exposure.md}: a field whose format cannot be misread needs
  * no format policy. {@code startTime} is deliberately absent — it is internal bookkeeping used to
  * compute elapsed time, and a client holding {@code remainingSeconds} has no use for it.
+ *
+ * <p><strong>The result explains itself.</strong> A colour alone does not say whether a match was
+ * won on points, forfeited, or set aside by a referee, and those read very differently on a
+ * scoreboard. {@code endReason} says why the match ended and {@code overridden} says whether the
+ * rules engine or a human produced the result; both are {@code null}/{@code false} while the match
+ * is still being fought. The rule that decided it stays internal — it is audit detail, not
+ * something a scoreboard renders.
+ *
+ * @param endReason why the match ended, or {@code null} while it is open
+ * @param overridden whether a referee set this result rather than the rules engine
  */
 public record KumiteGameResponse(
     String id,
@@ -33,4 +44,6 @@ public record KumiteGameResponse(
     PlayerSummary red,
     PlayerSummary blue,
     List<String> referees,
-    @Nullable PlayerColor winner) {}
+    @Nullable PlayerColor winner,
+    @Nullable MatchEndReason endReason,
+    boolean overridden) {}

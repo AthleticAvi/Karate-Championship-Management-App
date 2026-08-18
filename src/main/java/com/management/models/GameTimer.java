@@ -68,6 +68,53 @@ public class GameTimer {
     this.startTime = null;
   }
 
+  /**
+   * Stops the clock, reporting the time that was left on it.
+   *
+   * <p>For a match that ends before its time is up — a threshold crossing, a forfeit. {@link
+   * #stop()} zeroes the clock, which makes an early finish indistinguishable from one that ran the
+   * full duration; this keeps the evidence.
+   */
+  public Duration stopAndReport() {
+    Duration left = getRemainingTime();
+    this.remainingTime = left;
+    this.startTime = null;
+    return left;
+  }
+
+  /**
+   * Adds time to the clock, whether it is running or paused.
+   *
+   * <p>Adding to a <em>running</em> clock is the case that goes wrong: the remaining time is only
+   * meaningful together with the instant it was last measured from, so the elapsed time so far is
+   * banked first and the clock restarted from now. Adding to the total without doing that would
+   * hand back the added time and then immediately subtract the same elapsed period again.
+   *
+   * @param extra a positive duration; zero or negative is rejected, because removing time is a
+   *     different operation with different rules and is deliberately not offered here
+   */
+  public void add(Duration extra) {
+    if (extra.isNegative() || extra.isZero()) {
+      throw new IllegalArgumentException(
+          "Time added to the clock must be positive, but was " + extra);
+    }
+    if (startTime != null) {
+      this.remainingTime = clampToZero(remainingTime.minus(elapsedSinceStart(startTime)));
+      this.startTime = LocalDateTime.now(clock);
+    }
+    this.remainingTime = remainingTime.plus(extra);
+  }
+
+  /** Whether the clock is currently counting down. */
+  public boolean isRunning() {
+    return startTime != null;
+  }
+
+  /** The instant the clock last started counting, or {@code null} if it is not running. */
+  public @Nullable LocalDateTime startedAt() {
+    return startTime;
+  }
+
   /** Time left on the clock, never negative: a match that ran long reports zero, not minus. */
   public Duration getRemainingTime() {
     if (startTime != null) {

@@ -42,7 +42,9 @@ public final class KumiteGameMapper {
         toSummary(fighter(gameWithFighters, PlayerColor.RED)),
         toSummary(fighter(gameWithFighters, PlayerColor.BLUE)),
         game.getReferees().stream().map(Referee::name).toList(),
-        game.getWinner());
+        game.getWinner(),
+        game.getEndReason().orElse(null),
+        game.isDecidedByReferee());
   }
 
   private static PlayerSummary toSummary(Player player) {

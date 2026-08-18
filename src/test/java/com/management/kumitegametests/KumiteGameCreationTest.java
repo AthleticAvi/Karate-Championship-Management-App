@@ -19,10 +19,12 @@ import com.management.models.Player;
 import com.management.repositories.KumiteGameRepository;
 import com.management.repositories.PlayerRepository;
 import com.management.services.KumiteGameService;
+import com.management.services.MatchStateWriter;
 import com.management.services.PlayerService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.TestGameProperties;
+import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,7 +52,11 @@ class KumiteGameCreationTest {
     playerService = new PlayerService(FakeRepositories.players(storage));
     service =
         new KumiteGameService(
-            FakeRepositories.kumiteGames(storage), TestGameProperties.standard(), playerService);
+            FakeRepositories.kumiteGames(storage),
+            TestGameProperties.standard(),
+            playerService,
+            TestRulesEngine.standard(),
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
   }
 
   @Test
@@ -95,7 +101,9 @@ class KumiteGameCreationTest {
         new KumiteGameService(
             FakeRepositories.kumiteGames(storage),
             TestGameProperties.standard(),
-            new PlayerService(flakyFighters));
+            new PlayerService(flakyFighters),
+            TestRulesEngine.standard(),
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
 
     assertThatThrownBy(
             () ->
@@ -118,9 +126,19 @@ class KumiteGameCreationTest {
   @Test
   void createKumiteGame_withNoDuration_usesTheInjectedDefault() {
     GameProperties fiveMinutes =
-        new GameProperties(Duration.ofMinutes(5), List.of(Duration.ofMinutes(5)));
+        new GameProperties(
+            Duration.ofMinutes(5),
+            List.of(Duration.ofMinutes(5)),
+            TestGameProperties.WINNING_POINTS,
+            TestGameProperties.FOULS_ENDING_MATCH,
+            List.of(Duration.ofSeconds(10)));
     KumiteGameService customised =
-        new KumiteGameService(FakeRepositories.kumiteGames(storage), fiveMinutes, playerService);
+        new KumiteGameService(
+            FakeRepositories.kumiteGames(storage),
+            fiveMinutes,
+            playerService,
+            TestRulesEngine.standard(),
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
 
     GameWithFighters created =
         customised.createKumiteGame(
@@ -184,7 +202,12 @@ class KumiteGameCreationTest {
     when(failingRepository.save(any(KumiteGame.class)))
         .thenThrow(new IllegalStateException("simulated write failure"));
     KumiteGameService failingService =
-        new KumiteGameService(failingRepository, TestGameProperties.standard(), playerService);
+        new KumiteGameService(
+            failingRepository,
+            TestGameProperties.standard(),
+            playerService,
+            TestRulesEngine.standard(),
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
 
     assertThatThrownBy(
             () ->

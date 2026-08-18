@@ -1,7 +1,9 @@
 package com.management.controllers;
 
+import com.management.dto.ClockAdjustmentRequest;
 import com.management.dto.KumiteGameRequestDTO;
 import com.management.dto.KumiteGameResponse;
+import com.management.dto.WinnerOverrideRequest;
 import com.management.mappers.KumiteGameMapper;
 import com.management.services.KumiteGameService;
 import jakarta.validation.Valid;
@@ -67,5 +69,36 @@ public class KumiteGameController {
       @PathVariable String gameId, @PathVariable String color) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(kumiteGameService.updateKumiteGameWinner(gameId, color)));
+  }
+
+  /** Puts a fighter out of the match; the rules engine awards the win to the opponent. */
+  @PutMapping("/{gameId}/disqualify/{color}")
+  public ResponseEntity<KumiteGameResponse> disqualify(
+      @PathVariable String gameId, @PathVariable String color) {
+    return ResponseEntity.ok(
+        KumiteGameMapper.toResponse(kumiteGameService.disqualify(gameId, color)));
+  }
+
+  /** Records a forfeit — KIKEN — against a fighter who did not appear or withdrew. */
+  @PutMapping("/{gameId}/kiken/{color}")
+  public ResponseEntity<KumiteGameResponse> forfeit(
+      @PathVariable String gameId, @PathVariable String color) {
+    return ResponseEntity.ok(KumiteGameMapper.toResponse(kumiteGameService.forfeit(gameId, color)));
+  }
+
+  /** Replaces the result with a referee's decision. The reason is required. */
+  @PutMapping("/{gameId}/override-winner")
+  public ResponseEntity<KumiteGameResponse> overrideWinner(
+      @PathVariable String gameId, @Valid @RequestBody WinnerOverrideRequest request) {
+    return ResponseEntity.ok(
+        KumiteGameMapper.toResponse(kumiteGameService.overrideWinner(gameId, request)));
+  }
+
+  /** Puts time back on the clock after a stop that came late. */
+  @PutMapping("/{gameId}/add-time")
+  public ResponseEntity<KumiteGameResponse> addTime(
+      @PathVariable String gameId, @Valid @RequestBody ClockAdjustmentRequest request) {
+    return ResponseEntity.ok(
+        KumiteGameMapper.toResponse(kumiteGameService.addTime(gameId, request)));
   }
 }

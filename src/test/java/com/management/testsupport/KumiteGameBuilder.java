@@ -56,6 +56,7 @@ public final class KumiteGameBuilder {
   @Nullable private Duration remainingTime;
   @Nullable private LocalDateTime startTime;
   @Nullable private PlayerColor winner;
+  @Nullable private PlayerColor senshu;
   @Nullable private String id;
 
   private KumiteGameBuilder() {
@@ -138,6 +139,12 @@ public final class KumiteGameBuilder {
     return this;
   }
 
+  /** A match in which the given colour scored first — the SENSHU tiebreak's input. */
+  public KumiteGameBuilder firstScorer(PlayerColor color) {
+    this.senshu = color;
+    return this;
+  }
+
   /**
    * Gives the match a persistent identifier, as though it had been saved.
    *
@@ -189,6 +196,9 @@ public final class KumiteGameBuilder {
     }
     game.setStartTime(startTime);
     game.setWinner(winner);
+    if (senshu != null) {
+      game.recordFirstScorer(senshu);
+    }
     if (id != null) {
       ReflectionTestUtils.setField(game, "id", id);
     }

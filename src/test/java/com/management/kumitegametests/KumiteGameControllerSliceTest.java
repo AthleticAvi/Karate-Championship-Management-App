@@ -193,7 +193,9 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                       "red":  { "id": "red-1",  "name": "Kenji", "points": 3, "fouls": 0 },
                       "blue": { "id": "blue-1", "name": "Sato",  "points": 0, "fouls": 1 },
                       "referees": ["Test Referee"],
-                      "winner": null
+                      "winner": null,
+                      "endReason": null,
+                      "overridden": false
                     }
                     """,
                     JsonCompareMode.STRICT));

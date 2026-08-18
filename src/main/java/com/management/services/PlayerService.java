@@ -124,4 +124,18 @@ public class PlayerService {
     player.removeFoul();
     return playerRepository.save(player);
   }
+
+  /** Puts a fighter out of the match. Retried like the rest: it is a read-modify-write too. */
+  @Retryable(
+      includes = OptimisticLockingFailureException.class,
+      maxRetries = 9,
+      delay = 20,
+      jitter = 20,
+      multiplier = 1.5,
+      maxDelay = 200)
+  public Player disqualify(String playerId) {
+    Player player = getPlayer(playerId);
+    player.disqualify();
+    return playerRepository.save(player);
+  }
 }
