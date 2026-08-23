@@ -1,0 +1,5 @@
+# Git hooks are shell scripts executed by sh. They must arrive with LF endings on every platform:
+# core.autocrlf is true on a typical Windows clone, and a CRLF in the shebang line makes the kernel
+# look for an interpreter named "/bin/sh\r", which does not exist. The hook then fails on the
+# machines most likely to be running it.
+hooks/** text eol=lf

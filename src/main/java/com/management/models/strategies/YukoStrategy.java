@@ -2,7 +2,7 @@ package com.management.models.strategies;
 
 import com.management.models.Points;
 
-public class YokoStrategy implements PointStrategy {
+public class YukoStrategy implements PointStrategy {
   @Override
   public void addPoint(Points point) {
     point.setNumOfPoints(point.getNumOfPoints() + 1);

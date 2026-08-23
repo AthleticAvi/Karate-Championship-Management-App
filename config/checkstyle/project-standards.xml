@@ -55,9 +55,22 @@
       <property name="ignoreComments" value="true"/>
       <property name="message" value="java.md: Optional is a return type, never a parameter."/>
     </module>
+    <!--
+      Matches a field declaration only. A method is excluded by the parameter list its name is
+      followed by, so the generic part excludes "(" rather than "&gt;". Excluding "&gt;" stopped at
+      the inner bracket of a nested generic and let "private Optional&lt;List&lt;String&gt;&gt;
+      cache;" through. The tail allows end-of-line as well as "=" or ";", so a declaration the
+      formatter wrapped is still caught.
+
+      Without that method exclusion the pattern matched every method whose return type is Optional,
+      which is the one use java.md explicitly endorses and which its own worked example contains
+      ("private static Optional&lt;Grade&gt; parseGrade(...)"). A rule that forbids the thing its
+      standard prescribes is worse than no rule: it pushes authors towards returning null instead.
+    -->
     <module name="RegexpSinglelineJava">
       <property name="id" value="OptionalAsField"/>
-      <property name="format" value="^\s*(private|protected|public)\s+(static\s+|final\s+)*Optional&lt;"/>
+      <property name="format"
+                value="^\s*(private|protected|public)\s+(static\s+|final\s+)*Optional&lt;[^(]*&gt;\s+\w+\s*([=;]|$)"/>
       <property name="ignoreComments" value="true"/>
       <property name="message" value="java.md: Optional is a return type, never a field."/>
     </module>

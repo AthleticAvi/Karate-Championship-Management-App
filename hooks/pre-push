@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Checks formatting before anything leaves the machine.
+#
+# This is a convenience, not a gate. workflow/standards/enforcement.md is explicit that a gate which
+# runs only locally does not exist -- CI runs the full build on every push and pull request, and that
+# is what actually protects the repository. This hook exists because formatting is the one check that
+# is auto-fixable and the one most likely to fail CI for a reason nobody needed to think about.
+#
+# Only the formatter runs here. Analyser findings are not auto-fixable, so a hook could only block on
+# them, which moves an interruption earlier without preventing anything.
+#
+# Why pre-push and not pre-commit. A pre-commit hook that formats has to put the result back into the
+# commit, and the only way to do that is to stage files mid-commit. `git add <path>` stages the whole
+# working-tree version of a file, so a developer who staged one hunk and left other edits in the same
+# file unstaged had all of it committed. Reformatting the tree during a commit also rewrote files the
+# commit was not about. A pre-push hook has no such job: it reports, and the developer decides. It
+# also runs once per push instead of once per commit, so local commits stay cheap.
+#
+# To skip it once:            git push --no-verify
+# To stop using hooks at all: git config --unset core.hooksPath
+
+set -e
+
+# Nothing being pushed? Nothing to check. git feeds the refs on stdin and sends no lines when there
+# is nothing to update.
+if [ -t 0 ]; then
+  :
+else
+  if [ -z "$(cat)" ]; then
+    exit 0
+  fi
+fi
+
+echo "pre-push: checking formatting..."
+
+if mvn -q --no-transfer-progress spotless:check; then
+  exit 0
+fi
+
+cat >&2 <<'MESSAGE'
+
+pre-push: formatting violations above. Nothing has been pushed.
+
+  Fix them:  mvn spotless:apply
+  Then:      git add -u && git commit --amend --no-edit   (or a new commit)
+
+The formatter is deterministic, so applying it produces exactly what CI expects.
+To push anyway: git push --no-verify
+MESSAGE
+
+exit 1

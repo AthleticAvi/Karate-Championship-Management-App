@@ -2,69 +2,257 @@ package com.management.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.management.enums.GameState;
+import com.management.enums.MatchEndReason;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
+import com.management.models.converters.LegacyWinnerConverter;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Transient;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+/**
+ * A match: two fighter references, the officials, the clock, the state, and the result.
+ *
+ * <p><strong>Fighters are referenced, never embedded.</strong> The match stores each fighter's
+ * document id keyed by colour; the fighter documents own their names and scores. The previous shape
+ * embedded a full copy of each fighter here, which made every score two writes to two collections
+ * with nothing tying them together — on a standalone MongoDB, with no transaction to span them, a
+ * failure between the writes left the copies permanently disagreeing. One fact, one owner: the
+ * score lives on {@link Player} and nowhere else, and reads compose the two aggregates (see {@link
+ * GameWithFighters}).
+ */
 @Document
 public class KumiteGame {
   @Id private String id;
+
+  /**
+   * Detects concurrent modification: a save against a stale version matches no document and raises
+   * {@code OptimisticLockingFailureException} instead of silently overwriting.
+   *
+   * <p>Primitive {@code long}, so an unset version reads as {@code 0} — which Spring Data treats as
+   * <em>new</em>. A document written before this field existed therefore cannot be updated: its
+   * next save is attempted as an insert and fails on the duplicate identifier. That is accepted
+   * rather than backfilled, because there is no production data; see {@code CLAUDE.md}.
+   */
+  @Version private long version;
+
   private GameState gameState;
-  private Map<PlayerColor, Player> playersMap;
+
+  /** Fighter document ids keyed by colour. Absent on a document written before #49. */
+  @Nullable private Map<PlayerColor, String> playerIds;
+
   private List<Referee> referees;
-  private String winner;
+
+  /**
+   * The colour that won, or {@code null} while the match has no winner.
+   *
+   * <p>Was a display sentence — {@code "RED player: Kenji"}, starting life as the literal {@code
+   * "Pending game ending"}. That is a value field doing a rendering job: no client could reliably
+   * tell whether a match had been decided without comparing strings, and the fighter's name was
+   * baked into a field that changes when the fighter is renamed. {@code java.md} forbids a magic
+   * string for absent state; {@code null} is the absence.
+   *
+   * <p>{@link LegacyWinnerConverter} keeps documents written before that change readable — without
+   * it, {@code Enum.valueOf} fails on the stored sentence and the whole match becomes unloadable.
+   * See that class for why the conversion is bound to this property rather than to the type.
+   */
+  @ValueConverter(LegacyWinnerConverter.class)
+  @Nullable
+  private PlayerColor winner;
+
+  /**
+   * The colour that scored first — SENSHU — or {@code null} while nobody has scored.
+   *
+   * <p>Captured as it happens, because it cannot be reconstructed afterwards: the score alone does
+   * not say who reached it first. Without it a level match at time expiry has nothing to resolve
+   * on.
+   */
+  @Nullable private PlayerColor senshu;
+
+  /** Why the match ended, or {@code null} while it is still open. */
+  @Nullable private MatchEndReason endReason;
+
+  /** The rule that decided the winner, or {@code null} while undecided. */
+  @Nullable private String decidedBy;
+
+  /** The referee's override, or {@code null} when the result is the rules engine's. */
+  @Nullable private RefereeOverride refereeOverride;
+
+  /** Every time addition a referee applied, in the order they were applied. */
+  private List<ClockAdjustment> clockAdjustments = new ArrayList<>();
+
   private LocalDateTime startTime;
   private Duration remainingTime;
   private Duration gameDuration;
   @JsonIgnore @Transient private GameTimer timer;
 
-  private static final Logger log = LoggerFactory.getLogger(KumiteGame.class);
-  private static final String PLAYER_COLOR_NOT_FOUND = "Player color not found in the game";
-  private static final String PLAYER_COLOR = " Player color: ";
+  /**
+   * The mapper's way in (#52): builds an empty shell that the mapping layer populates field by
+   * field from the stored document. Explicit, so loading no longer runs the new-match constructor
+   * below and then overwrites its work — and so a future constructor-only field cannot be silently
+   * reset on every read.
+   */
+  @PersistenceCreator
+  KumiteGame() {}
 
+  /** A new match: queued, undecided, full time on the clock. */
   public KumiteGame(
-      Map<PlayerColor, Player> playersMap, List<Referee> referees, Duration gameDuration) {
+      Map<PlayerColor, String> playerIds, List<Referee> referees, Duration gameDuration) {
     this.gameState = GameState.QUEUED;
-    this.playersMap = playersMap;
+    this.playerIds = playerIds;
     this.referees = referees;
     this.gameDuration = gameDuration;
     this.remainingTime = gameDuration;
-    this.winner = "Pending game ending";
-  }
-
-  public void initializeTimer(Duration gameDuration) {
-    this.timer = new GameTimer(gameDuration);
-  }
-
-  public void updatePlayer(PlayerColor color, Player updatedPlayer) {
-    if (!(playersMap.containsKey(color))) {
-      log.error(
-          "KumiteGame - updatePlayer - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
-      throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
-    }
-    playersMap.put(color, updatedPlayer);
   }
 
   public void updateWinner(PlayerColor color) {
-    if (!(playersMap.containsKey(color))) {
-      log.error(
-          "KumiteGame - updateWinner - {}, {}}: {}", PLAYER_COLOR_NOT_FOUND, PLAYER_COLOR, color);
-      throw new PlayerNotFoundException(PLAYER_COLOR_NOT_FOUND + PLAYER_COLOR + color);
+    requireFields(color);
+    setWinner(color);
+  }
+
+  private void requireFields(PlayerColor color) {
+    if (playerIds == null || !playerIds.containsKey(color)) {
+      throw new PlayerNotFoundException(
+          "Match " + id + " has no " + color + " fighter to declare the winner.");
     }
-    String gameWinner = color.name() + " player: " + playersMap.get(color).getName();
-    setWinner(gameWinner);
+  }
+
+  /**
+   * Records who scored first, once.
+   *
+   * <p>SENSHU is "the first to score", so the second call is deliberately a no-op rather than an
+   * overwrite — otherwise the last scorer would end up holding it.
+   */
+  public void recordFirstScorer(PlayerColor color) {
+    if (senshu == null) {
+      senshu = color;
+    }
+  }
+
+  public Optional<PlayerColor> getSenshu() {
+    return Optional.ofNullable(senshu);
+  }
+
+  /**
+   * Forgets who scored first.
+   *
+   * <p>For a score corrected back to zero: the fighter did not, after all, score first, and leaving
+   * the claim in place would let it decide a level match at time expiry.
+   */
+  public void clearFirstScorer() {
+    this.senshu = null;
+  }
+
+  /**
+   * Applies an outcome and finishes the match, if it has not finished already.
+   *
+   * <p>Idempotent by design: two conditions can become true in the same instant — a point that
+   * crosses the threshold as the clock expires — and the first one to arrive is the one that
+   * happened. A later call changes nothing, which is what lets the evaluator run after every event
+   * without guarding each call site.
+   */
+  public void applyOutcome(MatchOutcome outcome) {
+    if (gameState == GameState.FINISHED) {
+      return;
+    }
+    if (outcome.winner() != null) {
+      requireFields(outcome.winner());
+    }
+    this.winner = outcome.winner();
+    this.endReason = outcome.reason();
+    this.decidedBy = outcome.decidedBy();
+    this.gameState = GameState.FINISHED;
+    // The clock is read before startTime is cleared: getTimer() rebuilds from that field, so
+    // clearing it first would hand back a timer that never started and report the match's full
+    // remaining time, making an early finish look like one that ran its distance.
+    this.remainingTime = getTimer().stopAndReport();
+    this.startTime = null;
+  }
+
+  public Optional<MatchEndReason> getEndReason() {
+    return Optional.ofNullable(endReason);
+  }
+
+  public Optional<String> getDecidedBy() {
+    return Optional.ofNullable(decidedBy);
+  }
+
+  /** The outcome as it currently stands, or empty while the match is undecided. */
+  public Optional<MatchOutcome> outcome() {
+    return endReason == null
+        ? Optional.empty()
+        : Optional.of(new MatchOutcome(winner, endReason, decidedBy == null ? "" : decidedBy));
+  }
+
+  public Optional<RefereeOverride> getRefereeOverride() {
+    return Optional.ofNullable(refereeOverride);
+  }
+
+  /**
+   * Records a referee's override of the result.
+   *
+   * <p>Sets the state directly rather than going through {@link #applyOutcome}, because an override
+   * applies to a match the rules engine may already have finished — that is its whole purpose. What
+   * the engine had decided is preserved inside the override record.
+   */
+  public void applyOverride(RefereeOverride override) {
+    if (override.winner() != null) {
+      requireFields(override.winner());
+    }
+    this.refereeOverride = override;
+    this.winner = override.winner();
+    this.endReason = MatchEndReason.REFEREE_OVERRIDE;
+    this.decidedBy = "RefereeOverride";
+    if (gameState != GameState.FINISHED) {
+      this.gameState = GameState.FINISHED;
+      // Read the clock before clearing startTime, for the reason applyOutcome states.
+      this.remainingTime = getTimer().stopAndReport();
+      this.startTime = null;
+    }
+  }
+
+  /** Whether the rules engine may still set this match's result. */
+  public boolean isDecidedByReferee() {
+    return refereeOverride != null;
+  }
+
+  public List<ClockAdjustment> getClockAdjustments() {
+    return List.copyOf(clockAdjustments);
+  }
+
+  /**
+   * Adds time to the clock and records that it happened.
+   *
+   * <p>Delegates the arithmetic to the timer, then copies the result back into the persisted fields
+   * — the timer is rebuilt from those on every load, so a change kept only in the timer object
+   * would vanish on the next read.
+   */
+  public void addTime(ClockAdjustment adjustment) {
+    GameTimer clock = getTimer();
+    clock.add(adjustment.added());
+    this.remainingTime = clock.getRemainingTime();
+    if (clock.isRunning()) {
+      this.startTime = clock.startedAt();
+    }
+    this.clockAdjustments.add(adjustment);
   }
 
   public String getId() {
     return id;
+  }
+
+  public long getVersion() {
+    return version;
   }
 
   public GameState getGameState() {
@@ -75,12 +263,8 @@ public class KumiteGame {
     this.gameState = gameState;
   }
 
-  public Map<PlayerColor, Player> getPlayersMap() {
-    return playersMap;
-  }
-
-  public void setPlayersMap(Map<PlayerColor, Player> playersMap) {
-    this.playersMap = playersMap;
+  public @Nullable Map<PlayerColor, String> getPlayerIds() {
+    return playerIds;
   }
 
   public List<Referee> getReferees() {
@@ -91,11 +275,11 @@ public class KumiteGame {
     this.referees = referees;
   }
 
-  public String getWinner() {
+  public @Nullable PlayerColor getWinner() {
     return winner;
   }
 
-  public void setWinner(String winner) {
+  public void setWinner(@Nullable PlayerColor winner) {
     this.winner = winner;
   }
 
@@ -123,7 +307,67 @@ public class KumiteGame {
     this.gameDuration = gameDuration;
   }
 
+  /**
+   * The match clock, rebuilt on demand from persisted state.
+   *
+   * <p>The {@code timer} field is {@code @Transient}, so a game loaded from MongoDB never has one.
+   * Rebuilding here — from both {@code remainingTime} and {@code startTime} — is what makes every
+   * lifecycle method safe against a freshly loaded game; a caller cannot forget a rebuild it never
+   * has to perform. Dropping {@code startTime} from the reconstruction would silently freeze a
+   * running clock (see {@link GameTimer}), so both values go in.
+   *
+   * <p>Order matters for callers that also mutate {@code startTime}: the rebuild captures the
+   * persisted value at the first {@code getTimer()} call, so read the timer before overwriting the
+   * field it rebuilds from.
+   */
   public GameTimer getTimer() {
+    if (timer == null) {
+      timer = new GameTimer(remainingTime, startTime);
+    }
     return timer;
+  }
+
+  /**
+   * Identity equality on the persistent id (#60): two objects with the same id are the same stored
+   * match, even if one is stale. An unsaved match has no id and is equal only to itself.
+   */
+  @Override
+  public boolean equals(@Nullable Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof KumiteGame otherGame)) {
+      return false;
+    }
+    return id != null && id.equals(otherGame.id);
+  }
+
+  /**
+   * Constant, deliberately.
+   *
+   * <p>Hashing the identifier looks better distributed but breaks the contract: {@code save}
+   * assigns the id, so an entity put in a {@code HashSet} before saving lands in one bucket and is
+   * looked for in another afterwards — silently unreachable. A constant keeps the hash stable
+   * across that transition, which is the property collections actually require; equality still
+   * separates the instances.
+   */
+  @Override
+  public int hashCode() {
+    return KumiteGame.class.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return "KumiteGame{id="
+        + id
+        + ", state="
+        + gameState
+        + ", playerIds="
+        + playerIds
+        + ", winner="
+        + winner
+        + ", remainingTime="
+        + remainingTime
+        + "}";
   }
 }

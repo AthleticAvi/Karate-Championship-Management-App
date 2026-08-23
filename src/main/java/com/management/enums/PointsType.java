@@ -3,12 +3,12 @@ package com.management.enums;
 import com.management.models.strategies.IpponStrategy;
 import com.management.models.strategies.PointStrategy;
 import com.management.models.strategies.WazariStrategy;
-import com.management.models.strategies.YokoStrategy;
+import com.management.models.strategies.YukoStrategy;
 
 public enum PointsType {
   IPPON(new IpponStrategy()),
   WAZARI(new WazariStrategy()),
-  YOKO(new YokoStrategy());
+  YUKO(new YukoStrategy());
 
   private final PointStrategy strategy;
 

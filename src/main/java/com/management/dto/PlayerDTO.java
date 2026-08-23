@@ -1,38 +1,15 @@
 package com.management.dto;
 
-public class PlayerDTO {
-  private String id;
-  private String name;
-  private String color;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
-  public PlayerDTO() {}
-
-  public PlayerDTO(String name, String color) {
-    this.name = name;
-    this.color = color;
-  }
-
-  public String getId() {
-    return id;
-  }
-
-  public void setId(String id) {
-    this.id = id;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
-  }
-
-  public String getColor() {
-    return color;
-  }
-
-  public void setColor(String color) {
-    this.color = color;
-  }
-}
+/**
+ * A fighter inside a match-creation request.
+ *
+ * <p>The colour is constrained only as present; whether it names a real colour is decided against
+ * {@code PlayerColor} in the service, where the failure carries its own exception type and 400
+ * mapping. The {@code id} field the class-based version carried is gone: it was never read.
+ */
+public record PlayerDTO(
+    @NotBlank(message = "a fighter needs a name") @Size(max = 100) String name,
+    @NotBlank(message = "a fighter needs a colour") String color) {}
