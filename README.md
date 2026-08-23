@@ -44,6 +44,17 @@ mvn verify                                                  # build and test
 mvn spring-boot:run                                         # run
 ```
 
+## Profiles
+
+- **dev** — active by default (`spring.profiles.default=dev`). Used for local development.
+- **test** — activated automatically for the test suite via `@ActiveProfiles("test")` on the integration test base class.
+
+To run with an explicit profile:
+
+```bash
+mvn spring-boot:run -Dspring.profiles.active=dev
+```
+
 ## Documentation
 
 - **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — how to contribute. Read this before opening a pull request.

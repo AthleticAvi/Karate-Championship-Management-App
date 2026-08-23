@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.mongodb.MongoDBContainer;
 
 /**
@@ -36,9 +37,14 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * that way. Testcontainers 2.x relocates container classes into module-specific packages, and Epic
  * #89 will make that move; concentrating the reference here turns that migration into a one-line
  * change no matter how many integration tests exist by then.
+ *
+ * <p><strong>Active profile: test.</strong> The {@code @ActiveProfiles("test")} annotation
+ * activates the test profile for all integration tests, ensuring test-specific configuration is
+ * used while preserving a single shared context across the suite.
  */
 @SpringBootTest(classes = KumiteGameStarter.class, webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
+@ActiveProfiles("test")
 public abstract class IntegrationTestBase {
 
   @ServiceConnection static final MongoDBContainer MONGO = new MongoDBContainer("mongo:7");
