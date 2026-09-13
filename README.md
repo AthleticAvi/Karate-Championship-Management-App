@@ -46,14 +46,20 @@ mvn spring-boot:run                                         # run
 
 ## Profiles
 
-- **dev** — active by default (`spring.profiles.default=dev`). Used for local development.
-- **test** — activated automatically for the test suite via `@ActiveProfiles("test")` on the integration test base class.
+- **dev** — active by default (`spring.profiles.default=dev`). Used for local development, so a clean clone runs with no extra steps.
+- **test** — activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes.
+
+Both profile files are currently empty. Nothing yet differs between an environment and the shared
+base, and an invented difference would only be a duplicated key waiting to drift.
 
 To run with an explicit profile:
 
 ```bash
-mvn spring-boot:run -Dspring.profiles.active=dev
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+`spring-boot:run` always forks a separate JVM, so a plain `-Dspring.profiles.active=dev` is set on
+Maven and never reaches the application. Use the plugin's own `-Dspring-boot.run.profiles`.
 
 ## Documentation
 

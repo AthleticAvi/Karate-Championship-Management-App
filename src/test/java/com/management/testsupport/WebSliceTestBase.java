@@ -1,6 +1,7 @@
 package com.management.testsupport;
 
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * The one web-slice configuration, stated once so every controller slice shares a cached context.
@@ -20,6 +21,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
  * <p>Only the web layer starts: no database, no service logic. That is what makes these tests cost
  * milliseconds rather than seconds, and it is why they are the right place for routing, status
  * codes and serialisation and the wrong place for anything else.
+ *
+ * <p><strong>Active profile: test.</strong> Stated here rather than per subclass, so the slice
+ * still resolves to one cached context. It matches {@code IntegrationTestBase}: every test in the
+ * suite runs under {@code test}, and none under the {@code dev} default meant for a developer's
+ * machine.
  */
 @WebMvcTest
+@ActiveProfiles("test")
 public abstract class WebSliceTestBase {}

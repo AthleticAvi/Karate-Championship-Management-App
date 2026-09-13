@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Health reports DOWN when MongoDB cannot be reached.
@@ -28,8 +29,15 @@ import org.springframework.http.ResponseEntity;
  * IntegrationTestBase} — a context that cannot reach the database is precisely what the shared one
  * must never be. It is the one justified exception to the single-configuration rule, so the suite
  * builds two contexts and no more.
+ *
+ * <p><strong>The exception is the context, not the profile.</strong> {@code @ActiveProfiles} is
+ * repeated here because the annotation arrives by inheritance and this class has no base to inherit
+ * it from. Without it this would be the only test in the suite running under the {@code dev}
+ * default, and the first property added to {@code application-test.properties} would reach every
+ * test except this one.
  */
 @AutoConfigureTestRestTemplate
+@ActiveProfiles("test")
 @SpringBootTest(
     classes = KumiteGameStarter.class,
     webEnvironment = WebEnvironment.RANDOM_PORT,
