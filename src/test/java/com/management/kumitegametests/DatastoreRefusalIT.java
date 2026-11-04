@@ -92,15 +92,15 @@ class DatastoreRefusalIT {
     }
   }
 
+  /** Arguments, because the builder's own properties rank below application.properties. */
   private static ConfigurableApplicationContext start(String uri, String startupWait) {
     return new SpringApplicationBuilder(KumiteGameStarter.class)
         .profiles("test")
-        .properties(
-            "server.port=0",
-            "spring.mongodb.uri=" + uri,
-            "datastore.startup-wait=" + startupWait,
-            "datastore.operation-timeout=2s")
-        .run();
+        .run(
+            "--server.port=0",
+            "--spring.mongodb.uri=" + uri,
+            "--datastore.startup-wait=" + startupWait,
+            "--datastore.operation-timeout=2s");
   }
 
   private static String uriOf(GenericContainer<?> container) {

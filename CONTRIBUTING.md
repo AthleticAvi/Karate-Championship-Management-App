@@ -63,7 +63,7 @@ Requirements: **JDK 25**, Maven, Docker. The local JDK must match the build: the
 ```bash
 # MongoDB must be running before the application starts. Initiate the replica set once.
 docker run -d -p 127.0.0.1:27017:27017 --name kumite-mongo mongo:8.0 --replSet rs0
-docker exec kumite-mongo mongosh --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"
+until docker exec kumite-mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"; do sleep 1; done
 
 # Build and run every check and both test suites. Docker must be running.
 mvn verify

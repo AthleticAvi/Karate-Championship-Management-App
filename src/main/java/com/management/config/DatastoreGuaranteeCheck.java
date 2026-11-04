@@ -41,7 +41,7 @@ class DatastoreGuaranteeCheck implements ServerListener, SmartInitializingSingle
   private final CompletableFuture<ServerType> firstAnswer = new CompletableFuture<>();
   private final DatastoreProperties properties;
   private final ConfigurableApplicationContext context;
-  private volatile boolean notInitiated;
+  private volatile ServerType latest = ServerType.UNKNOWN;
 
   DatastoreGuaranteeCheck(DatastoreProperties properties, ConfigurableApplicationContext context) {
     this.properties = properties;
@@ -50,11 +50,9 @@ class DatastoreGuaranteeCheck implements ServerListener, SmartInitializingSingle
 
   @Override
   public void serverDescriptionChanged(ServerDescriptionChangedEvent event) {
-    ServerType type = event.getNewDescription().getType();
-    if (type == ServerType.REPLICA_SET_GHOST) {
-      notInitiated = true;
-    } else if (type != ServerType.UNKNOWN) {
-      firstAnswer.complete(type);
+    latest = event.getNewDescription().getType();
+    if (latest != ServerType.REPLICA_SET_GHOST && latest != ServerType.UNKNOWN) {
+      firstAnswer.complete(latest);
     }
   }
 
@@ -66,12 +64,17 @@ class DatastoreGuaranteeCheck implements ServerListener, SmartInitializingSingle
         throw new IllegalStateException(standaloneMessage());
       }
     } catch (TimeoutException e) {
-      if (notInitiated) {
+      if (latest == ServerType.REPLICA_SET_GHOST) {
         throw new IllegalStateException(
             "The datastore is a replica set member that was never initiated. Run rs.initiate.", e);
       }
       log.warn("The datastore did not answer at startup; checking it when it does");
-      firstAnswer.thenAcceptAsync(this::stopIfStandalone);
+      firstAnswer
+          .thenAcceptAsync(this::stopIfStandalone)
+          .exceptionally(failure -> {
+            log.error("Stopping on a refused datastore failed", failure);
+            return null;
+          });
     } catch (ExecutionException e) {
       throw new IllegalStateException("The datastore check failed", e);
     } catch (InterruptedException e) {

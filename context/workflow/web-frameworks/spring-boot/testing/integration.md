@@ -73,6 +73,8 @@ class WidgetFlowIT {
 - **Assert through the public interface**, over HTTP, the way a client would. Reaching into a repository to assert is acceptable for setup and for confirming persistence, but the primary assertion should be the response.
 - **Name them distinctly** from unit tests so the build can run the fast suite alone.
 
+**Starting the application by hand:** `SpringApplicationBuilder.properties()` sets defaults, the lowest precedence, so `application.properties` silently beats them and the test runs with other values than it states. Pass overrides as arguments to `run()`.
+
 ## [concurrency-scenarios] Concurrency scenarios
 
 Behaviour under simultaneous access can only be observed here. Where two callers may act on the same record, one integration test should drive genuinely concurrent requests and assert that no update is lost: the failure mode is silent, so nothing else will catch it.

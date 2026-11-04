@@ -26,10 +26,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
  * <p><strong>Fighters are referenced, never embedded.</strong> The match stores each fighter's
  * document id keyed by colour; the fighter documents own their names and scores. The previous shape
  * embedded a full copy of each fighter here, which made every score two writes to two collections
- * with nothing tying them together — on a standalone MongoDB, with no transaction to span them, a
- * failure between the writes left the copies permanently disagreeing. One fact, one owner: the
- * score lives on {@link Player} and nowhere else, and reads compose the two aggregates (see {@link
- * GameWithFighters}).
+ * with nothing tying them together — with no transaction to span them, a failure between the writes
+ * left the copies permanently disagreeing. One fact, one owner: the score lives on {@link Player}
+ * and nowhere else, and reads compose the two aggregates (see {@link GameWithFighters}).
  */
 @Document
 public class KumiteGame {

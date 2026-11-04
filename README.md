@@ -41,7 +41,7 @@ Requires JDK 25, Maven, and Docker.
 ```bash
 # Database: a one-member replica set, published to this machine only. Initiate it once.
 docker run -d -p 127.0.0.1:27017:27017 --name kumite-mongo mongo:8.0 --replSet rs0
-docker exec kumite-mongo mongosh --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"
+until docker exec kumite-mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"; do sleep 1; done
 
 mvn verify            # build and test
 mvn spring-boot:run   # run

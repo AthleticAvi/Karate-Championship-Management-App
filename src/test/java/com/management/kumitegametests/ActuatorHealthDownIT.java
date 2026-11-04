@@ -46,7 +46,9 @@ import org.springframework.test.context.ActiveProfiles;
       // serverSelectionTimeoutMS is cut from its 30s default: without it the driver spends half a
       // minute retrying before the health indicator gives up, and this test is the slowest in the
       // suite for no reason. 500ms is far longer than a local refused connection needs.
-      "spring.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500"
+      "spring.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500",
+      // Nothing will ever answer, so waiting the full startup default would only slow this test.
+      "datastore.startup-wait=100ms"
     })
 class ActuatorHealthDownIT {
 

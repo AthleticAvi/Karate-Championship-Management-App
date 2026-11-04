@@ -35,6 +35,9 @@ The data layer. One Spring Data repository per aggregate root.
   that namespace into driver level and repository level. Both resolve, so the wrong one fails
   silently by falling back to the default host.
 - Environment variables: `MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`, `MONGO_REPLICA_SET`.
+- `MONGO_HOST` and `MONGO_PORT` only pick the first server to ask. The driver then uses the member
+  addresses stored in the replica set, so they must be reachable from the application: publishing
+  the container on another port needs a matching member address in `rs.initiate`.
 - This package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring Data adds a runtime
   null check to every repository. Today that only adds an interceptor, because both interfaces are
   empty and `findById` returns `Optional`. It matters once a custom finder exists: one that finds
