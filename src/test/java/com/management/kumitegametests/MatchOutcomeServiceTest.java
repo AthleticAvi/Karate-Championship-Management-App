@@ -86,9 +86,8 @@ class MatchOutcomeServiceTest {
   @Test
   void addPoint_endingTheMatchEarly_recordsTheTimeThatWasLeft() {
     String gameId =
-        storedMatch(
-            match ->
-                match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
+        storedMatch(match ->
+            match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
 
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
@@ -103,9 +102,8 @@ class MatchOutcomeServiceTest {
   @Test
   void overrideWinner_onRunningMatch_recordsTheTimeThatWasLeft() {
     String gameId =
-        storedMatch(
-            match ->
-                match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
+        storedMatch(match ->
+            match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters overridden =
         service.overrideWinner(
@@ -125,9 +123,8 @@ class MatchOutcomeServiceTest {
   @Test
   void addPoint_afterTheClockRanOut_isRefusedAndFinishesTheMatchAsDrawn() {
     String gameId =
-        storedMatch(
-            match ->
-                match.runningSince(LocalDateTime.now().minusMinutes(5), Duration.ofSeconds(30)));
+        storedMatch(match ->
+            match.runningSince(LocalDateTime.now().minusMinutes(5), Duration.ofSeconds(30)));
 
     assertThatThrownBy(() -> service.addPoint(gameId, "RED", PointsType.IPPON.name()))
         .isInstanceOf(IllegalStateTransitionException.class)
@@ -178,11 +175,10 @@ class MatchOutcomeServiceTest {
     assertThat(second.game().getRefereeOverride().orElseThrow().supersededOutcome())
         .as("the engine's original result survives a second correction")
         .isNotNull()
-        .satisfies(
-            engine -> {
-              assertThat(engine.reason()).isEqualTo(MatchEndReason.DISQUALIFICATION);
-              assertThat(engine.winner()).isEqualTo(PlayerColor.BLUE);
-            });
+        .satisfies(engine -> {
+          assertThat(engine.reason()).isEqualTo(MatchEndReason.DISQUALIFICATION);
+          assertThat(engine.winner()).isEqualTo(PlayerColor.BLUE);
+        });
   }
 
   @Test
@@ -274,10 +270,9 @@ class MatchOutcomeServiceTest {
   void overrideWinner_onAQueuedMatch_isRejected() {
     String gameId = storage.save(KumiteGameBuilder.newGame().build()).getId();
 
-    assertThatThrownBy(
-            () ->
-                service.overrideWinner(
-                    gameId, new WinnerOverrideRequest("RED", "any reason", "Head Referee")))
+    assertThatThrownBy(() ->
+            service.overrideWinner(
+                gameId, new WinnerOverrideRequest("RED", "any reason", "Head Referee")))
         .isInstanceOf(IllegalStateTransitionException.class);
   }
 
@@ -299,9 +294,8 @@ class MatchOutcomeServiceTest {
   @Test
   void addTime_whileRunning_extendsTheClockAndRecordsWhoDidIt() {
     String gameId =
-        storedMatch(
-            match ->
-                match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
+        storedMatch(match ->
+            match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters extended =
         service.addTime(gameId, new ClockAdjustmentRequest(30, "Timekeeper"));

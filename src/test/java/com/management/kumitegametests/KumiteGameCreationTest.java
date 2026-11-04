@@ -105,10 +105,9 @@ class KumiteGameCreationTest {
             TestRulesEngine.standard(),
             new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
 
-    assertThatThrownBy(
-            () ->
-                flakyService.createKumiteGame(
-                    request(new PlayerDTO("Kenji", "RED"), new PlayerDTO("Sato", "BLUE"))))
+    assertThatThrownBy(() ->
+            flakyService.createKumiteGame(
+                request(new PlayerDTO("Kenji", "RED"), new PlayerDTO("Sato", "BLUE"))))
         .isInstanceOf(IllegalStateException.class);
 
     assertThat(storage.count(Player.class))
@@ -209,10 +208,9 @@ class KumiteGameCreationTest {
             TestRulesEngine.standard(),
             new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
 
-    assertThatThrownBy(
-            () ->
-                failingService.createKumiteGame(
-                    request(new PlayerDTO("Kenji", "RED"), new PlayerDTO("Sato", "BLUE"))))
+    assertThatThrownBy(() ->
+            failingService.createKumiteGame(
+                request(new PlayerDTO("Kenji", "RED"), new PlayerDTO("Sato", "BLUE"))))
         .isInstanceOf(IllegalStateException.class);
 
     assertThat(storage.count(Player.class))

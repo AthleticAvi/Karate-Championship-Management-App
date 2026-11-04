@@ -91,17 +91,15 @@ class RepositoryDocsTest {
 
   static Stream<Path> genericFiles() throws IOException {
     return workflowFiles()
-        .filter(
-            path ->
-                !IndexGenerator.isTechnologyFile(
-                    WORKFLOW.relativize(path).toString().replace('\\', '/')));
+        .filter(path ->
+            !IndexGenerator.isTechnologyFile(
+                WORKFLOW.relativize(path).toString().replace('\\', '/')));
   }
 
   private static List<String> found(List<String> terms, String text) {
     return terms.stream()
-        .filter(
-            term ->
-                Pattern.compile("(?<!\\w)" + Pattern.quote(term) + "(?!\\w)").matcher(text).find())
+        .filter(term ->
+            Pattern.compile("(?<!\\w)" + Pattern.quote(term) + "(?!\\w)").matcher(text).find())
         .toList();
   }
 
