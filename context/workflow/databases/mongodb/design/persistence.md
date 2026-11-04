@@ -145,6 +145,8 @@ Created and modified timestamps and actors are provided by the framework's audit
 - **With `replicaSet` set, a standalone looks unreachable.** The driver drops it from its view, so every command times out exactly as on a dead server. A member nobody initiated does the same. To tell them apart, listen for server description changes: they report the real server type within milliseconds, in every connection shape. Heartbeat events do not help: the first hello is the handshake, which never reports success.
 - **A member can report "not initiated" for a moment as it restarts.** Do not stop a running application on it.
 - Connection settings come from the environment with local defaults, never hardcoded.
+- **A hosted connection string usually names no database.** The driver then uses `test`, and nothing reports it. Set the database separately.
+- **A driver may print the username and hosts when the client starts,** with the password hidden. Prove it against the logs, on a failed connection and a malformed string too: the wrong secret in a log is not visible from the code.
 - Schema is implicit, so the burden moves to migrations: a change in field name or type must be paired with a plan for documents already written in the old shape. There is no engine-level error for a shape mismatch: it surfaces as a null field or a mapping failure at read time.
 - Never point tests at the developer's local database. Tests own their own instance: see `web-frameworks/spring-boot/testing/integration.md`.
 

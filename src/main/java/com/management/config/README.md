@@ -35,10 +35,15 @@ Never hardcode these. All come from configuration.
 | Setting | Default | Key |
 |---|---|---|
 | Longest one operation may take, retries included | 10s | `datastore.operation-timeout` |
+| Longest opening one connection may take | 5s | `datastore.connect-timeout` |
+| Longest an operation may wait for a usable server | 5s | `datastore.server-selection-timeout` |
 | How long startup waits for an answer | 5s | `datastore.startup-wait` |
 
 `w=majority` is fixed in code: it is a guarantee, not a tunable. The driver API for the timeout is
 marked alpha, and `wtimeoutMS`, the alternative, is deprecated.
+
+There is no socket timeout setting: with an operation timeout set, the driver ignores one. A zero
+value for any timeout stops startup, because the driver reads zero as no limit.
 
 | The datastore | At startup | After startup |
 |---|---|---|

@@ -47,6 +47,9 @@ mvn verify            # build and test
 mvn spring-boot:run   # run
 ```
 
+The defaults reach this database. To use another, set `MONGO_URI` and, if needed, `MONGO_DB`: see
+`src/main/java/com/management/repositories/README.md`.
+
 ## Profiles
 
 - **dev**: active by default (`spring.profiles.default=dev`). Local development, so a clean clone runs with no extra steps. Lives in `src/main/resources`.
