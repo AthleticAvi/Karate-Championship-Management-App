@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.mongodb.MongoDBContainer;
 
 /**
@@ -33,10 +35,15 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * dependence this class exists to remove. Cleaning first also leaves the failing test's data in
  * place for inspection.
  *
- * <p><strong>This is the only file that names a Testcontainers container type.</strong> Keep it
- * that way. Testcontainers 2.x relocates container classes into module-specific packages, and Epic
- * #89 will make that move; concentrating the reference here turns that migration into a one-line
- * change no matter how many integration tests exist by then.
+ * <p><strong>This is the only file that names a Testcontainers MongoDB type.</strong> Keep it that
+ * way. Testcontainers 2.x relocates container classes into module-specific packages, and Epic #89
+ * will make that move; concentrating the reference here turns that migration into a one-line change
+ * no matter how many integration tests exist by then.
+ *
+ * <p><strong>A replica set, as in production.</strong> A container is standalone unless asked, and
+ * a standalone hides what production gives. The URL it hands over names no {@code replicaSet}, so
+ * the tests connect directly where production discovers members: {@code [facts]} in the
+ * repositories README records what that leaves untested.
  *
  * <p><strong>Active profile: test.</strong> The {@code @ActiveProfiles("test")} annotation
  * activates the test profile for all integration tests, ensuring test-specific configuration is
@@ -47,13 +54,35 @@ import org.testcontainers.mongodb.MongoDBContainer;
 @ActiveProfiles("test")
 public abstract class IntegrationTestBase {
 
-  @ServiceConnection static final MongoDBContainer MONGO = new MongoDBContainer("mongo:7");
+  private static final String MONGO_IMAGE = "mongo:8.0";
+  private static final int MONGO_PORT = 27017;
+
+  @ServiceConnection
+  static final MongoDBContainer MONGO = new MongoDBContainer(MONGO_IMAGE).withReplicaSet();
 
   static {
     MONGO.start();
   }
 
   @Autowired protected MongoTemplate mongoTemplate;
+
+  /** The shared replica set, for the tests that start the application by hand. */
+  public static String replicaSetUri() {
+    return MONGO.getReplicaSetUrl();
+  }
+
+  /** A standalone server, weaker than the shared one, for the tests that must be refused. */
+  public static GenericContainer<?> standaloneMongo() {
+    return new MongoDBContainer(MONGO_IMAGE);
+  }
+
+  /** A replica set member nobody initiated, for the tests that must be refused. */
+  public static GenericContainer<?> uninitiatedMongo() {
+    return new GenericContainer<>(MONGO_IMAGE)
+        .withCommand("--replSet", "rs0")
+        .withExposedPorts(MONGO_PORT)
+        .waitingFor(Wait.forLogMessage(".*Waiting for connections.*\\n", 1));
+  }
 
   @BeforeEach
   void dropEveryCollection() {

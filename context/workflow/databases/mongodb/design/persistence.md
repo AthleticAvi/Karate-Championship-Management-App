@@ -105,11 +105,12 @@ Write concern decides what "acknowledged" means. Durability depends on it, and i
 | Replica set with an arbiter, where non-arbiters do not exceed the voting majority | `w: 1` | The primary applied it, in memory |
 | Standalone | Not reported: `getDefaultRWConcern` is refused on a standalone | `w: 1`: in memory. `w: majority`: on-disk journal |
 
-- **Set `w=majority` in the connection string in every environment.** It gives journaled writes on a standalone and on a replica set, and removes the dependence on topology.
+- **Set `w=majority` in the connection in every environment, where no environment can bypass it.** It gives journaled writes on a standalone and on a replica set, and removes the dependence on topology. A connection string is often replaced per environment, test containers included, so prefer the client settings: an option in a replaced string is lost, and nothing reports it.
+- **Prove it from the server.** A replica set defaults to `w: majority`, so reading the outcome of a write proves nothing. With the profiler on, `system.profile` records the write concern each command arrived with.
 - **The journal is flushed every 100 ms.** A write acknowledged in memory can be lost on a hard shutdown inside that window.
 - **`j: true` alone does not survive a failover.** It says nothing about replication. Use `w: majority`.
 - **Never use `w: 0`.** It cannot report a conflict, and it cannot be retried.
-- **Always bound the wait.** With no limit, an unachievable write concern blocks forever. Use `timeoutMS` in the connection string where the driver supports it: it covers the whole operation, and the driver then ignores the other timeout options. `wtimeoutMS` is deprecated in its favour, and the bare `wtimeout` is the older name for that, so use `wtimeoutMS` only on a driver without `timeoutMS`.
+- **Always bound the wait.** With no limit, an unachievable write concern blocks forever. Use `timeoutMS` where the driver supports it: it covers the whole operation, retries included, and the driver then ignores `socketTimeoutMS` and `wtimeoutMS`. Zero means no limit. `wtimeoutMS` is deprecated in its favour, and the bare `wtimeout` is the older name for that, so use `wtimeoutMS` only on a driver without `timeoutMS`.
 - **A write concern error does not undo the write.** The change stays and may replicate or roll back. Treat it as an unknown outcome: see `[idempotency]` in `design/concurrency-consistency.md`.
 
 Reads:
@@ -137,9 +138,12 @@ Created and modified timestamps and actors are provided by the framework's audit
 ## [local-setup-and-initialisation] Local setup and initialisation
 
 - The database runs in a container, pinned to the same major version as production.
+- **The host kernel can stop a server version starting.** The container shares it, so a local run proves nothing about a CI runner on a newer kernel. A floating runner image can move under a pinned database image: read the container log on a launch timeout.
 - **The topology matches production too.** Hosted services run a replica set. A one-member replica set gives the same transaction and write concern behaviour locally, though the manual's production advice is several members, so it has no failover.
 - **Start it so the host can reach it.** Run the server with `--replSet rs0` and initiate it once, naming a member address the application can resolve: `rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})`. A plain `rs.initiate()` in a container registers the container's own hostname, so an application on the host using `replicaSet=rs0` discovers an address it cannot resolve and every operation fails with a server selection timeout. `directConnection=true` also gets through, for test and development only. A replica set with authorization also needs a keyfile or certificates for its members.
 - **A test container's topology is a setting: check it.** Some container libraries start a standalone unless asked for a replica set, so tests can run on a weaker topology than production. Confirm it with `db.hello().setName`, which is absent on a standalone.
+- **With `replicaSet` set, a standalone looks unreachable.** The driver drops it from its view, so every command times out exactly as on a dead server. A member nobody initiated does the same. To tell them apart, listen for server description changes: they report the real server type within milliseconds, in every connection shape. Heartbeat events do not help: the first hello is the handshake, which never reports success.
+- **A member can report "not initiated" for a moment as it restarts.** Do not stop a running application on it.
 - Connection settings come from the environment with local defaults, never hardcoded.
 - Schema is implicit, so the burden moves to migrations: a change in field name or type must be paired with a plan for documents already written in the old shape. There is no engine-level error for a shape mismatch: it surfaces as a null field or a mapping failure at read time.
 - Never point tests at the developer's local database. Tests own their own instance: see `web-frameworks/spring-boot/testing/integration.md`.
@@ -153,5 +157,5 @@ Created and modified timestamps and actors are provided by the framework's audit
 - Everything in `[verify]` in `design/acid.md` holds, as tests.
 - Any multi-document write runs in a transaction, or has a written reason why it cannot.
 - Where transactions are used, a test proves one rolls back, on the same topology as production.
-- The connection sets `w=majority` and a bound on the wait in every environment.
+- The running connection uses `w=majority` and a bound on the wait in every environment.
 - `db.hello().setName` gives the same kind of answer in local, test and production.

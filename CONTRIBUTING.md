@@ -61,8 +61,9 @@ The overriding rule: **reuse first, framework first.** If Spring Boot or the JDK
 Requirements: **JDK 25**, Maven, Docker. The local JDK must match the build: the compiler flags for Error Prone are JDK-sensitive.
 
 ```bash
-# MongoDB must be running before the application starts
-docker run -d -p 27017:27017 --name kumite-mongo mongo:7
+# MongoDB must be running before the application starts. Initiate the replica set once.
+docker run -d -p 127.0.0.1:27017:27017 --name kumite-mongo mongo:8.0 --replSet rs0
+until docker exec kumite-mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"; do sleep 1; done
 
 # Build and run every check and both test suites. Docker must be running.
 mvn verify

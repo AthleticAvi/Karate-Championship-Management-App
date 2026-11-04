@@ -27,8 +27,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>This class deliberately carries its own configuration rather than extending {@code
  * IntegrationTestBase} — a context that cannot reach the database is precisely what the shared one
- * must never be. It is the one justified exception to the single-configuration rule, so the suite
- * builds two contexts and no more.
+ * must never be. It is the one justified exception to the single-configuration rule, so the test
+ * framework builds two contexts and no more.
  *
  * <p><strong>The exception is the context, not the profile.</strong> {@code @ActiveProfiles} is
  * repeated here because the annotation arrives by inheritance and this class has no base to inherit
@@ -46,7 +46,9 @@ import org.springframework.test.context.ActiveProfiles;
       // serverSelectionTimeoutMS is cut from its 30s default: without it the driver spends half a
       // minute retrying before the health indicator gives up, and this test is the slowest in the
       // suite for no reason. 500ms is far longer than a local refused connection needs.
-      "spring.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500"
+      "spring.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500",
+      // Nothing will ever answer, so waiting the full startup default would only slow this test.
+      "datastore.startup-wait=100ms"
     })
 class ActuatorHealthDownIT {
 

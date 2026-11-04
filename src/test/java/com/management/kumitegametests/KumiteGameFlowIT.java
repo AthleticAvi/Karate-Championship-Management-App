@@ -105,8 +105,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
    * <p>Two fighters both claiming RED used to be accepted: both {@code Player} documents and the
    * half-formed match were saved, and only then did the response mapper notice the missing BLUE and
    * raise a 500. The caller was told the server had failed, got no id back, and three orphaned
-   * documents stayed in the database — with no transaction to undo them, since this MongoDB is a
-   * standalone.
+   * documents stayed in the database, with no transaction to undo them.
    *
    * <p>Asserting the status alone would not have caught that. What matters is the count afterwards.
    */

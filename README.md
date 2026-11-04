@@ -28,7 +28,7 @@ This project is the system of record for that bout. It holds the competitors, th
 |---|---|
 | Language | Java 25 |
 | Framework | Spring Boot 4.1.2 |
-| Database | MongoDB 7, in Docker |
+| Database | MongoDB 8.0, in Docker |
 | Build | Maven |
 | Testing | JUnit, Mockito, AssertJ, Testcontainers |
 
@@ -39,9 +39,12 @@ A frontend will follow once the backend supports it.
 Requires JDK 25, Maven, and Docker.
 
 ```bash
-docker run -d -p 27017:27017 --name kumite-mongo mongo:7   # database
-mvn verify                                                  # build and test
-mvn spring-boot:run                                         # run
+# Database: a one-member replica set, published to this machine only. Initiate it once.
+docker run -d -p 127.0.0.1:27017:27017 --name kumite-mongo mongo:8.0 --replSet rs0
+until docker exec kumite-mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"; do sleep 1; done
+
+mvn verify            # build and test
+mvn spring-boot:run   # run
 ```
 
 ## Profiles
