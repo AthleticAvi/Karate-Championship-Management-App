@@ -46,7 +46,7 @@ Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest
 
 Java **25** everywhere (`pom.xml`, local JDK, CI). Spring Boot **4.1.2**, Maven, embedded Tomcat.
 Jackson 3, JUnit 6, Testcontainers 2, MongoDB driver 5.8. MongoDB 7 in Docker, standalone. Frontend
-not started. Windows setup: `karate-app-dev-setup-windows.pdf`.
+not started.
 
 ## Commands
 

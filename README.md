@@ -36,7 +36,7 @@ A frontend will follow once the backend supports it.
 
 ## Running locally
 
-Requires a JDK, Maven, and Docker. A step-by-step Windows setup guide is included as `karate-app-dev-setup-windows.pdf`.
+Requires JDK 25, Maven, and Docker.
 
 ```bash
 docker run -d -p 27017:27017 --name kumite-mongo mongo:7   # database
