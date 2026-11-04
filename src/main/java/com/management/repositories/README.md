@@ -7,6 +7,7 @@
 - [may-call] May call
 - [facts] Project facts
 - [backup] Backup and restore
+- [pending] Pending on hosted MongoDB
 - [known-gaps] Known gaps against the ACID rules
 
 ## [purpose] Purpose
@@ -79,6 +80,14 @@ to the database named in the archive. A database user with `readWrite` on it can
 **Take the dump with no bout running.** Each collection is read at a different moment, so a dump
 taken during scoring can hold a game and a fighter that disagree, and `--oplog`, which would prevent
 it, is refused on hosted free clusters. Anything written after the dump is lost on restore.
+
+## [pending] Pending on hosted MongoDB
+
+Proven locally, on a replica set with a login, and not yet on a hosted cluster. Do these when the
+first Atlas cluster exists:
+
+- Connect the same build by setting `MONGO_URI` alone, with TLS through `mongodb+srv`.
+- Run the two commands in `[backup]` once against it, and restore the result.
 
 ## [known-gaps] Known gaps against the ACID rules
 
