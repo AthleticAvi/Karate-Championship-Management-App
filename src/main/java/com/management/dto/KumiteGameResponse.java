@@ -23,9 +23,9 @@ import org.jspecify.annotations.Nullable;
  * colour rather than a display string so the client renders the sentence in its own language.
  *
  * <p><strong>{@code remainingSeconds} is a whole number of seconds</strong>, not a duration object.
- * See {@code workflow/patterns/service-exposure.md}: a field whose format cannot be misread needs
- * no format policy. {@code startTime} is deliberately absent — it is internal bookkeeping used to
- * compute elapsed time, and a client holding {@code remainingSeconds} has no use for it.
+ * See {@code context/workflow/design/service-exposure.md}: a field whose format cannot be misread
+ * needs no format policy. {@code startTime} is deliberately absent — it is internal bookkeeping
+ * used to compute elapsed time, and a client holding {@code remainingSeconds} has no use for it.
  *
  * <p><strong>The result explains itself.</strong> A colour alone does not say whether a match was
  * won on points, forfeited, or set aside by a referee, and those read very differently on a

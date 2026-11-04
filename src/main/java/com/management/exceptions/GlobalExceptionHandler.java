@@ -29,8 +29,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * nested {@code ErrorResponse} of a status integer and a message, served as {@code
  * application/json} — a worse subset of a specified format: no title, no type, no instance, no room
  * for extension fields, and a content type that did not say the payload was an error. {@code
- * ProblemDetail} is a first-class framework type and {@code workflow/patterns/error-handling.md}
- * forbids inventing one.
+ * ProblemDetail} is a first-class framework type and {@code
+ * context/workflow/web-frameworks/spring-boot/design/error-handling.md} forbids inventing one.
  *
  * <p><strong>The {@code type} field is deliberately left at its default.</strong> RFC 9457 defines
  * an absent type as {@code about:blank}, and a URI pointing at documentation that does not exist is
@@ -106,9 +106,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    *
    * <p>Overrides the base class's hook rather than declaring a separate {@code @ExceptionHandler} —
    * two handlers competing for the same exception is the failure mode {@code
-   * workflow/patterns/error-handling.md} warns about. The per-field messages go in an {@code
-   * errors} extension property so the body stays machine-readable: a caller fixing three fields
-   * gets all three in one round trip, keyed by field path.
+   * context/workflow/web-frameworks/spring-boot/design/error-handling.md} warns about. The
+   * per-field messages go in an {@code errors} extension property so the body stays
+   * machine-readable: a caller fixing three fields gets all three in one round trip, keyed by field
+   * path.
    */
   @Override
   protected @Nullable ResponseEntity<Object> handleMethodArgumentNotValid(

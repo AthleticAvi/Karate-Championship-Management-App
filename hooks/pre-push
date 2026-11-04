@@ -2,7 +2,7 @@
 #
 # Checks formatting before anything leaves the machine.
 #
-# This is a convenience, not a gate. workflow/standards/enforcement.md is explicit that a gate which
+# This is a convenience, not a gate. context/workflow/tooling/static-analysis.md is explicit that a gate which
 # runs only locally does not exist -- CI runs the full build on every push and pull request, and that
 # is what actually protects the repository. This hook exists because formatting is the one check that
 # is auto-fixable and the one most likely to fail CI for a reason nobody needed to think about.

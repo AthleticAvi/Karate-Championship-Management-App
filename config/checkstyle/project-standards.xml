@@ -4,7 +4,7 @@
     "https://checkstyle.org/dtds/configuration_1_3.dtd">
 
 <!--
-  Mechanises the rules already written in workflow/standards/java.md.
+  Mechanises the rules already written in context/workflow/languages/java/standards/standards.md.
 
   This is NOT a general-purpose ruleset. google_checks.xml is the published ruleset and runs as a
   separate execution; this file exists only to enforce the project's own written standards, which
