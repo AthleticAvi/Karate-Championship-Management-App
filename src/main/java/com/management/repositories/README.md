@@ -36,8 +36,8 @@ not a regression: new code meets the rules, and no gap grows.
 
 | Rule | Today | Fixed by |
 |---|---|---|
-| `[atomicity]` | A point saves on `Player`, then SENSHU or the result saves on `KumiteGame`: two writes | The engine milestone, not yet opened |
-| `[consistency]` | `addPoint` checks the match, then writes a different document | The engine milestone, not yet opened |
+| `[atomicity]` | A point saves on `Player`, then SENSHU or the result saves on `KumiteGame`: two writes | Milestone: Structure and engine |
+| `[consistency]` | `addPoint` checks the match, then writes a different document | Milestone: Structure and engine |
 | `[durability]` | No `w=majority` and no bound on the wait. Settings are host and port only | #122 |
 | `[same-guarantees]` | Local and tests run standalone, on `mongo:7`, with no startup check | #122 |
-| `[idempotency]` | A retried `add-point` scores twice | The lifecycle milestone, not yet opened |
+| `[idempotency]` | A retried `add-point` scores twice | Milestone: Lifecycle and frontend |
