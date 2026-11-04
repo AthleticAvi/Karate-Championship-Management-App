@@ -23,8 +23,8 @@
        change which rules run and therefore the violation count. That would move the ratchet
        baseline for a reason that has nothing to do with the code. Vendoring pins it, and a
        ruleset change becomes a reviewable diff.
-    2. Two categories of rule are deliberately removed. A deviation belongs in the ruleset where
-       it is visible in one place, not in a blanket suppression. See
+    2. Two categories of rule are deliberately removed, and one is adjusted. A deviation belongs in
+       the ruleset where it is visible in one place, not in a blanket suppression. See
        context/workflow/tooling/static-analysis.md.
 
     REMOVED - layout (36 modules). google-java-format, applied by Spotless, is the sole authority
@@ -48,8 +48,11 @@
     RequireEmptyLineBeforeBlockTagGroup, AtclauseOrder, JavadocMethod, SingleLineJavadoc,
     InvalidJavadocPosition.
 
+    ADJUSTED - AbbreviationAsWordInName allows IT. Upstream does not, and dropping it fails every
+    *IT test class, which cannot be renamed: the suffix is what selects the integration suite.
+
     To re-vendor after a Checkstyle upgrade: extract google_checks.xml from the new jar, reapply
-    the two removals above, and re-baseline maxAllowedViolations in pom.xml.
+    the two removals and the adjustment above, and re-baseline maxAllowedViolations in pom.xml.
  -->
 
 <module name="Checker">
