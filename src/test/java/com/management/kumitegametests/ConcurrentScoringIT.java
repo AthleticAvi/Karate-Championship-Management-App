@@ -55,7 +55,7 @@ class ConcurrentScoringIT extends IntegrationTestBase {
         () -> {
           start.await();
           return rest.exchange(
-              "/api/kumitegame/" + gameId + "/add-point?color=RED&pointType=YUKO",
+              "/api/v1/kumitegame/" + gameId + "/add-point?color=RED&pointType=YUKO",
               HttpMethod.PUT,
               null,
               String.class);
@@ -80,7 +80,7 @@ class ConcurrentScoringIT extends IntegrationTestBase {
     }
 
     ResponseEntity<KumiteGameResponse> finalState =
-        rest.getForEntity("/api/kumitegame/" + gameId, KumiteGameResponse.class);
+        rest.getForEntity("/api/v1/kumitegame/" + gameId, KumiteGameResponse.class);
     assertThat(finalState.getBody()).isNotNull();
     assertThat(finalState.getBody().red().points())
         .as("every concurrent YUKO (1 point each) must be recorded — none silently lost")
@@ -92,7 +92,7 @@ class ConcurrentScoringIT extends IntegrationTestBase {
   void savingStaleFighter_raisesOptimisticLockConflict() {
     String gameId = createMatch();
     String redId =
-        rest.getForEntity("/api/kumitegame/" + gameId, KumiteGameResponse.class)
+        rest.getForEntity("/api/v1/kumitegame/" + gameId, KumiteGameResponse.class)
             .getBody()
             .red()
             .id();
@@ -125,7 +125,7 @@ class ConcurrentScoringIT extends IntegrationTestBase {
 
     ResponseEntity<KumiteGameResponse> response =
         rest.postForEntity(
-            "/api/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
+            "/api/v1/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     return response.getBody().id();
   }

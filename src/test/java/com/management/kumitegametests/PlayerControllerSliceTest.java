@@ -27,7 +27,7 @@ import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Every endpoint on {@code /api/players}, at the HTTP boundary.
+ * Every endpoint on {@code /api/v1/players}, at the HTTP boundary.
  *
  * <p>Configuration comes from {@link WebSliceTestBase}, and the mocked beans match {@link
  * KumiteGameControllerSliceTest} exactly so both classes share one cached context.
@@ -48,11 +48,11 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            post("/api/players")
+            post("/api/v1/players")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\": \"Kenji\"}"))
         .andExpect(status().isCreated())
-        .andExpect(header().string("Location", "/api/players/player-1"))
+        .andExpect(header().string("Location", "/api/v1/players/player-1"))
         .andExpect(
             content()
                 .json(
@@ -81,7 +81,7 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
                 .build());
 
     mockMvc
-        .perform(get("/api/players/{playerId}", "player-1"))
+        .perform(get("/api/v1/players/{playerId}", "player-1"))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(
@@ -101,7 +101,7 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
   void createPlayer_whenTheNameIsBlank_returns400NamingTheField() throws Exception {
     mockMvc
         .perform(
-            post("/api/players")
+            post("/api/v1/players")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\": \"  \"}"))
         .andExpect(status().isBadRequest())
@@ -118,7 +118,7 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
         .willThrow(new PlayerNotFoundException("Player not found Player ID: nope"));
 
     mockMvc
-        .perform(get("/api/players/{playerId}", "nope"))
+        .perform(get("/api/v1/players/{playerId}", "nope"))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(404))
@@ -128,7 +128,7 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
   @Test
   void deletePlayer_whenTheFighterExists_returns204WithNoBody() throws Exception {
     mockMvc
-        .perform(delete("/api/players/{playerId}", "player-1"))
+        .perform(delete("/api/v1/players/{playerId}", "player-1"))
         .andExpect(status().isNoContent())
         .andExpect(content().string(""));
 
@@ -142,7 +142,7 @@ class PlayerControllerSliceTest extends WebSliceTestBase {
         .deletePlayer("nope");
 
     mockMvc
-        .perform(delete("/api/players/{playerId}", "nope"))
+        .perform(delete("/api/v1/players/{playerId}", "nope"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404));
   }

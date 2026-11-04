@@ -19,7 +19,7 @@ import org.springframework.data.mongodb.core.mapping.MongoPersistentProperty;
  * every document already in the database still holds a string. Spring Data converts a stored string
  * to an enum with {@code Enum.valueOf}, so without this converter loading any pre-#34 match fails
  * with {@code No enum constant com.management.enums.PlayerColor.Pending game ending}, and that
- * failure takes out {@code GET /api/kumitegame/{id}} and every scoring endpoint for that match
+ * failure takes out {@code GET /api/v1/kumitegame/{id}} and every scoring endpoint for that match
  * permanently.
  *
  * <p><strong>Why a property converter rather than a {@code Converter<String,

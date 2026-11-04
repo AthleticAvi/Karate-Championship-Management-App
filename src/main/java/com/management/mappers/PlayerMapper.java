@@ -8,7 +8,7 @@ import com.management.models.Player;
  *
  * <p>Flattens the {@code Points} and {@code Foul} wrappers to bare counts. Those types exist so the
  * scoring strategies have something to mutate in place; the nesting is an implementation detail of
- * scoring and was previously visible to every caller of {@code GET /api/players/{id}}.
+ * scoring and was previously visible to every caller of {@code GET /api/v1/players/{id}}.
  */
 public final class PlayerMapper {
 

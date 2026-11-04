@@ -22,7 +22,7 @@ import org.springframework.http.ResponseEntity;
  * nothing had ever read the field. The field is read — by the document mapper, on every load.
  * Spring Data converts a stored string to an enum with {@code Enum.valueOf}, so such a document
  * failed with {@code No enum constant ...PlayerColor.Pending game ending} and took {@code GET
- * /api/kumitegame/&#123;id&#125;} and every scoring endpoint down with it, permanently, for that
+ * /api/v1/kumitegame/&#123;id&#125;} and every scoring endpoint down with it, permanently, for that
  * match.
  *
  * <p>No unit test could have caught it and neither could the rest of this suite: every other test
@@ -68,7 +68,7 @@ class LegacyWinnerIT extends IntegrationTestBase {
     insertLegacyMatch("legacy-over-http", "BLUE player: Sato");
 
     ResponseEntity<KumiteGameResponse> response =
-        rest.getForEntity("/api/kumitegame/legacy-over-http", KumiteGameResponse.class);
+        rest.getForEntity("/api/v1/kumitegame/legacy-over-http", KumiteGameResponse.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     KumiteGameResponse body = response.getBody();
