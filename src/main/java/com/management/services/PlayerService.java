@@ -6,8 +6,6 @@ import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -34,7 +32,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PlayerService {
-  private static final Logger log = LoggerFactory.getLogger(PlayerService.class);
   private static final String PLAYER_NOT_FOUND = "Player not found";
   private static final String PLAYER_ID = " Player ID: ";
 
@@ -52,7 +49,6 @@ public class PlayerService {
   public Player getPlayer(String playerId) {
     Optional<Player> fetchedPlayer = playerRepository.findById(playerId);
     if (fetchedPlayer.isEmpty()) {
-      log.error("PlayerService - getPlayer - {}  {}: {}", PLAYER_NOT_FOUND, PLAYER_ID, playerId);
       throw new PlayerNotFoundException(PLAYER_NOT_FOUND + PLAYER_ID + playerId);
     }
     return fetchedPlayer.get();

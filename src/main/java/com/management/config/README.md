@@ -8,6 +8,7 @@
 - [datastore] Datastore guarantees
 - [profiles] Profiles
 - [server] Server limits
+- [logging] Logging
 
 ## [purpose] Purpose
 
@@ -131,3 +132,17 @@ What the hosting proxy sends is unknown until the hosting check, so the values s
 
 `Location` is a relative path, so it is right behind a proxy that keeps the path, whatever these
 settings are. Absolute URLs built from the request depend on them.
+
+## [logging] Logging
+
+| Profile | Console output | Key |
+|---|---|---|
+| `prod` | Elastic Common Schema JSON, one object per line | `logging.structured.format.console` |
+| `dev`, `test` | Boot's text format | `logging.pattern.correlation` adds the ID and fields |
+
+The MDC and the `addKeyValue` fields become top-level JSON fields with no code: `correlationId`,
+`method`, `route`, `status` and `durationMs`. ECS was chosen because Boot documents it first and the
+hosted log service is not chosen yet. Changing it is this one property.
+
+Logging is global to the JVM, so a test that boots under `prod` turns the console to JSON for
+whatever runs after it. Assert on log events, not console text, except in the test about the format.

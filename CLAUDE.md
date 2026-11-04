@@ -15,6 +15,7 @@ READMEs below.
 |------|------|
 | Package map, layers, frozen violations, what is not built | `src/main/java/com/management/README.md` |
 | API, response contract, wire formats | `src/main/java/com/management/controllers/README.md` |
+| Correlation IDs, request logging | `src/main/java/com/management/filters/README.md` |
 | Errors and status codes | `src/main/java/com/management/exceptions/README.md` |
 | Rules engine, how a match ends | `src/main/java/com/management/rules/README.md` |
 | Scoring across aggregates, concurrency | `src/main/java/com/management/services/README.md` |
@@ -34,7 +35,7 @@ Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and
 
 | Responsibility | Packages |
 |-----------|----------|
-| Gateways | `controllers`, `dto`, `mappers`, `exceptions` handler |
+| Gateways | `controllers`, `filters`, `dto`, `mappers`, `exceptions` handler |
 | Business | `services`, `rules`, `models`, `enums`, `exceptions` types |
 | Data | `repositories`, `models/converters` |
 | Wiring | `config`, `KumiteGameStarter` |

@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class ArchitectureTest {
 
   private static final String[] GATEWAYS = {
-    "..controllers..", "..dto..", "..mappers..", "..exceptions.."
+    "..controllers..", "..filters..", "..dto..", "..mappers..", "..exceptions.."
   };
   private static final String[] BUSINESS = {"..services..", "..rules.."};
   private static final String[] DOMAIN_AND_BUSINESS = {
@@ -57,7 +57,7 @@ class ArchitectureTest {
         .resideInAnyPackage(DOMAIN_AND_BUSINESS)
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("..controllers..", "..mappers..")
+        .resideInAnyPackage("..controllers..", "..filters..", "..mappers..")
         .check(CLASSES);
   }
 
@@ -80,7 +80,7 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage(
-            "..services..", "..rules..", "..controllers..", "..dto..", "..mappers..")
+            "..services..", "..rules..", "..controllers..", "..filters..", "..dto..", "..mappers..")
         .check(CLASSES);
   }
 

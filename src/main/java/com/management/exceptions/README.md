@@ -42,7 +42,7 @@ Errors are RFC 9457 problem details: `application/problem+json`, with `status`, 
   depth, stay 400.
 - **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
   the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
-  application sees them.
+  application sees them, so they carry no correlation ID and leave no request line.
 - The two colour failures differ on purpose: *not a colour* is the caller's mistake (400), *a colour
   this match does not have* is a missing resource (404).
 - **Only messages this project wrote are returned.** `InvalidGameRequestException` marks wording

@@ -484,7 +484,6 @@ public class KumiteGameService {
 
     Optional<KumiteGame> fetchedKumiteGame = kumiteGameRepository.findById(gameId);
     if (fetchedKumiteGame.isEmpty()) {
-      log.error("KumiteGameService - getKumiteGame - couldn't find game with id: {}", gameId);
       throw new GameNotFoundException(GAME_NOT_FOUND + GAME_ID + gameId);
     }
 
