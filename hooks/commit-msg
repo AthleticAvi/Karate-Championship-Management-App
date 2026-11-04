@@ -8,8 +8,8 @@
 java_bin="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 major=$("$java_bin" --version 2>/dev/null | sed -n '1s/^[^ ]* \([0-9]*\).*/\1/p')
 
-if [ "${major:-0}" -lt 25 ] || ! "$java_bin" --list-modules 2>/dev/null | grep -q '^jdk\.compiler'; then
-  echo "commit-msg: no JDK 25 found, skipping the message check. CI will still run it." >&2
+if [ "${major:-0}" -lt 11 ] || ! "$java_bin" --list-modules 2>/dev/null | grep -q '^jdk\.compiler'; then
+  echo "commit-msg: no JDK 11 or later found, skipping the message check. CI will still run it." >&2
   exit 0
 fi
 
