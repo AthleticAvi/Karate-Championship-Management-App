@@ -7,6 +7,13 @@ Builds on: `testing/testing.md`
 
 ## Index
 
+- [purpose] Purpose
+- [real-infrastructure-never-a] Real infrastructure, never a substitute
+- [rules] Rules
+- [concurrency-scenarios] Concurrency scenarios
+- [what-belongs-at-this] What belongs at this layer, and what does not
+- [verify] Verify
+
 ## [purpose] Purpose
 
 Integration tests answer one question: does the assembled application work against real infrastructure. They are not where behaviour is enumerated: that belongs in cheaper layers. Keep a deliberate, small set covering the flows that would embarrass you if broken.

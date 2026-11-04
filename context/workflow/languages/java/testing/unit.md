@@ -7,6 +7,13 @@ Builds on: `testing/testing.md`
 
 ## Index
 
+- [rules] Rules
+- [final-field-trap] The final-field trap
+- [do] Do
+- [dont] Don't
+- [testing-time-dependent-logic] Testing time-dependent logic
+- [verify] Verify
+
 ## [rules] Rules
 
 - **Construct the subject with `new`.** Pass test doubles as constructor arguments. Reflection-based injection into a unit test is a smell that the subject cannot be built normally, which is a design defect in the subject.

@@ -7,6 +7,15 @@ Builds on: `design/service-exposure.md`
 
 ## Index
 
+- [two-kinds-two-places] Two kinds, two places
+- [input-validation] Input validation
+- [what-constraints-cannot-express] What constraints cannot express
+- [domain-invariants] Domain invariants
+- [failure-reporting] Failure reporting
+- [trust-boundary] Trust boundary
+- [verify] Verify
+- [sources] Sources
+
 ## [two-kinds-two-places] Two kinds, two places
 
 | Kind | Question | Where | Failure |

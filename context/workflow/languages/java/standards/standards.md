@@ -7,6 +7,15 @@ Builds on: `standards/standards.md`
 
 ## Index
 
+- [rules] Rules
+- [do] Do
+- [dont] Don't
+- [encoding] Encoding
+- [naming] Naming
+- [third-party-code-generation] Third-party code generation
+- [verify] Verify
+- [sources] Sources
+
 ## [rules] Rules
 
 - **Data carriers are records.** Any type that only carries values (request payloads, response payloads, value objects, config bindings) is a `record`. Hand-written getter/setter classes are rejected in review.

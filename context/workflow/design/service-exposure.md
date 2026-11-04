@@ -6,6 +6,15 @@ Framework-first: content negotiation, status mapping, serialisation and binding 
 
 ## Index
 
+- [boundary-rule] The boundary rule
+- [controllers] Controllers
+- [status-codes] Status codes
+- [response-shape] Response shape
+- [serialisation-format] Serialisation format
+- [urls] URLs
+- [verify] Verify
+- [sources] Sources
+
 ## [boundary-rule] The boundary rule
 
 Persistence types never cross the HTTP boundary, in either direction. Requests bind to a request type; responses are built from a response type. No exceptions, including "it happens to have the right fields today".

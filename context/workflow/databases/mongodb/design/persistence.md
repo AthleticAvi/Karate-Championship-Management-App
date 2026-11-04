@@ -7,6 +7,17 @@ Builds on: `design/concurrency-consistency.md`
 
 ## Index
 
+- [document-design] Document design
+- [object-construction-on-read] Object construction on read
+- [excluded-fields] Excluded fields
+- [identifiers] Identifiers
+- [optimistic-locking] Optimistic locking
+- [transactions] Transactions
+- [indexes] Indexes
+- [auditing] Auditing
+- [local-setup-and-initialisation] Local setup and initialisation
+- [verify] Verify
+
 ## [document-design] Document design
 
 - **One document type per aggregate root.** A repository exists per aggregate root, not per class.

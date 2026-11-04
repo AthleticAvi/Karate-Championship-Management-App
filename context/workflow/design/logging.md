@@ -6,6 +6,14 @@ Framework-first: the logging facade, level configuration, structured output and 
 
 ## Index
 
+- [rules] Rules
+- [levels] Levels
+- [correlation] Correlation
+- [structured-output] Structured output
+- [never-log] Never log
+- [log-lines-are-an] Log lines are an interface
+- [verify] Verify
+
 ## [rules] Rules
 
 - **Log through the facade**, never the console. A print statement bypasses levels, formatting, correlation and shipping: it is invisible in every environment that matters.

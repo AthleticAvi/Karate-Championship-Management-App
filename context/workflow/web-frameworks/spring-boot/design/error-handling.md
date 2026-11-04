@@ -7,6 +7,13 @@ Builds on: `design/service-exposure.md`
 
 ## Index
 
+- [response-format] Response format
+- [rules] Rules
+- [messages] Messages
+- [extension-fields] Extension fields
+- [verify] Verify
+- [sources] Sources
+
 ## [response-format] Response format
 
 Errors use the standard problem-detail media type and body. It is a specified format with a defined content type, so clients and tooling can parse it without a bespoke contract.

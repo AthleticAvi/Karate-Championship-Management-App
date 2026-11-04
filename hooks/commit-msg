@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Checks the commit message against context/workflow/git/commits.md.
+#
+# This is a convenience, not a gate: CI runs the same check on every commit in a pull request.
+
+exec java src/test/java/com/management/docs/CommitMessageCheck.java "$1"

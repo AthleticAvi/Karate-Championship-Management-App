@@ -6,6 +6,12 @@ Framework-first: the container resolves dependencies. If it cannot, the dependen
 
 ## Index
 
+- [circular-dependencies] Circular dependencies
+- [where-logic-belongs] Where logic belongs
+- [transaction-and-consistency-boundary] Transaction and consistency boundary
+- [cross-aggregate-reads] Cross-aggregate reads
+- [verify] Verify
+
 ## [circular-dependencies] Circular dependencies
 
 A cycle between two services is a design defect, not a wiring inconvenience. The container's refusal to construct it is correct and useful information.

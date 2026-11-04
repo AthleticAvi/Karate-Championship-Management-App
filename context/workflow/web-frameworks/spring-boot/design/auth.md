@@ -7,6 +7,14 @@ Builds on: `web-frameworks/spring-boot/standards/standards.md`
 
 ## Index
 
+- [shape] Shape
+- [rules] Rules
+- [401-versus-403] 401 versus 403
+- [management-endpoints] Management endpoints
+- [cors] CORS
+- [testing] Testing
+- [verify] Verify
+
 ## [shape] Shape
 
 Security is configured by declaring a filter chain bean using the builder's lambda form. The older base class to extend is removed; a configuration class returning the chain replaces it.

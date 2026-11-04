@@ -7,6 +7,13 @@ Builds on: `testing/testing.md`, `languages/java/testing/unit.md`
 
 ## Index
 
+- [what-a-slice-is] What a slice is
+- [web-slice] Web slice
+- [rules] Rules
+- [persistence-slice] Persistence slice
+- [dont] Don't
+- [verify] Verify
+
 ## [what-a-slice-is] What a slice is
 
 A slice starts one layer of the container and nothing else. It is the correct layer for everything that only exists because the framework is present: routing, content negotiation, serialisation, status codes, parameter binding, validation triggering, query derivation.

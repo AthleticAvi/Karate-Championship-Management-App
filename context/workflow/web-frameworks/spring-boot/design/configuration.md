@@ -7,6 +7,14 @@ Builds on: `web-frameworks/spring-boot/standards/standards.md`
 
 ## Index
 
+- [rules] Rules
+- [profiles] Profiles
+- [secrets] Secrets
+- [precedence] Precedence
+- [local-development] Local development
+- [verify] Verify
+- [sources] Sources
+
 ## [rules] Rules
 
 - **Settings bind to a typed record**, one per cohesive group, validated at startup. Never read a raw key at the point of use.

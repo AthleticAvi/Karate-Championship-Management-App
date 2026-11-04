@@ -6,6 +6,13 @@ Framework-first: optimistic locking, retry and transaction management are framew
 
 ## Index
 
+- [default-failure-mode-is] The default failure mode is silence
+- [one-fact-one-owner] Rule 1: one fact, one owner
+- [version-writes] Rule 2: read-modify-write needs a version
+- [write-last] Rule 3: write nothing until everything that can fail has failed
+- [idempotency] Rule 4: idempotency where a caller may retry
+- [verify] Verify
+
 ## [default-failure-mode-is] The default failure mode is silence
 
 Both problems in this document fail without an error:

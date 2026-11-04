@@ -1,9 +1,22 @@
-# Enforcement
+# Static analysis and enforcement
 
-Applies when: adding a quality gate, wiring CI, deciding whether a rule is checkable, triaging analyser output
+Applies when: adding a linter or static checker, adding a quality gate, wiring CI, deciding whether a rule is checkable, triaging analyser output
 Status: enforced
 
 ## Index
+
+- [principle] Principle
+- [gate-order] Gate order
+- [adoption-sequence] Adoption sequence
+- [required-build-settings] Required build settings
+- [what-each-analyser-is] What each analyser is for
+- [one-job-per-tool] One job per tool
+- [vendor-the-ruleset] Vendor the ruleset
+- [suppression-policy] Suppression policy
+- [architecture-rules] Architecture rules
+- [ci] CI
+- [review-only-rules] Review-only rules
+- [verify] Verify
 
 ## [principle] Principle
 
@@ -73,6 +86,12 @@ Copy the ruleset into the repository and reference the copy. Upgrades then arriv
 ## [suppression-policy] Suppression policy
 
 A suppression is a decision, so it carries a reason. Blanket file-level or project-level suppression of a rule is equivalent to deleting the rule: do that deliberately in the ruleset instead, so it is visible in one place.
+
+## [architecture-rules] Architecture rules
+
+Layer boundaries are checkable, so a test checks them rather than a reviewer. Rules the code
+already passes stay strict. Rules it does not pass are frozen: recorded violations pass, new
+ones fail, and the record only shrinks. This is the ratchet applied to architecture.
 
 ## [ci] CI
 

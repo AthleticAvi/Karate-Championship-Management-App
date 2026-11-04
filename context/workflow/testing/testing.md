@@ -6,6 +6,16 @@ Framework-first: the framework supplies the harness for every layer below. Never
 
 ## Index
 
+- [layer-selection] Layer selection
+- [rules] Rules
+- [round-trip-fidelity] Round-trip fidelity
+- [what-not-to-test] What not to test
+- [naming-and-shape] Naming and shape
+- [fixtures] Fixtures
+- [suite-performance] Suite performance
+- [verify] Verify
+- [sources] Sources
+
 ## [layer-selection] Layer selection
 
 Pick the cheapest layer that can fail for the reason you care about.

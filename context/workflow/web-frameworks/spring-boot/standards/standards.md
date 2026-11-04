@@ -7,6 +7,13 @@ Builds on: `languages/java/standards/standards.md`
 
 ## Index
 
+- [framework-first] Framework-first
+- [rules] Rules
+- [do] Do
+- [dont] Don't
+- [package-layout] Package layout
+- [verify] Verify
+
 ## [framework-first] Framework-first
 
 Before writing any mechanism, establish that the framework does not already provide it. A hand-rolled equivalent of a framework feature is rejected in review regardless of quality: it duplicates behaviour the framework will keep maintaining, and it will not receive that maintenance.
