@@ -58,7 +58,8 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 `maxAllowedViolations` is the current baseline, so the build fails if the count rises. Lower it as
 findings are fixed: it never goes up. Error Prone has no count ratchet in javac, so it stays
 report-only until its findings clear and NullAway can move to `ERROR`. Its count depends on the
-command: `mvn compile` sees main sources only, `mvn verify` also compiles tests.
+command: `mvn compile` sees main sources only, `mvn verify` also compiles tests. A run with nothing
+to recompile prints no findings, so count after `mvn clean verify`.
 
 ## [hooks] Git hooks
 
