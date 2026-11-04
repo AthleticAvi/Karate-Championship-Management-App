@@ -24,7 +24,7 @@ twice is a bug in this setup, not thoroughness.
 | Tool | Owns | Configured in | Mode | Baseline |
 |---|---|---|---|---|
 | **Spotless** + google-java-format | Layout | `pom.xml`, `spotless-maven-plugin` | **Enforced.** `mvn spotless:apply` fixes | 0 |
-| **Checkstyle** (published) | Conventions: naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **17** |
+| **Checkstyle** (published) | Conventions: naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **10** |
 | **Checkstyle** (project) | The language standard's own rules: logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **3** |
 | **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **45** across main and test (26 NullAway) |
 | **javac** | Compiler warnings | `pom.xml`, `-Xlint:all,-serial` | Report only | 0 |
