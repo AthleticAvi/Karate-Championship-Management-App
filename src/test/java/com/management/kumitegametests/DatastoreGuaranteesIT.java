@@ -7,17 +7,21 @@ import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.PlayerBuilder;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoDatabase;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
 
 /** What the running connection really gives, read from the server and not from configuration. */
 class DatastoreGuaranteesIT extends IntegrationTestBase {
 
   @Autowired private PlayerRepository players;
   @Autowired private DatastoreProperties properties;
+  @Autowired private List<MongoClientSettingsBuilderCustomizer> customizers;
 
   @Test
   void server_isReplicaSetMember() {
@@ -56,6 +60,19 @@ class DatastoreGuaranteesIT extends IntegrationTestBase {
   void connection_boundsEveryOperation() {
     assertThat(mongoTemplate.getDb().getTimeout(TimeUnit.MILLISECONDS))
         .isEqualTo(properties.operationTimeout().toMillis());
+  }
+
+  /** Built through the application's customizers, because a client does not expose these. */
+  @Test
+  void connection_boundsConnectingAndServerSelection() {
+    MongoClientSettings.Builder builder = MongoClientSettings.builder();
+    customizers.forEach(customizer -> customizer.customize(builder));
+    MongoClientSettings settings = builder.build();
+
+    assertThat(settings.getSocketSettings().getConnectTimeout(TimeUnit.MILLISECONDS))
+        .isEqualTo(properties.connectTimeout().toMillis());
+    assertThat(settings.getClusterSettings().getServerSelectionTimeout(TimeUnit.MILLISECONDS))
+        .isEqualTo(properties.serverSelectionTimeout().toMillis());
   }
 
   private String namespaceOf(MongoDatabase database, Player player) {

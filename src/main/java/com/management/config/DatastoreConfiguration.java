@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Configuration;
  * environment: {@code @ServiceConnection} swaps it in the tests, so a test of a URI option would
  * prove nothing about the application. This customizer runs after Boot applies the connection
  * details, so it also wins over a weaker value in one.
+ *
+ * <p>There is no socket timeout: with an operation timeout set, the driver ignores it.
  */
 @Configuration(proxyBeanMethods = false)
 class DatastoreConfiguration {
@@ -24,6 +26,12 @@ class DatastoreConfiguration {
         settings
             .writeConcern(WriteConcern.MAJORITY)
             .timeout(properties.operationTimeout().toMillis(), TimeUnit.MILLISECONDS)
+            .applyToSocketSettings(socket ->
+                socket.connectTimeout(
+                    Math.toIntExact(properties.connectTimeout().toMillis()), TimeUnit.MILLISECONDS))
+            .applyToClusterSettings(cluster ->
+                cluster.serverSelectionTimeout(
+                    properties.serverSelectionTimeout().toMillis(), TimeUnit.MILLISECONDS))
             .applyToServerSettings(server -> server.addServerListener(check));
   }
 }
