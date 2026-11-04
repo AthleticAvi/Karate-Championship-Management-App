@@ -43,10 +43,10 @@ import org.springframework.test.context.ActiveProfiles;
     webEnvironment = WebEnvironment.RANDOM_PORT,
     properties = {
       // Port 1 is reserved and nothing listens on it, so the connection is refused immediately.
-      // serverSelectionTimeoutMS is cut from its 30s default: without it the driver spends half a
-      // minute retrying before the health indicator gives up, and this test is the slowest in the
-      // suite for no reason. 500ms is far longer than a local refused connection needs.
-      "spring.mongodb.uri=mongodb://localhost:1/kumitedb?serverSelectionTimeoutMS=500",
+      "spring.mongodb.uri=mongodb://localhost:1/kumitedb",
+      // Cut from the default so the health indicator gives up sooner, and this test is not the
+      // slowest in the suite for no reason. 500ms is far longer than a refused connection needs.
+      "datastore.server-selection-timeout=500ms",
       // Nothing will ever answer, so waiting the full startup default would only slow this test.
       "datastore.startup-wait=100ms"
     })

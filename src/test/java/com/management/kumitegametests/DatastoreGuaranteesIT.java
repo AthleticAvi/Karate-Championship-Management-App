@@ -7,17 +7,23 @@ import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.PlayerBuilder;
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.ReadPreference;
 import com.mongodb.client.MongoDatabase;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
 
 /** What the running connection really gives, read from the server and not from configuration. */
 class DatastoreGuaranteesIT extends IntegrationTestBase {
 
   @Autowired private PlayerRepository players;
   @Autowired private DatastoreProperties properties;
+  @Autowired private List<MongoClientSettingsBuilderCustomizer> customizers;
 
   @Test
   void server_isReplicaSetMember() {
@@ -56,6 +62,33 @@ class DatastoreGuaranteesIT extends IntegrationTestBase {
   void connection_boundsEveryOperation() {
     assertThat(mongoTemplate.getDb().getTimeout(TimeUnit.MILLISECONDS))
         .isEqualTo(properties.operationTimeout().toMillis());
+  }
+
+  @Test
+  void connection_boundsConnectingAndServerSelection() {
+    MongoClientSettings settings = settingsFrom("mongodb://localhost");
+
+    assertThat(settings.getSocketSettings().getConnectTimeout(TimeUnit.MILLISECONDS))
+        .isEqualTo(properties.connectTimeout().toMillis());
+    assertThat(settings.getClusterSettings().getServerSelectionTimeout(TimeUnit.MILLISECONDS))
+        .isEqualTo(properties.serverSelectionTimeout().toMillis());
+  }
+
+  @Test
+  void weakerOptionsInTheConnectionString_areOverridden() {
+    MongoClientSettings settings =
+        settingsFrom("mongodb://localhost/?retryWrites=false&readPreference=secondary");
+
+    assertThat(settings.getRetryWrites()).isTrue();
+    assertThat(settings.getReadPreference()).isEqualTo(ReadPreference.primary());
+  }
+
+  /** Built through the application's customizers, because a client does not expose these. */
+  private MongoClientSettings settingsFrom(String connectionString) {
+    MongoClientSettings.Builder builder =
+        MongoClientSettings.builder().applyConnectionString(new ConnectionString(connectionString));
+    customizers.forEach(customizer -> customizer.customize(builder));
+    return builder.build();
   }
 
   private String namespaceOf(MongoDatabase database, Player player) {

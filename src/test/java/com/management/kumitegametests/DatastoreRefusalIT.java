@@ -4,16 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-import com.management.KumiteGameStarter;
 import com.management.testsupport.IntegrationTestBase;
 import com.mongodb.WriteConcern;
 import java.time.Duration;
+import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.testcontainers.containers.GenericContainer;
@@ -92,15 +91,9 @@ class DatastoreRefusalIT {
     }
   }
 
-  /** Arguments, because the builder's own properties rank below application.properties. */
   private static ConfigurableApplicationContext start(String uri, String startupWait) {
-    return new SpringApplicationBuilder(KumiteGameStarter.class)
-        .profiles("test")
-        .run(
-            "--server.port=0",
-            "--spring.mongodb.uri=" + uri,
-            "--datastore.startup-wait=" + startupWait,
-            "--datastore.operation-timeout=2s");
+    return IntegrationTestBase.startApplication(
+        uri, Map.of("datastore.startup-wait", startupWait, "datastore.operation-timeout", "2s"));
   }
 
   private static String uriOf(GenericContainer<?> container) {
