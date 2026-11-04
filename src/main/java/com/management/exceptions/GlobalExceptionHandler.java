@@ -120,12 +120,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     Map<String, String> errors = new LinkedHashMap<>();
     ex.getBindingResult()
         .getFieldErrors()
-        .forEach(
-            fieldError ->
-                errors.merge(
-                    fieldError.getField(),
-                    String.valueOf(fieldError.getDefaultMessage()),
-                    (first, second) -> first + "; " + second));
+        .forEach(fieldError ->
+            errors.merge(
+                fieldError.getField(),
+                String.valueOf(fieldError.getDefaultMessage()),
+                (first, second) -> first + "; " + second));
 
     ProblemDetail problem =
         ProblemDetail.forStatusAndDetail(status, "The request failed validation.");

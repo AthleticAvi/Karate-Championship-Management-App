@@ -44,7 +44,7 @@ Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest
 
 ## Stack
 
-Java **25** everywhere (`pom.xml`, local JDK, CI). Spring Boot **4.1.2**, Maven, embedded Tomcat.
+Java **25** everywhere (`pom.xml`, `.java-version`, local JDK, CI). Enforcer fails any other JDK. Spring Boot **4.1.2**, Maven, embedded Tomcat.
 Jackson 3, JUnit 6, Testcontainers 2, MongoDB driver 5.8. MongoDB 7 in Docker, standalone. Frontend
 not started.
 

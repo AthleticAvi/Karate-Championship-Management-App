@@ -26,11 +26,16 @@ twice is a bug in this setup, not thoroughness.
 | **Spotless** + google-java-format | Layout | `pom.xml`, `spotless-maven-plugin` | **Enforced.** `mvn spotless:apply` fixes | 0 |
 | **Checkstyle** (published) | Conventions: naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | Ratchet | **10** |
 | **Checkstyle** (project) | The language standard's own rules: logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **3** |
-| **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **87** across main and test (45 NullAway) |
+| **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **85** across main and test (45 NullAway) |
 | **javac** | Compiler warnings | `pom.xml`, `-Xlint:all,-serial` | Report only | 0 |
 | **JaCoCo** | Coverage, merged across both suites | `pom.xml`, `jacoco-maven-plugin` | **Enforced floor** | LINE **90%**, BRANCH **80%** |
 | **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 3 frozen rules |
-| **Docs tests** | Indexes, scaffold, generic workflow, em dashes | `RepositoryDocsTest` | **Enforced** | 0 |
+| **Docs tests** | Indexes, scaffold, generic workflow, em dashes, Java version in step | `RepositoryDocsTest` | **Enforced** | 0 |
+| **Enforcer** | The JDK running the build | `pom.xml`, `maven-enforcer-plugin` | **Enforced**, exact major | n/a |
+
+The Java version is in two files, tied by a test. `java.version` in `pom.xml` drives the build and
+the Enforcer rule. `.java-version` is what `actions/setup-java` reads, because that action cannot read
+a pom. To move versions, change both. Direct goals such as `mvn spotless:check` skip Enforcer.
 
 ## [coverage] Coverage
 
@@ -49,6 +54,9 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
   upstream and how to re-vendor.
 - **Project rules:** edit `project-standards.xml`. Every module cites the standard it mechanises.
 - **Correctness:** toggle Error Prone checks with `-Xep:CheckName:OFF|WARN|ERROR` in compiler args.
+- **Null marking:** every main package has `@NullMarked` in `package-info.java`, except
+  `repositories`, which is `@NullUnmarked`: see its README. `util` marks its class instead, because
+  the frozen `noUtilityPackage` rule would count a new `package-info` as a violation.
 - **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason.
 - **Layer rules:** `ArchitectureTest`. To change the store, see `[boundaries]` in
   `src/main/java/com/management/README.md`.

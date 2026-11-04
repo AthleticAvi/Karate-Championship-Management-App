@@ -9,3 +9,6 @@ hooks/** text eol=lf
 
 # ArchUnit's frozen violations compare line by line.
 config/archunit/** text eol=lf
+
+# Read by CI as well as by a test, so it stays free of platform line endings.
+.java-version text eol=lf

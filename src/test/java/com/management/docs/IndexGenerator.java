@@ -78,12 +78,11 @@ public final class IndexGenerator {
     Path workflow = root.resolve(WORKFLOW);
     Path readme = workflow.resolve(README);
     Map<String, String> entries = new TreeMap<>();
-    expected.forEach(
-        (path, text) -> {
-          if (path.startsWith(workflow) && !path.equals(readme)) {
-            entries.put(workflow.relativize(path).toString().replace('\\', '/'), text);
-          }
-        });
+    expected.forEach((path, text) -> {
+      if (path.startsWith(workflow) && !path.equals(readme)) {
+        entries.put(workflow.relativize(path).toString().replace('\\', '/'), text);
+      }
+    });
     expected.computeIfPresent(readme, (path, text) -> withCatalogue(text, entries));
     return expected;
   }

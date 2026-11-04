@@ -94,17 +94,16 @@ public class KumiteGameService {
     Map<PlayerColor, PlayerDTO> byColour = new EnumMap<>(PlayerColor.class);
     gameRequestDTO
         .playersMap()
-        .forEach(
-            (key, playerDTO) -> {
-              PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(playerDTO.color());
-              PlayerDTO clash = byColour.put(playerColor, playerDTO);
-              if (clash != null) {
-                throw new InvalidGameRequestException(
-                    "A match fields exactly one fighter per colour, but two were given as "
-                        + playerColor
-                        + ".");
-              }
-            });
+        .forEach((key, playerDTO) -> {
+          PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(playerDTO.color());
+          PlayerDTO clash = byColour.put(playerColor, playerDTO);
+          if (clash != null) {
+            throw new InvalidGameRequestException(
+                "A match fields exactly one fighter per colour, but two were given as "
+                    + playerColor
+                    + ".");
+          }
+        });
     validateColours(byColour.keySet());
 
     List<Referee> refereesList = gameRequestDTO.refereeList().stream().map(Referee::new).toList();
@@ -112,10 +111,9 @@ public class KumiteGameService {
 
     Map<PlayerColor, Player> createdFighters = new EnumMap<>(PlayerColor.class);
     try {
-      byColour.forEach(
-          (playerColor, requested) ->
-              createdFighters.put(
-                  playerColor, playerService.createPlayer(new PlayerRequestDTO(requested.name()))));
+      byColour.forEach((playerColor, requested) ->
+          createdFighters.put(
+              playerColor, playerService.createPlayer(new PlayerRequestDTO(requested.name()))));
 
       Map<PlayerColor, String> playerIds = new EnumMap<>(PlayerColor.class);
       createdFighters.forEach(
@@ -201,12 +199,11 @@ public class KumiteGameService {
     PlayerColor firstScorer =
         stage
             .flatMap(FoulTypes::opponentAward)
-            .map(
-                award -> {
-                  boolean unclaimed = kumiteGame.getSenshu().isEmpty();
-                  playerService.addPoint(fighterId(kumiteGame, opponentColour), award);
-                  return unclaimed ? opponentColour : null;
-                })
+            .map(award -> {
+              boolean unclaimed = kumiteGame.getSenshu().isEmpty();
+              playerService.addPoint(fighterId(kumiteGame, opponentColour), award);
+              return unclaimed ? opponentColour : null;
+            })
             .orElse(null);
     if (stage.filter(FoulTypes::isDisqualifying).isPresent()) {
       penalised = playerService.disqualify(penalised.getId());
@@ -234,16 +231,15 @@ public class KumiteGameService {
     current
         .foulStage()
         .filter(stage -> stage.opponentAward().isPresent() || stage.isDisqualifying())
-        .ifPresent(
-            stage -> {
-              throw new IllegalStateTransitionException(
-                  "Fighter "
-                      + penalisedColour
-                      + " is at "
-                      + stage
-                      + ", which already had a consequence. Removing that foul would have to undo"
-                      + " it; use a referee override instead.");
-            });
+        .ifPresent(stage -> {
+          throw new IllegalStateTransitionException(
+              "Fighter "
+                  + penalisedColour
+                  + " is at "
+                  + stage
+                  + ", which already had a consequence. Removing that foul would have to undo"
+                  + " it; use a referee override instead.");
+        });
 
     Player penalised = playerService.removeFoul(penalisedId);
     return settle(withFighters(kumiteGame, penalisedColour, penalised), null);
@@ -528,13 +524,12 @@ public class KumiteGameService {
       KumiteGame kumiteGame, @Nullable PlayerColor knownColour, @Nullable Player knownFighter) {
     Map<PlayerColor, Player> fighters = new EnumMap<>(PlayerColor.class);
     referencedFighters(kumiteGame)
-        .forEach(
-            (color, playerId) ->
-                fighters.put(
-                    color,
-                    color == knownColour && knownFighter != null
-                        ? knownFighter
-                        : playerService.getPlayer(playerId)));
+        .forEach((color, playerId) ->
+            fighters.put(
+                color,
+                color == knownColour && knownFighter != null
+                    ? knownFighter
+                    : playerService.getPlayer(playerId)));
     return new GameWithFighters(kumiteGame, fighters);
   }
 
@@ -570,18 +565,17 @@ public class KumiteGameService {
 
   private void deleteOrphanedFighters(
       Map<PlayerColor, Player> createdFighters, RuntimeException cause) {
-    createdFighters.forEach(
-        (color, fighter) -> {
-          try {
-            playerService.deletePlayer(fighter.getId());
-          } catch (RuntimeException compensationFailure) {
-            log.error(
-                "Match creation failed after fighters were saved, and deleting orphaned fighter {}"
-                    + " failed too — the document is stranded and must be removed by hand",
-                fighter.getId(),
-                compensationFailure);
-          }
-        });
+    createdFighters.forEach((color, fighter) -> {
+      try {
+        playerService.deletePlayer(fighter.getId());
+      } catch (RuntimeException compensationFailure) {
+        log.error(
+            "Match creation failed after fighters were saved, and deleting orphaned fighter {}"
+                + " failed too — the document is stranded and must be removed by hand",
+            fighter.getId(),
+            compensationFailure);
+      }
+    });
     log.error("Match creation failed after fighters were saved; compensated by deletion", cause);
   }
 

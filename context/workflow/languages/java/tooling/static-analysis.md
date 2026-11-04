@@ -37,17 +37,24 @@ Builds on: `tooling/static-analysis.md`
 - Vendor the ruleset: see `[vendor-the-ruleset]` in `tooling/static-analysis.md`.
 - Ratchet with `maxAllowedViolations`, set to the current count. It only goes down.
 - Set `includeTestSourceDirectory`, so tests hold to the same rules.
+- After a version bump, reapply every deviation in the ruleset header before counting. A dropped
+  adjustment reads as a wave of new findings in code nobody changed.
 
 ## [error-prone] Error Prone and NullAway
 
 - javac has no count ratchet, so findings stay report-only until cleared, then move to `ERROR`.
 - The count depends on the command: `compile` sees main sources, `verify` also sees tests.
 - Needs JDK-sensitive compiler flags, so the local JDK and CI must match.
+- A null annotation can be read at runtime, not only by the analyser. Before marking a package,
+  check what the framework does with the annotation.
 
 ## [jacoco] JaCoCo
 
 - Run an agent under both test suites and merge the execution files. One suite alone misleads.
 - The floor only rises. It is a floor, not a target.
+- Adding a second agent to the test JVM: use `@{argLine}` so JaCoCo's agent stays, and default the
+  property to empty so a run with JaCoCo skipped still resolves it. Coverage staying the same proves
+  the agent survived.
 
 ## [archunit] ArchUnit
 

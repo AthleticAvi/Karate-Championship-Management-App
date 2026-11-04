@@ -39,10 +39,9 @@ public class FoulLimitWinnerRule implements WinnerRule {
     return fighters.entrySet().stream()
         .filter(entry -> hasFouledOut(entry.getValue()))
         .findFirst()
-        .map(
-            entry ->
-                new MatchOutcome(
-                    opponentOf(entry.getKey()), reason, FoulLimitWinnerRule.class.getSimpleName()));
+        .map(entry ->
+            new MatchOutcome(
+                opponentOf(entry.getKey()), reason, FoulLimitWinnerRule.class.getSimpleName()));
   }
 
   private boolean hasFouledOut(Player fighter) {

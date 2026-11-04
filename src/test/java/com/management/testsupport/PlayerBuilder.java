@@ -76,12 +76,11 @@ public final class PlayerBuilder {
    */
   public Player build() {
     Points playerPoints = new Points();
-    scored.forEach(
-        (pointsType, times) -> {
-          for (int i = 0; i < times; i++) {
-            pointsType.getStrategy().addPoint(playerPoints);
-          }
-        });
+    scored.forEach((pointsType, times) -> {
+      for (int i = 0; i < times; i++) {
+        pointsType.getStrategy().addPoint(playerPoints);
+      }
+    });
 
     Foul playerFouls = new Foul();
     for (int i = 0; i < fouls; i++) {
