@@ -23,7 +23,9 @@ concurrency:
 jobs:
   build:
     name: Build and test
-    runs-on: ubuntu-latest
+    # Pinned: mongo:8.0 refuses to start on Linux kernel 6.19 and newer, which ubuntu-latest runs.
+    # See the repositories README before moving this.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
