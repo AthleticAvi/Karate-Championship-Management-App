@@ -17,7 +17,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 
 ## Catalogue
 
-- `databases/mongodb/design/persistence.md`: [document-design] [object-construction-on-read] [excluded-fields] [identifiers] [optimistic-locking] [transactions] [indexes] [auditing] [local-setup-and-initialisation] [verify]
+- `databases/mongodb/design/persistence.md`: [document-design] [acid] [object-construction-on-read] [excluded-fields] [identifiers] [optimistic-locking] [transactions] [write-and-read-concern] [indexes] [auditing] [local-setup-and-initialisation] [verify]
 - `delivery/attended.md`: [plan] [decisions] [findings] [progress]
 - `delivery/bug.md`: [differs]
 - `delivery/change.md`: [differs]
@@ -29,6 +29,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `delivery/learning.md`: [find] [answer]
 - `delivery/planning.md`: [plan] [design-check] [challenge]
 - `delivery/unattended.md`: [start] [plan] [stop] [decisions] [stuck] [findings] [finish]
+- `design/acid.md`: [contract] [atomicity] [consistency] [isolation] [durability] [same-guarantees] [enforcement] [verify]
 - `design/concurrency-consistency.md`: [default-failure-mode-is] [one-fact-one-owner] [version-writes] [write-last] [idempotency] [verify]
 - `design/layers.md`: [responsibilities] [gateways] [business] [data] [dependencies] [ownership] [readmes] [add-layer] [external-tools] [verify]
 - `design/logging.md`: [rules] [levels] [correlation] [structured-output] [never-log] [log-lines-are-an] [verify]
