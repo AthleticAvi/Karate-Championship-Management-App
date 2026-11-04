@@ -408,8 +408,8 @@
             Raised by #37 from LINE 37% / BRANCH 15% to 78% / 55%, and again to 80% / 64% by the
             review fixes: the legacy-winner converter, the write-path colour guard and the
             non-leaking IllegalArgumentException handler are all branch-heavy. Raised by #115 to
-            90% / 80%. The suite now achieves 90.95% and 80.85%, so the floor sits under a point
-            below it: losing 2 covered branches or 8 covered lines fails the build.
+            90% / 80%, under a point below the 90.95% and 80.85% the suite then achieved. The margin
+            is thin: a small drop, or a little new untested code, fails the build.
           -->
           <execution>
             <id>coverage-check</id>
