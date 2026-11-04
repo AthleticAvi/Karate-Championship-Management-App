@@ -26,8 +26,8 @@ This project is the system of record for that bout. It holds the competitors, th
 
 | | |
 |---|---|
-| Language | Java 21 |
-| Framework | Spring Boot 4.1.0 |
+| Language | Java 25 |
+| Framework | Spring Boot 4.1.2 |
 | Database | MongoDB 7, in Docker |
 | Build | Maven |
 | Testing | JUnit, Mockito, AssertJ, Testcontainers |
@@ -36,7 +36,7 @@ A frontend will follow once the backend supports it.
 
 ## Running locally
 
-Requires a JDK, Maven, and Docker. A step-by-step Windows setup guide is included as `karate-app-dev-setup-windows.pdf`.
+Requires JDK 25, Maven, and Docker.
 
 ```bash
 docker run -d -p 27017:27017 --name kumite-mongo mongo:7   # database
