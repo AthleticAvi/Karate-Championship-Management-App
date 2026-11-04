@@ -31,6 +31,12 @@ Every operation that changes state answers these in the plan:
 
 "The engine handles it" is not an answer. Unanswered means the design is not finished.
 
+One line per operation is enough, and operations with the same answers can share one:
+
+```
+<operation>: <atomic unit>; <what checks the invariants>; <the guard>; <acknowledgement setting>
+```
+
 ## [atomicity] Atomicity: one operation, one atomic unit
 
 - One business operation commits in exactly one atomic unit of the engine.
@@ -74,8 +80,10 @@ Every operation that changes state answers these in the plan:
 - Local, test and production offer the same transaction support and the same acknowledgement level.
 - An environment that is weaker or stronger than production hides defects from the tests run on it.
 - Where one must differ, write down how and why, and what that leaves untested.
-- The application refuses to start when the datastore cannot give the guarantees it was built on.
-  Failing at startup beats losing data quietly in the middle of an operation.
+- The application refuses to start when a reachable datastore cannot give the guarantees it was
+  built on. Failing at startup beats losing data quietly in the middle of an operation.
+- An unreachable datastore is an outage, not a weak datastore. Start, report unhealthy, serve no
+  state changes, and run the check once it answers.
 
 ## [enforcement] How these rules are enforced
 
@@ -86,8 +94,11 @@ Every operation that changes state answers these in the plan:
 | Tests | Every item in `[verify]` is a test, not a review note |
 | Architecture test | Where a rule can be expressed as structure, it is. Known violations are frozen until fixed |
 | Startup | The application checks the datastore's guarantees before serving requests |
+| Known gaps | Existing code that breaks a rule is listed in its domain README, with the issue fixing it |
 
 A rule that a test can check gets a test. Review is for what code cannot decide.
+
+A listed gap is known debt, not a regression. New code meets the rules, and no gap grows.
 
 ## [verify] Verify
 
@@ -95,5 +106,6 @@ A rule that a test can check gets a test. Review is for what code cannot decide.
 - Two concurrent operations on the same record both hold their invariants. Use a latch.
 - A write based on stale state is refused, not applied.
 - Repeating an operation after a simulated timeout does not apply it twice.
-- The application refuses to start against a datastore that lacks a required guarantee.
+- The application refuses to start against a reachable datastore that lacks a required guarantee.
+- Against an unreachable datastore it starts and reports unhealthy.
 - The configured acknowledgement level is what the running connection actually uses.

@@ -79,7 +79,7 @@ Reach for a transaction last. The manual says it costs more than a single-docume
 Multi-document transactions require a replica set or a sharded cluster. A standalone instance does not support them, and the two ways this goes wrong look nothing alike:
 
 - **No transaction manager registered:** the framework's support is off, so a transactional annotation does nothing and gives no warning. Each write commits alone.
-- **Manager registered, standalone server:** the first write fails at runtime with `Transaction numbers are only allowed on a replica set member or mongos`.
+- **Manager registered, standalone server:** the first operation fails at runtime, even a read, with `Transaction numbers are only allowed on a replica set member or mongos`.
 
 Before designing anything that needs two documents written atomically, confirm the deployment topology in every environment including local development. If it is standalone, remove the need for the second write.
 
@@ -87,7 +87,9 @@ When a transaction is the right answer:
 
 - Keep it under a minute. Past that it is aborted as expired.
 - Expect aborts. A lock not acquired within 5 ms aborts it, and so does a write conflict with a change made outside it.
-- Use the driver's callback form. It retries on `TransientTransactionError` and `UnknownTransactionCommitResult`. A transient error re-runs the whole transaction, so the body must be safe to run again.
+- **Nothing retries for you on the framework path.** Only the driver's callback form retries by itself, and direct driver calls are a defect. The framework's transaction manager ignores the error labels, and a failed commit raises an exception.
+  - `TransientTransactionError`: retry the whole method, with the framework's bounded retry support placed outside the transaction boundary. The body runs again, so it must be safe to run again.
+  - `UnknownTransactionCommitResult`: retry the commit only, through the transaction manager's commit hook. Re-running the method could apply the change twice. Fail loudly when the attempts run out.
 - Individual writes inside a transaction are never retried on their own, whatever `retryWrites` says.
 - Commit with `w: majority`. Read concern guarantees inside a transaction hold only then.
 - Create collections and indexes beforehand. The framework's documentation requires it, and a pending index build blocks new transactions on that collection.
@@ -107,7 +109,7 @@ Write concern decides what "acknowledged" means. Durability depends on it, and i
 - **The journal is flushed every 100 ms.** A write acknowledged in memory can be lost on a hard shutdown inside that window.
 - **`j: true` alone does not survive a failover.** It says nothing about replication. Use `w: majority`.
 - **Never use `w: 0`.** It cannot report a conflict, and it cannot be retried.
-- **Always set `wtimeout`.** Without it, an unachievable write concern blocks forever.
+- **Always bound the wait.** With no limit, an unachievable write concern blocks forever. Use `timeoutMS` in the connection string where the driver supports it: it covers the whole operation, and the driver then ignores the other timeout options. `wtimeoutMS` is deprecated in its favour, and the bare `wtimeout` is the older name for that, so use `wtimeoutMS` only on a driver without `timeoutMS`.
 - **A write concern error does not undo the write.** The change stays and may replicate or roll back. Treat it as an unknown outcome: see `[idempotency]` in `design/concurrency-consistency.md`.
 
 Reads:
@@ -117,11 +119,14 @@ Reads:
 - **Read your own writes across members needs a causally consistent session,** with `majority` on both the read and the write.
 
 Retryable writes are on by default in current drivers, but they need a replica set or sharded cluster: a standalone gives none. They retry once by default, for single-document operations only, and the manual does not promise exactly-once. They cover a dropped connection between the driver and the server. They are no substitute for a key from the caller.
+
 ## [indexes] Indexes
 
 Add an index when a query filters on something other than the identifier, never speculatively. An index on an unqueried field costs write throughput and storage and returns nothing.
 
 Derive them from the queries that exist: list the repository methods, index what they filter and sort on, confirm with the engine's query plan that the index is actually used.
+
+**The exception is a constraint.** A unique index that enforces an invariant earns its place without a query: it is a rule, not a speed-up. Say which invariant it enforces, and prove it with a test that a duplicate is refused.
 
 Automatic index creation from annotations is off by default in current versions. Creating indexes as an explicit deployment step is preferable beyond development, because it makes index changes reviewable and lets them be applied without a redeploy.
 
@@ -132,7 +137,8 @@ Created and modified timestamps and actors are provided by the framework's audit
 ## [local-setup-and-initialisation] Local setup and initialisation
 
 - The database runs in a container, pinned to the same major version as production.
-- **The topology matches production too.** Hosted services run a replica set. A one-member replica set gives the same transaction and write concern behaviour locally, though the manual's production advice is several members, so it has no failover. Start the server with `--replSet`, then run `rs.initiate()` once.
+- **The topology matches production too.** Hosted services run a replica set. A one-member replica set gives the same transaction and write concern behaviour locally, though the manual's production advice is several members, so it has no failover.
+- **Start it so the host can reach it.** Run the server with `--replSet rs0` and initiate it once, naming a member address the application can resolve: `rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})`. A plain `rs.initiate()` in a container registers the container's own hostname, so an application on the host using `replicaSet=rs0` discovers an address it cannot resolve and every operation fails with a server selection timeout. `directConnection=true` also gets through, for test and development only. A replica set with authorization also needs a keyfile or certificates for its members.
 - **A test container's topology is a setting: check it.** Some container libraries start a standalone unless asked for a replica set, so tests can run on a weaker topology than production. Confirm it with `db.hello().setName`, which is absent on a standalone.
 - Connection settings come from the environment with local defaults, never hardcoded.
 - Schema is implicit, so the burden moves to migrations: a change in field name or type must be paired with a plan for documents already written in the old shape. There is no engine-level error for a shape mismatch: it surfaces as a null field or a mapping failure at read time.
@@ -143,9 +149,9 @@ Created and modified timestamps and actors are provided by the framework's audit
 - Every document type has an explicit persistence creator.
 - A save-then-load round trip preserves every field, including those the creator does not take.
 - Removing a document type's version field makes a concurrency test fail.
-- Every declared index corresponds to a query in the codebase and is confirmed used by the query plan.
+- Every declared index corresponds to a query in the codebase and is confirmed used by the query plan, or enforces a named invariant and has a test proving it.
 - Everything in `[verify]` in `design/acid.md` holds, as tests.
-- Every multi-document write runs in a transaction, or has a written reason why it cannot.
-- A test proves a transaction rolls back, on the same topology as production.
-- The connection string sets `w=majority` and a `wtimeout` in every environment.
+- Any multi-document write runs in a transaction, or has a written reason why it cannot.
+- Where transactions are used, a test proves one rolls back, on the same topology as production.
+- The connection sets `w=majority` and a bound on the wait in every environment.
 - `db.hello().setName` gives the same kind of answer in local, test and production.

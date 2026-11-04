@@ -24,7 +24,8 @@ Status: enforced
 - Nothing was rebuilt that the framework, the language or this repo already provides.
 - No abstraction without a second implementation. Any pattern used solves a named problem.
 - No tunable value or path hardcoded.
-- Every state change meets `[contract]` in `design/acid.md`, and each `[verify]` item is a test.
+- Every state change this diff touches meets `[contract]` in `design/acid.md`, and each `[verify]`
+  item that applies is a test. No known gap grew: see `[enforcement]` in that file.
 
 ## [code] Code
 

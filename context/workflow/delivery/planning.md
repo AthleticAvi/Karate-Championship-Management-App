@@ -31,8 +31,8 @@ Answer these in the plan, in a line each:
    `design/principles.md`.
 3. **Abstraction:** does any new abstraction have a second implementation, real or planned?
 4. **Pattern:** if a pattern is used, which problem does it solve? See `design/patterns.md`.
-5. **State:** for each operation that changes stored state, the four answers in `[contract]` in
-   `design/acid.md`.
+5. **State:** a line per operation that changes stored state, in the form `[contract]` in
+   `design/acid.md` gives.
 
 ## [challenge] Challenging a plan
 
