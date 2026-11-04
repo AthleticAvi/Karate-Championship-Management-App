@@ -24,10 +24,10 @@
     <checkstyle.version>14.4.0</checkstyle.version>
     <error-prone.version>2.52.0</error-prone.version>
     <nullaway.version>0.14.3</nullaway.version>
-    <jacoco.version>0.8.15</jacoco.version>
+    <jacoco.version>0.8.16</jacoco.version>
     <!-- Flipped to true by the selective-run profiles at the bottom of this file. -->
     <coverage.check.skip>false</coverage.check.skip>
-    <git-build-hook.version>3.5.0</git-build-hook.version>
+    <git-build-hook.version>3.6.0</git-build-hook.version>
     <archunit.version>1.5.1</archunit.version>
   </properties>
 
