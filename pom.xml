@@ -22,8 +22,8 @@
     <google-java-format.version>2.0.0</google-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <checkstyle.version>14.4.0</checkstyle.version>
-    <error-prone.version>2.39.0</error-prone.version>
-    <nullaway.version>0.12.7</nullaway.version>
+    <error-prone.version>2.52.0</error-prone.version>
+    <nullaway.version>0.14.3</nullaway.version>
     <jacoco.version>0.8.15</jacoco.version>
     <!-- Flipped to true by the selective-run profiles at the bottom of this file. -->
     <coverage.check.skip>false</coverage.check.skip>
@@ -131,7 +131,6 @@
           <compilerArgs>
             <arg>-Xlint:all,-serial</arg>
             <arg>-XDcompilePolicy=simple</arg>
-            <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
             <arg>--should-stop=ifError=FLOW</arg>
             <!--
               CatchAndPrintStackTrace is OFF because config/checkstyle/project-standards.xml
