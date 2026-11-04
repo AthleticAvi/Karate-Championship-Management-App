@@ -58,7 +58,7 @@ The overriding rule: **reuse first, framework first.** If Spring Boot or the JDK
 
 ## Local setup
 
-Requirements: **JDK 21**, Maven, Docker. The local JDK must match the build: the compiler flags for Error Prone are JDK-sensitive.
+Requirements: **JDK 25**, Maven, Docker. The local JDK must match the build: the compiler flags for Error Prone are JDK-sensitive.
 
 ```bash
 # MongoDB must be running before the application starts

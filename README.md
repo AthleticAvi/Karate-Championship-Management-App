@@ -26,8 +26,8 @@ This project is the system of record for that bout. It holds the competitors, th
 
 | | |
 |---|---|
-| Language | Java 21 |
-| Framework | Spring Boot 4.1.0 |
+| Language | Java 25 |
+| Framework | Spring Boot 4.1.2 |
 | Database | MongoDB 7, in Docker |
 | Build | Maven |
 | Testing | JUnit, Mockito, AssertJ, Testcontainers |
