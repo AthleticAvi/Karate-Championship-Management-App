@@ -29,8 +29,8 @@ must be running for `mvn verify`: integration tests start their own MongoDB thro
 | Package | Holds |
 |---|---|
 | `kumitegametests` | Behaviour, controller slice and integration tests |
-| `models`, `rules`, `enums` | Unit tests for those packages |
-| `testsupport` | Base classes, builders and fakes: `IntegrationTestBase`, which also supplies the weak MongoDB containers `DatastoreRefusalIT` needs, `WebSliceTestBase`, `KumiteGameBuilder`, `PlayerBuilder`, `FakeRepositories`, `InMemoryMongo` |
+| `models`, `rules`, `enums`, `filters` | Unit tests for those packages |
+| `testsupport` | Base classes, builders and fakes: `IntegrationTestBase`, which also supplies the weak MongoDB containers `DatastoreRefusalIT` needs, `WebSliceTestBase`, `TestClock`, `KumiteGameBuilder`, `PlayerBuilder`, `FakeRepositories`, `InMemoryMongo` |
 | `architecture` | `ArchitectureTest`, the layer rules |
 | `docs` | Index generator, commit message check, and the tests that hold the docs to the scaffold |
 

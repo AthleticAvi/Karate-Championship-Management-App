@@ -57,7 +57,7 @@ Put variable data in fields, not interpolated into a sentence. A message whose t
 - Credentials, tokens, keys, session identifiers, or anything that grants access.
 - Personal data beyond what is necessary, and only where retention is understood.
 - Full request or response bodies by default.
-- Anything a client sent that has not been validated, reflected verbatim.
+- Anything a client sent that has not been validated, reflected verbatim. A path counts: it holds identifiers the client typed, and a decoded line break forges a log entry. Log the matched route pattern instead.
 
 Redact at the point of logging. A filter that redacts after the fact is a second chance, not the control.
 

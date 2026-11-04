@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.TimeZone;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
   private static final Instant STARTED = Instant.parse("2026-03-29T00:59:30.123Z");
   private static final Instant ADJUSTED = Instant.parse("2026-03-29T01:00:30.456Z");
   private static final Instant DECIDED = Instant.parse("2026-03-29T01:01:30.789Z");
-  private static final Duration FULL_MATCH = Duration.ofSeconds(120);
+  private static final Duration FULL_MATCH = Duration.ofMinutes(2);
 
   @Autowired private KumiteGameRepository kumiteGameRepository;
   @Autowired private KumiteGameService kumiteGameService;
@@ -115,6 +116,7 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
   }
 
   private Document storedDocument(KumiteGame saved) {
-    return mongoTemplate.findById(saved.getId(), Document.class, COLLECTION);
+    return Objects.requireNonNull(
+        mongoTemplate.findById(saved.getId(), Document.class, COLLECTION));
   }
 }
