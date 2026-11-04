@@ -30,6 +30,11 @@
     <coverage.check.skip>false</coverage.check.skip>
     <!-- JaCoCo fills this in. Empty by default, so @{argLine} resolves when JaCoCo is skipped. -->
     <argLine></argLine>
+    <!--
+      Loaded as an agent because Mockito attaching itself at runtime is on its way out of the JDK.
+      A path built here, not by dependency:properties, so direct goals and IDE runs resolve it too.
+    -->
+    <mockito.agent>"-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"</mockito.agent>
     <git-build-hook.version>3.6.0</git-build-hook.version>
     <archunit.version>1.5.1</archunit.version>
   </properties>
@@ -298,28 +303,11 @@
         </executions>
       </plugin>
 
-      <!--
-        Sets ${org.mockito:mockito-core:jar}, so both suites can load Mockito as a Java agent. Mockito
-        attaching itself at runtime is on its way out of the JDK. @{argLine} keeps JaCoCo's agent.
-      -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>locate-mockito-agent</id>
-            <goals>
-              <goal>properties</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <argLine>@{argLine} "-javaagent:${org.mockito:mockito-core:jar}"</argLine>
+          <argLine>@{argLine} ${mockito.agent}</argLine>
           <includes>
             <include>**/*Test.java</include>
             <include>**/*Tests.java</include>
@@ -331,7 +319,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
-          <argLine>@{argLine} "-javaagent:${org.mockito:mockito-core:jar}"</argLine>
+          <argLine>@{argLine} ${mockito.agent}</argLine>
           <includes>
             <include>**/*IT.java</include>
           </includes>
