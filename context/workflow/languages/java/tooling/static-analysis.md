@@ -34,7 +34,7 @@ Builds on: `tooling/static-analysis.md`
 
 ## [checkstyle] Checkstyle
 
-- Vendor the ruleset: see `[vendor-ruleset]` in `tooling/static-analysis.md`.
+- Vendor the ruleset: see `[vendor-the-ruleset]` in `tooling/static-analysis.md`.
 - Ratchet with `maxAllowedViolations`, set to the current count. It only goes down.
 - Set `includeTestSourceDirectory`, so tests hold to the same rules.
 
@@ -56,8 +56,14 @@ Builds on: `tooling/static-analysis.md`
 - Wrap rules an existing codebase already breaks in `FreezingArchRule`: recorded violations pass,
   new ones fail, and fixed ones leave the store. This is the ratchet for architecture.
 - Keep rules the code already passes unfrozen, so they stay strict.
-- Commit the store, and set `freeze.store.default.allowStoreCreation=false`, so a missing store
-  fails instead of silently re-recording everything.
+- Commit the store, and set `freeze.store.default.allowStoreCreation=false` and
+  `allowStoreUpdate=false`. Creation alone is not enough: with updates on, a new or reworded rule
+  silently records every current violation as accepted.
+- To accept a fixed violation, run once with `-Darchunit.freeze.store.default.allowStoreUpdate=true`
+  and commit the store.
+- Never freeze a cycle rule. A cycle is stored as one message that counts its dependencies, so any
+  edit to either package reads as a new cycle. Keep the rule strict and name the known edge with
+  `ignoreDependency`.
 - The default matcher ignores line numbers, so ordinary edits do not count as new violations.
 
 ## [verify] Verify

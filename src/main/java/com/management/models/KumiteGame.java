@@ -59,8 +59,9 @@ public class KumiteGame {
    * <p>Was a display sentence — {@code "RED player: Kenji"}, starting life as the literal {@code
    * "Pending game ending"}. That is a value field doing a rendering job: no client could reliably
    * tell whether a match had been decided without comparing strings, and the fighter's name was
-   * baked into a field that changes when the fighter is renamed. {@code java.md} forbids a magic
-   * string for absent state; {@code null} is the absence.
+   * baked into a field that changes when the fighter is renamed. {@code
+   * context/workflow/languages/java/standards/standards.md} forbids a magic string for absent
+   * state; {@code null} is the absence.
    *
    * <p>{@link LegacyWinnerConverter} keeps documents written before that change readable — without
    * it, {@code Enum.valueOf} fails on the stored sentence and the whole match becomes unloadable.

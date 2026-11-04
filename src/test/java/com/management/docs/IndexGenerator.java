@@ -23,8 +23,9 @@ import java.util.stream.Stream;
  * the workflow README also gets a {@code ## Catalogue} of every workflow file with its tags.
  *
  * <p>Run from the repository root: {@code java
- * src/test/java/com/management/docs/IndexGenerator.java [--check]}. It stays one file with only JDK
- * imports, because the source launcher can run nothing else.
+ * src/test/java/com/management/docs/IndexGenerator.java}. {@code RepositoryDocsTest} fails the
+ * build on a stale index. It stays one file with only JDK imports, because the source launcher can
+ * run nothing else.
  */
 public final class IndexGenerator {
 
@@ -39,28 +40,29 @@ public final class IndexGenerator {
   private static final Set<String> PLAIN_HEADINGS = Set.of("## Index", "## Catalogue");
   private static final Pattern SECTION = Pattern.compile("^## \\[([a-z0-9-]+)\\] (.+)$");
   private static final Pattern DOC_PATH = Pattern.compile("`([A-Za-z0-9_./-]+\\.md)`");
+  private static final Pattern TAG_REFERENCE =
+      Pattern.compile("`\\[([a-z0-9-]+)\\]` in\\s+`([A-Za-z0-9_./-]+\\.md)`");
 
   private IndexGenerator() {
     throw new UnsupportedOperationException("static entry point");
   }
 
-  /** Writes indexes, or with {@code --check} reports stale ones. Exits non-zero on a problem. */
+  /** Writes indexes, then reports structure problems. Exits non-zero if there are any. */
   public static void main(String[] args) throws IOException {
-    boolean check = List.of(args).contains("--check");
     Path root = Path.of("").toAbsolutePath();
-    List<String> problems = new ArrayList<>(structureProblems(root));
+    if (!Files.isDirectory(root.resolve(WORKFLOW))) {
+      System.out.println("run from the repository root: " + WORKFLOW + " not found");
+      System.exit(1);
+    }
     for (Map.Entry<Path, String> entry : expected(root).entrySet()) {
       if (!read(entry.getKey()).equals(entry.getValue())) {
-        problems.add("stale index: " + root.relativize(entry.getKey()));
-        if (!check) {
-          Files.writeString(entry.getKey(), entry.getValue(), StandardCharsets.UTF_8);
-        }
+        System.out.println("updated index: " + root.relativize(entry.getKey()));
+        Files.writeString(entry.getKey(), entry.getValue(), StandardCharsets.UTF_8);
       }
     }
+    List<String> problems = structureProblems(root);
     problems.forEach(System.out::println);
-    boolean onlyFixedIndexes =
-        !check && problems.stream().allMatch(problem -> problem.startsWith("stale index: "));
-    System.exit(problems.isEmpty() || onlyFixedIndexes ? 0 : 1);
+    System.exit(problems.isEmpty() ? 0 : 1);
   }
 
   /** Returns the expected content of every generated file. */
@@ -103,10 +105,16 @@ public final class IndexGenerator {
       if (isTechnologyFile(relative) && !text.contains("\nBuilds on: ")) {
         problems.add(relative + ": missing 'Builds on:'");
       }
-      problems.addAll(brokenReferences(relative, text, root));
+      problems.addAll(brokenReferences(relative, text, List.of(workflow, root)));
     }
     if (Files.exists(root.resolve(ROUTER))) {
-      problems.addAll(brokenReferences(ROUTER, read(root.resolve(ROUTER)), root));
+      problems.addAll(
+          brokenReferences(ROUTER, read(root.resolve(ROUTER)), List.of(workflow, root)));
+    }
+    for (Path readme : domainReadmes(root)) {
+      Path folder = readme.resolveSibling("");
+      List<Path> bases = List.of(folder, folder.resolve(".."), root, workflow);
+      problems.addAll(brokenReferences(root.relativize(readme).toString(), read(readme), bases));
     }
     for (Path path : emDashScope(root)) {
       if (read(path).contains(EM_DASH)) {
@@ -225,23 +233,35 @@ public final class IndexGenerator {
         .collect(Collectors.toSet());
   }
 
-  private static boolean isTechnologyFile(String relative) {
+  static boolean isTechnologyFile(String relative) {
     return TECHNOLOGY_CATEGORIES.stream().anyMatch(category -> relative.startsWith(category + "/"));
   }
 
-  private static List<String> brokenReferences(String relative, String text, Path root) {
+  private static List<String> brokenReferences(String label, String text, List<Path> bases)
+      throws IOException {
     List<String> problems = new ArrayList<>();
-    Matcher matcher = DOC_PATH.matcher(text);
-    while (matcher.find()) {
-      String reference = matcher.group(1);
-      boolean found =
-          Files.exists(root.resolve(WORKFLOW).resolve(reference))
-              || Files.exists(root.resolve(reference));
+    Matcher paths = DOC_PATH.matcher(text);
+    while (paths.find()) {
+      if (candidates(paths.group(1), bases).isEmpty()) {
+        problems.add(label + ": broken reference " + paths.group(1));
+      }
+    }
+    Matcher tags = TAG_REFERENCE.matcher(text);
+    while (tags.find()) {
+      String heading = "\n## [" + tags.group(1) + "] ";
+      boolean found = false;
+      for (Path candidate : candidates(tags.group(2), bases)) {
+        found = found || read(candidate).contains(heading);
+      }
       if (!found) {
-        problems.add(relative + ": broken reference " + reference);
+        problems.add(label + ": broken reference [" + tags.group(1) + "] in " + tags.group(2));
       }
     }
     return problems;
+  }
+
+  private static List<Path> candidates(String reference, List<Path> bases) {
+    return bases.stream().map(base -> base.resolve(reference)).filter(Files::exists).toList();
   }
 
   private static List<Path> indexedFiles(Path root) throws IOException {
@@ -251,15 +271,19 @@ public final class IndexGenerator {
         files.add(path);
       }
     }
-    files.addAll(readmes(root.resolve("src")));
+    files.addAll(domainReadmes(root));
+    return files;
+  }
+
+  private static List<Path> domainReadmes(Path root) throws IOException {
+    List<Path> files = new ArrayList<>(readmes(root.resolve("src")));
     files.addAll(readmes(root.resolve("config")));
     return files;
   }
 
   private static List<Path> emDashScope(Path root) throws IOException {
     List<Path> files = new ArrayList<>(markdownUnder(root.resolve(WORKFLOW)));
-    files.addAll(readmes(root.resolve("src")));
-    files.addAll(readmes(root.resolve("config")));
+    files.addAll(domainReadmes(root));
     for (String name : List.of(ROUTER, README, "CONTRIBUTING.md")) {
       if (Files.exists(root.resolve(name))) {
         files.add(root.resolve(name));
@@ -274,7 +298,7 @@ public final class IndexGenerator {
         .toList();
   }
 
-  private static List<Path> markdownUnder(Path directory) throws IOException {
+  static List<Path> markdownUnder(Path directory) throws IOException {
     if (!Files.isDirectory(directory)) {
       return List.of();
     }
@@ -292,7 +316,7 @@ public final class IndexGenerator {
     }
   }
 
-  private static String read(Path path) throws IOException {
+  static String read(Path path) throws IOException {
     return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");
   }
 }

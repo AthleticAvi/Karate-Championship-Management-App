@@ -139,6 +139,32 @@ class IndexGeneratorTest {
   }
 
   @Test
+  void structureProblems_whenTagReferenceIsBroken_reportsIt() throws IOException {
+    write(
+        "design/a.md",
+        VALID_FILE + "\nSee `[gone]` in `design/a.md`, and `[one]` in `design/a.md`.\n");
+
+    assertThat(IndexGenerator.structureProblems(root))
+        .containsExactly("design/a.md: broken reference [gone] in design/a.md");
+  }
+
+  @Test
+  void structureProblems_inDomainReadmes_resolvesSiblingsAndReportsWhatIsGone() throws IOException {
+    Path rules = root.resolve("src/rules/README.md");
+    Path services = root.resolve("src/services/README.md");
+    Files.createDirectories(rules.getParent());
+    Files.createDirectories(services.getParent());
+    Files.writeString(rules, "# rules\n", StandardCharsets.UTF_8);
+    Files.writeString(
+        services, "See `rules/README.md` and `gone/README.md`.\n", StandardCharsets.UTF_8);
+
+    assertThat(IndexGenerator.structureProblems(root))
+        .singleElement()
+        .asString()
+        .endsWith("README.md: broken reference gone/README.md");
+  }
+
+  @Test
   void structureProblems_whenDocHasEmDash_reportsIt() throws IOException {
     write("design/a.md", VALID_FILE + "\nOne — two.\n");
 

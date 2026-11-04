@@ -66,6 +66,18 @@ class CommitMessageCheckTest {
     assertThat(CommitMessageCheck.problems(message)).isEmpty();
   }
 
+  @Test
+  void problems_whenHandWrittenMergeSubjectBreaksRules_reportsIt() {
+    assertThat(CommitMessageCheck.problems("Merge the two timer tests."))
+        .containsExactly("subject ends with a full stop");
+  }
+
+  @Test
+  void problems_whenRejectingAutosquash_reportsIt() {
+    assertThat(CommitMessageCheck.problems("fixup! Add form", true))
+        .containsExactly("squash this commit before opening the PR");
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"Merge branch 'main'", "fixup! Add form", "Revert \"Add form\""})
   void problems_skipsSubjectsGitGenerates(String subject) {

@@ -22,7 +22,7 @@ Status: enforced
 
 A `commit-msg` hook checks the verb, the subject and the body length, where the repo has one.
 CI runs the same check on every commit in a PR, so a skipped or missing hook does not get past
-it. Add a verb to its list when a real action is missing.
+it. CI also refuses autosquash commits, which local hooks allow. Add a verb to its list when a real action is missing.
 
 ## [units] Logical units
 

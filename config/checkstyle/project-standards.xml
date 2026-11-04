@@ -8,7 +8,7 @@
 
   This is NOT a general-purpose ruleset. google_checks.xml is the published ruleset and runs as a
   separate execution; this file exists only to enforce the project's own written standards, which
-  no published ruleset knows about. Every module below cites the java.md rule it implements.
+  no published ruleset knows about. Every module below cites the Java standards rule it implements.
 
   Layout, whitespace and line length are deliberately absent: Spotless owns formatting. A rule here
   that disagrees with google-java-format would be unfixable.
@@ -25,35 +25,35 @@
 
   <module name="TreeWalker">
 
-    <!-- java.md: "Never call printStackTrace()." Found once in the audit already. -->
+    <!-- Java standards: "Never call printStackTrace()." Found once in the audit already. -->
     <module name="RegexpSinglelineJava">
       <property name="id" value="ForbidPrintStackTrace"/>
       <property name="format" value="\.printStackTrace\s*\("/>
       <property name="ignoreComments" value="true"/>
       <property name="message"
-                value="java.md: never call printStackTrace() - it bypasses the log pipeline. Log with the throwable as the final argument."/>
+                value="Java standards: never call printStackTrace() - it bypasses the log pipeline. Log with the throwable as the final argument."/>
     </module>
 
-    <!-- java.md naming table: logger field is `private static final Logger log`. -->
+    <!-- Java standards naming table: logger field is `private static final Logger log`. -->
     <module name="RegexpSinglelineJava">
       <property name="id" value="LoggerFieldName"/>
       <property name="format" value="\bLogger\s+(?!log\b)\w+\s*="/>
       <property name="ignoreComments" value="true"/>
-      <property name="message" value="java.md: the logger field must be named 'log'."/>
+      <property name="message" value="Java standards: the logger field must be named 'log'."/>
     </module>
     <module name="RegexpSinglelineJava">
       <property name="id" value="LoggerFieldVisibility"/>
       <property name="format" value="^\s*(public|protected)\s+.*\bLogger\s+\w+\s*="/>
       <property name="ignoreComments" value="true"/>
-      <property name="message" value="java.md: the logger field must be private static final."/>
+      <property name="message" value="Java standards: the logger field must be private static final."/>
     </module>
 
-    <!-- java.md: "Optional is a return type, never a field or a parameter." -->
+    <!-- Java standards: "Optional is a return type, never a field or a parameter." -->
     <module name="RegexpSinglelineJava">
       <property name="id" value="OptionalAsParameter"/>
       <property name="format" value="[(,]\s*(final\s+)?Optional&lt;"/>
       <property name="ignoreComments" value="true"/>
-      <property name="message" value="java.md: Optional is a return type, never a parameter."/>
+      <property name="message" value="Java standards: Optional is a return type, never a parameter."/>
     </module>
     <!--
       Matches a field declaration only. A method is excluded by the parameter list its name is
@@ -63,7 +63,7 @@
       formatter wrapped is still caught.
 
       Without that method exclusion the pattern matched every method whose return type is Optional,
-      which is the one use java.md explicitly endorses and which its own worked example contains
+      which is the one use Java standards explicitly endorses and which its own worked example contains
       ("private static Optional&lt;Grade&gt; parseGrade(...)"). A rule that forbids the thing its
       standard prescribes is worse than no rule: it pushes authors towards returning null instead.
     -->
@@ -72,37 +72,37 @@
       <property name="format"
                 value="^\s*(private|protected|public)\s+(static\s+|final\s+)*Optional&lt;[^(]*&gt;\s+\w+\s*([=;]|$)"/>
       <property name="ignoreComments" value="true"/>
-      <property name="message" value="java.md: Optional is a return type, never a field."/>
+      <property name="message" value="Java standards: Optional is a return type, never a field."/>
     </module>
 
-    <!-- java.md naming table: boolean accessors are isX / hasX. -->
+    <!-- Java standards naming table: boolean accessors are isX / hasX. -->
     <module name="RegexpSinglelineJava">
       <property name="id" value="BooleanAccessorName"/>
       <property name="format"
                 value="public\s+boolean\s+(?!is[A-Z]|has[A-Z]|equals\s*\()\w+\s*\("/>
       <property name="ignoreComments" value="true"/>
-      <property name="message" value="java.md: a boolean accessor is named isX or hasX."/>
+      <property name="message" value="Java standards: a boolean accessor is named isX or hasX."/>
     </module>
 
     <!--
-      java.md naming table: constants are UPPER_SNAKE, private static final.
+      Java standards naming table: constants are UPPER_SNAKE, private static final.
 
       'log' is permitted explicitly. The same table mandates `private static final Logger log`, and
       a logger is a static final field, so the default UPPER_SNAKE format would make the two rules
-      contradict: satisfying the logger rule would permanently violate this one. java.md is
+      contradict: satisfying the logger rule would permanently violate this one. Java standards is
       authoritative, so the ruleset accommodates it rather than the reverse.
     -->
     <module name="ConstantName">
       <property name="format" value="^(log|[A-Z][A-Z0-9]*(_[A-Z0-9]+)*)$"/>
     </module>
 
-    <!-- java.md: "equals, hashCode, toString on every type placed in a collection or logged." -->
+    <!-- Java standards: "equals, hashCode, toString on every type placed in a collection or logged." -->
     <module name="EqualsHashCode"/>
 
-    <!-- java.md: "Static utility classes get a private throwing constructor, and hold no state." -->
+    <!-- Java standards: "Static utility classes get a private throwing constructor, and hold no state." -->
     <module name="HideUtilityClassConstructor"/>
 
-    <!-- java.md verify: "no new public mutable static". -->
+    <!-- Java standards verify: "no new public mutable static". -->
     <module name="VisibilityModifier">
       <property name="protectedAllowed" value="false"/>
       <property name="allowPublicFinalFields" value="true"/>

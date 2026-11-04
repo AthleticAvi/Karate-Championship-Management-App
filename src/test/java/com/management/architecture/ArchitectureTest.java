@@ -1,9 +1,12 @@
 package com.management.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 
+import com.management.enums.PointsType;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -13,16 +16,19 @@ import org.junit.jupiter.api.Test;
  * The layer boundaries: gateways, business and data stay apart.
  *
  * <p>Rules the code already passes are strict. Rules it does not yet pass are frozen: recorded
- * violations in {@code config/archunit/frozen} are tolerated, new ones fail the build, and fixed
- * ones leave the store. See {@code src/main/java/com/management/README.md}.
+ * violations in {@code config/archunit/frozen} are tolerated and new ones fail the build. See
+ * {@code src/main/java/com/management/README.md}.
  */
 class ArchitectureTest {
 
-  private static final String[] GATEWAYS = {"..controllers..", "..dto..", "..mappers.."};
+  private static final String[] GATEWAYS = {
+    "..controllers..", "..dto..", "..mappers..", "..exceptions.."
+  };
   private static final String[] BUSINESS = {"..services..", "..rules.."};
   private static final String[] DOMAIN_AND_BUSINESS = {
     "..services..", "..rules..", "..models..", "..enums.."
   };
+  private static final String[] DATA = {"..repositories..", "..models.converters.."};
 
   private static final JavaClasses CLASSES =
       new ClassFileImporter()
@@ -30,13 +36,13 @@ class ArchitectureTest {
           .importPackages("com.management");
 
   @Test
-  void controllers_neverReachTheDataLayer() {
+  void gateways_neverReachRulesOrTheDataLayer() {
     noClasses()
         .that()
-        .resideInAPackage("..controllers..")
+        .resideInAnyPackage(GATEWAYS)
         .should()
         .dependOnClassesThat()
-        .resideInAPackage("..repositories..")
+        .resideInAnyPackage("..rules..", "..repositories..")
         .check(CLASSES);
   }
 
@@ -66,7 +72,7 @@ class ArchitectureTest {
   void dataLayer_neverDependsOnBusinessOrGateways() {
     noClasses()
         .that()
-        .resideInAPackage("..repositories..")
+        .resideInAnyPackage(DATA)
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage(
@@ -75,13 +81,40 @@ class ArchitectureTest {
   }
 
   @Test
-  void gateways_neverHoldBusinessRules() {
+  void domainTypes_neverKnowTheApiShapes() {
     noClasses()
         .that()
-        .resideInAnyPackage(GATEWAYS)
+        .resideInAnyPackage("..models..", "..enums..")
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("..rules..", "..repositories..")
+        .resideInAPackage("..dto..")
+        .check(CLASSES);
+  }
+
+  @Test
+  void services_dependOneWayOnKumiteGameService() {
+    noClasses()
+        .that()
+        .resideInAPackage("..services..")
+        .and()
+        .doNotHaveSimpleName("KumiteGameService")
+        .should()
+        .dependOnClassesThat()
+        .haveSimpleName("KumiteGameService")
+        .check(CLASSES);
+  }
+
+  /**
+   * Strict rather than frozen, with the one known edge named: a frozen cycle is stored as a single
+   * message that counts its dependencies, so any edit to either package would read as a new cycle.
+   */
+  @Test
+  void packages_areFreeOfCyclesBeyondThePointStrategies() {
+    slices()
+        .matching("com.management.(*)..")
+        .should()
+        .beFreeOfCycles()
+        .ignoreDependency(equivalentTo(PointsType.class), resideInAPackage("..models.strategies.."))
         .check(CLASSES);
   }
 
@@ -109,11 +142,6 @@ class ArchitectureTest {
                 .dependOnClassesThat()
                 .resideInAPackage("org.springframework.data.."))
         .check(CLASSES);
-  }
-
-  @Test
-  void packages_areFreeOfCycles() {
-    freeze(slices().matching("com.management.(*)..").should().beFreeOfCycles()).check(CLASSES);
   }
 
   @Test

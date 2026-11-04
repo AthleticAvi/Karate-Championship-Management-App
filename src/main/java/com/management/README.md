@@ -17,8 +17,8 @@ This README maps the packages. Each package has its own README.
 
 | Responsibility | Packages | Job |
 |---|---|---|
-| Gateways | `controllers`, `dto`, `mappers`, `exceptions` | HTTP in and out. Translate, then delegate |
-| Business | `services`, `rules`, `models`, `enums` | Orchestration, rules, domain types |
+| Gateways | `controllers`, `dto`, `mappers`, `exceptions` handler | HTTP in and out. Translate, then delegate |
+| Business | `services`, `rules`, `models`, `enums`, `exceptions` types | Orchestration, rules, domain types |
 | Data | `repositories`, `models/converters` | MongoDB access and stored-form conversion |
 | Wiring | `config`, `KumiteGameStarter` | Typed settings and application start |
 
@@ -45,11 +45,19 @@ only on `Player` documents: one fact, one owner, no embedded snapshot to re-sync
 |---|---|
 | Business does not know API shapes | `KumiteGameService` and `PlayerService` import request types from `dto` |
 | Domain types carry no persistence mapping | `KumiteGame` and `Player` are also Spring Data documents |
-| Packages are free of cycles | `enums.PointsType` uses `models.strategies`, and `models` uses `enums` |
 | No utility package | `util.KumiteGameManagementUtils` |
 
-Separating domain and persistence types is an architecture decision, not yet taken. When a
-violation is fixed, the next test run removes it from the store: commit that change.
+Separating domain and persistence types is an architecture decision, not yet taken.
+
+The store only changes on purpose. A fixed violation fails the build until you run
+`mvn test -Dtest=ArchitectureTest -Darchunit.freeze.store.default.allowStoreUpdate=true` and commit
+the store.
+
+One cycle is accepted by name, not frozen: `enums.PointsType` attaches strategies from
+`models.strategies`, and `models` uses `enums`. Any other cycle fails the build.
+
+`exceptions` holds two responsibilities: the types business code throws, and
+`GlobalExceptionHandler`, the gateway. Both stay in one package for now.
 
 ## [not-built] Not built yet
 

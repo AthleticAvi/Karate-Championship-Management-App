@@ -29,7 +29,7 @@ twice is a bug in this setup, not thoroughness.
 | **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **45** across main and test (26 NullAway) |
 | **javac** | Compiler warnings | `pom.xml`, `-Xlint:all,-serial` | Report only | 0 |
 | **JaCoCo** | Coverage, merged across both suites | `pom.xml`, `jacoco-maven-plugin` | **Enforced floor** | LINE **80%**, BRANCH **64%** |
-| **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 4 frozen rules |
+| **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 3 frozen rules |
 | **Docs tests** | Indexes, scaffold, generic workflow, em dashes | `RepositoryDocsTest` | **Enforced** | 0 |
 
 ## [coverage] Coverage
@@ -50,7 +50,8 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 - **Project rules:** edit `project-standards.xml`. Every module cites the standard it mechanises.
 - **Correctness:** toggle Error Prone checks with `-Xep:CheckName:OFF|WARN|ERROR` in compiler args.
 - **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason.
-- **Layer rules:** `ArchitectureTest`. A fixed frozen violation leaves the store on the next run.
+- **Layer rules:** `ArchitectureTest`. To change the store, see `[boundaries]` in
+  `src/main/java/com/management/README.md`.
 
 ## [ratchet] The ratchet
 

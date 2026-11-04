@@ -2,6 +2,15 @@
 #
 # Checks the commit message against context/workflow/git/commits.md.
 #
-# This is a convenience, not a gate: CI runs the same check on every commit in a pull request.
+# This is a convenience, not a gate: CI runs the same check on every commit in a pull request. So a
+# machine with no usable JDK on hand gets a warning, not a blocked commit.
 
-exec java src/test/java/com/management/docs/CommitMessageCheck.java "$1"
+java_bin="${JAVA_HOME:+$JAVA_HOME/bin/}java"
+major=$("$java_bin" --version 2>/dev/null | sed -n '1s/^[^ ]* \([0-9]*\).*/\1/p')
+
+if [ "${major:-0}" -lt 21 ] || ! "$java_bin" --list-modules 2>/dev/null | grep -q '^jdk\.compiler'; then
+  echo "commit-msg: no JDK 21 found, skipping the message check. CI will still run it." >&2
+  exit 0
+fi
+
+exec "$java_bin" src/test/java/com/management/docs/CommitMessageCheck.java "$1"

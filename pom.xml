@@ -137,7 +137,7 @@
               CatchAndPrintStackTrace is OFF because config/checkstyle/project-standards.xml
               already enforces this as ForbidPrintStackTrace. One defect, one source: the
               Checkstyle rule is kept because it catches every printStackTrace call rather than
-              only those inside a catch block, and its message cites the java.md rule.
+              only those inside a catch block, and its message cites the Java standards rule.
             -->
             <arg>-Xplugin:ErrorProne -XepAllErrorsAsWarnings -XepAllSuggestionsAsWarnings
               -Xep:CatchAndPrintStackTrace:OFF

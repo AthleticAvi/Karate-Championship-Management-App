@@ -33,8 +33,8 @@ Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and
 
 | Responsibility | Packages |
 |-----------|----------|
-| Gateways | `controllers`, `dto`, `mappers`, `exceptions` |
-| Business | `services`, `rules`, `models`, `enums` |
+| Gateways | `controllers`, `dto`, `mappers`, `exceptions` handler |
+| Business | `services`, `rules`, `models`, `enums`, `exceptions` types |
 | Data | `repositories`, `models/converters` |
 | Wiring | `config`, `KumiteGameStarter` |
 
