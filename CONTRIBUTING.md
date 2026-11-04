@@ -6,14 +6,14 @@ Read it before opening a pull request. Most rejections happen because it wasn't 
 
 ## Before you write any code
 
-1. **Find an open issue.** Every change starts from one. If you want to work on something that isn't an issue, open one and describe it — do not open a pull request for unplanned work.
+1. **Find an open issue.** Every change starts from one. If you want to work on something that isn't an issue, open one and describe it. Do not open a pull request for unplanned work.
 2. **Comment on the issue and ask for it.** Say briefly how you intend to approach it.
 3. **Wait for the maintainer to confirm the issue is yours.** GitHub's assignee field cannot be used for people outside the repository, so a comment from the maintainer saying the issue is yours **is** the assignment. Not every request is granted, and issues are sometimes reserved.
 
    **A pull request opened without that confirmation will be closed, however good the work is.** This is not about the quality of your change. Several people asking for the same issue and two of them writing the same patch wastes their evening and mine, and the only way to prevent it is for claims to be settled before work starts.
 4. **One issue at a time, and one open pull request at a time.** Finish or withdraw from your current issue before claiming another.
 
-If you go quiet for a week without an update, the issue is released so someone else can take it. Just say so if you need more time — that's always fine.
+If you go quiet for a week without an update, the issue is released so someone else can take it. Just say so if you need more time, that's always fine.
 
 **Triage happens at least once a week.** Issue claims, review comments and pull requests are picked up in that window, often sooner. This is a side project, so if you have heard nothing after a week, it is fine to comment again and nudge.
 
@@ -22,10 +22,10 @@ If you go quiet for a week without an update, the issue is released so someone e
 A pull request is merged when all of these hold:
 
 - It resolves exactly one issue.
-- The diff does what the description says it does — no more, no less.
+- The diff does what the description says it does: no more, no less.
 - The change is covered by tests that would fail without it.
 - `mvn verify` passes.
-- It follows the standards in [`workflow/`](workflow/).
+- It follows the standards in [`context/workflow/`](context/workflow/).
 - It touches no file that the issue does not require.
 
 ## What gets declined
@@ -43,25 +43,28 @@ Declining a pull request is not a judgement of you. It usually means the change 
 
 ## Standards
 
-Engineering standards live in [`workflow/`](workflow/) and apply to every change:
+Engineering standards live in [`context/workflow/`](context/workflow/) and apply to every change. Start with its [README](context/workflow/README.md). Top-level folders apply to every stack, and technology folders add what is specific:
 
-- [`workflow/standards/java.md`](workflow/standards/java.md) — language-level rules
-- [`workflow/standards/spring-boot.md`](workflow/standards/spring-boot.md) — framework-level rules
-- [`workflow/patterns/`](workflow/patterns/) — one file per pattern: testing, persistence, service exposure, validation, error handling, configuration, logging, concurrency, auth
+- [`standards/`](context/workflow/standards/), [`design/`](context/workflow/design/), [`testing/`](context/workflow/testing/), [`tooling/`](context/workflow/tooling/): the general rules
+- [`languages/java/`](context/workflow/languages/java/): language-level rules
+- [`web-frameworks/spring-boot/`](context/workflow/web-frameworks/spring-boot/): framework-level rules
+- [`databases/mongodb/`](context/workflow/databases/mongodb/): persistence
 
-Each file opens with an `Applies when:` line. Read the ones your change touches — you are not expected to read all of them.
+Project facts live in a README in each package under `src/main/java/com/management/`.
+
+Each workflow file opens with an `Applies when:` line. Read the ones your change touches. You are not expected to read all of them.
 
 The overriding rule: **reuse first, framework first.** If Spring Boot or the JDK already does something, use it rather than writing an equivalent. A hand-rolled version of a framework feature is declined regardless of how well it is written.
 
 ## Local setup
 
-Requirements: **JDK 17** (the build targets 17; a newer JDK may be installed as long as the build target is unchanged), Maven, Docker.
+Requirements: **JDK 21**, Maven, Docker. The local JDK must match the build: the compiler flags for Error Prone are JDK-sensitive.
 
 ```bash
 # MongoDB must be running before the application starts
 docker run -d -p 27017:27017 --name kumite-mongo mongo:7
 
-# Build and run the test suite
+# Build and run every check and both test suites. Docker must be running.
 mvn verify
 
 # Run the application
@@ -71,13 +74,13 @@ mvn spring-boot:run
 mvn test -Dtest=SomeTestClass
 ```
 
-The current test suite does not require MongoDB — it is unit-level. Do not add a test that depends on a database running on your machine. Tests that need a database must provision it themselves with Testcontainers; see [`workflow/patterns/testing-integration.md`](workflow/patterns/testing-integration.md).
+Do not add a test that depends on a database running on your machine. Tests that need a database provision it themselves with Testcontainers; see [`integration.md`](context/workflow/web-frameworks/spring-boot/testing/integration.md).
 
 ## Making a change
 
 1. **Fork** this repository and clone your fork.
-2. **Branch off `main`**, named for what it does: `fix/...`, `refactor/...`, `feature/...`, `chore/...`.
-3. Make your change, with tests.
+2. **Branch off `main`**, named `<type>/<issue-number>-<task-name>`, such as `feature/12-user-login`. Types: `feature`, `bug`, `change`, `enhancement`, `docs`, `chore`.
+3. Make your change, with tests. Start each commit message with an action verb, such as `Add login form`: see [`commits.md`](context/workflow/git/commits.md). CI checks this.
 4. Run `mvn verify` and make sure it passes.
 5. Push to your fork and open a pull request against `main`.
 
@@ -87,9 +90,9 @@ Keep your branch focused. If you discover a second problem while working, open a
 
 Your description must state:
 
-- **Which issue it resolves** — use `Closes #123`.
+- **Which issue it resolves**: use `Closes #123`.
 - **What changed**, accurately and specifically.
-- **How you verified it** — the command you ran and what happened. If you could not run something, say so plainly. "Tests attempted" is not a result.
+- **How you verified it**: the command you ran and what happened. If you could not run something, say so plainly. "Tests attempted" is not a result.
 
 Do not describe work you did not do. This is the fastest way to have a pull request closed and to not be assigned another issue.
 
@@ -97,7 +100,7 @@ Continuous integration runs on every pull request. A red build will not be revie
 
 ## On AI assistance
 
-Using an AI assistant is fine — this project is largely developed with one. Submitting output you have not read, run, and understood is not.
+Using an AI assistant is fine: this project is largely developed with one. Submitting output you have not read, run, and understood is not.
 
 You are responsible for every line in your pull request. If you cannot explain why a change is correct, it is not ready. In review you may be asked to explain a specific decision; "the tool wrote it" is not an answer.
 

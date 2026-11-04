@@ -1,6 +1,6 @@
 # Karate Championship Management App
 
-A management system for competitive karate, built around **Kumite** — the sparring discipline, where two athletes face each other on the mat and a panel of referees scores the bout in real time.
+A management system for competitive karate, built around **Kumite**, the sparring discipline, where two athletes face each other on the mat and a panel of referees scores the bout in real time.
 
 ## What this is
 
@@ -8,11 +8,11 @@ A Kumite bout is short, fast, and unforgiving to officiate. Two competitors, a c
 
 Most of that is still tracked on paper, on whiteboards, or in tools that were never built for it. Mistakes are easy to make and hard to unwind, and the result of a bout is not something anyone wants to reconstruct from memory.
 
-This project is the system of record for that bout. It holds the competitors, the clock, every point and penalty as it happens, and the result — with the rules of the sport encoded rather than left to whoever is holding the pen.
+This project is the system of record for that bout. It holds the competitors, the clock, every point and penalty as it happens, and the result, with the rules of the sport encoded rather than left to whoever is holding the pen.
 
 ## What it aims to deliver
 
-**A faithful implementation of the rules.** Scoring, penalty escalation, the conditions that end a bout, and how a winner is decided — including the tiebreaks. The rules of karate are specific, and a system that only approximates them is not useful to the people running a tournament.
+**A faithful implementation of the rules.** Scoring, penalty escalation, the conditions that end a bout, and how a winner is decided, including the tiebreaks. The rules of karate are specific, and a system that only approximates them is not useful to the people running a tournament.
 
 **Rules that can change without a rewrite.** Governing bodies revise rules, and individual championships adopt variations. Thresholds and conditions are configuration, and new ways for a bout to end can be added without unpicking the ones already there.
 
@@ -20,7 +20,7 @@ This project is the system of record for that bout. It holds the competitors, th
 
 **A real-time view for the people who need it.** Officials, competitors, and spectators are all watching the same bout. The scoreboard should reflect the mat as it happens.
 
-**A championship above the bout.** Individual matches are the foundation. The goal is the tournament around them — brackets, divisions, schedules, and results carried through to a standing.
+**A championship above the bout.** Individual matches are the foundation. The goal is the tournament around them: brackets, divisions, schedules, and results carried through to a standing.
 
 ## Stack
 
@@ -46,8 +46,8 @@ mvn spring-boot:run                                         # run
 
 ## Profiles
 
-- **dev** — active by default (`spring.profiles.default=dev`). Local development, so a clean clone runs with no extra steps. Lives in `src/main/resources`.
-- **test** — activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes. Lives in `src/test/resources`, so it stays off the runtime classpath and out of the packaged jar; `test` is not a profile the application should ever be started under.
+- **dev**: active by default (`spring.profiles.default=dev`). Local development, so a clean clone runs with no extra steps. Lives in `src/main/resources`.
+- **test**: activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes. Lives in `src/test/resources`, so it stays off the runtime classpath and out of the packaged jar; `test` is not a profile the application should ever be started under.
 
 Both profile files are currently empty. Nothing yet differs between an environment and the shared
 base, and an invented difference would only be a duplicated key waiting to drift.
@@ -63,15 +63,16 @@ Maven and never reaches the application. Use the plugin's own `-Dspring-boot.run
 
 ## Documentation
 
-- **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — how to contribute. Read this before opening a pull request.
-- **[`workflow/`](workflow/)** — the engineering standards and patterns this codebase is held to. Deliberately project-agnostic, so it transfers to other Spring Boot work.
-- **[`CLAUDE.md`](CLAUDE.md)** — project summary, hard rules, and settled decisions. Written as context for AI coding assistants, and the shortest accurate description of the project's constraints.
+- **[`CONTRIBUTING.md`](CONTRIBUTING.md)**: how to contribute. Read this before opening a pull request.
+- **[`context/workflow/`](context/workflow/)**: the engineering knowledge this codebase is held to, organised by concern and technology. Deliberately project-agnostic, so it transfers to other work. Start with its README.
+- **Domain READMEs**: project facts, one per package under `src/main/java/com/management/`. The quality gates are in [`config/README.md`](config/README.md).
+- **[`CLAUDE.md`](CLAUDE.md)**: the router for AI coding assistants. Project summary, hard rules, and where to find everything else.
 
 Planned work is tracked in [GitHub issues](../../issues), grouped under epics.
 
 ## Contributing
 
-Contributions are welcome, and there are rules — read **[`CONTRIBUTING.md`](CONTRIBUTING.md)** first.
+Contributions are welcome, and there are rules. Read **[`CONTRIBUTING.md`](CONTRIBUTING.md)** first.
 
 The short version: start from an open issue, comment and wait to be assigned, one issue at a time, include tests, and make sure your pull request description matches what you actually changed. Cosmetic-only changes are not accepted.
 
@@ -79,4 +80,4 @@ Issues labelled `good first issue` are genuinely self-contained and a reasonable
 
 ## Licence
 
-No licence has been applied yet, so default copyright applies and no usage or distribution rights are granted. A licence is being decided — until then, please open an issue if you want to use this for anything beyond contributing to the project itself.
+No licence has been applied yet, so default copyright applies and no usage or distribution rights are granted. A licence is being decided. Until then, please open an issue if you want to use this for anything beyond contributing to the project itself.
