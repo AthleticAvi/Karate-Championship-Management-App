@@ -28,7 +28,7 @@ twice is a bug in this setup, not thoroughness.
 | **Checkstyle** (project) | The language standard's own rules: logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **3** |
 | **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **45** across main and test (26 NullAway) |
 | **javac** | Compiler warnings | `pom.xml`, `-Xlint:all,-serial` | Report only | 0 |
-| **JaCoCo** | Coverage, merged across both suites | `pom.xml`, `jacoco-maven-plugin` | **Enforced floor** | LINE **80%**, BRANCH **64%** |
+| **JaCoCo** | Coverage, merged across both suites | `pom.xml`, `jacoco-maven-plugin` | **Enforced floor** | LINE **90%**, BRANCH **80%** |
 | **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 3 frozen rules |
 | **Docs tests** | Indexes, scaffold, generic workflow, em dashes | `RepositoryDocsTest` | **Enforced** | 0 |
 
