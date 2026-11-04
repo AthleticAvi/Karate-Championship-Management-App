@@ -40,8 +40,6 @@ match can be *resumed*. An illegal call surfaces as HTTP 409 via `IllegalStateTr
 
 ## [deviations] Known vocabulary deviations
 
-Each has an issue.
-
 - `PointsType.WAZARI` is missing the hyphen of the WKF's **WAZA-ARI**. It is public API surface:
   clients send `pointType=WAZARI`. It is the last spelling out of step with the rulebook.
 - `PlayerColor` has only `RED` and `BLUE`. The AKA and AO names appear nowhere in code.
