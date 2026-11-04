@@ -54,4 +54,4 @@ that finds them already recorded changes nothing.
 
 Exactly one RED and one BLUE is checked here at creation. A duplicate colour used to persist both
 fighters and the half-formed match, then fail in the mapper as a 500 with no id returned. That was
-unrecoverable, since a standalone MongoDB gives no transaction to roll back.
+unrecoverable, with no transaction to roll back.

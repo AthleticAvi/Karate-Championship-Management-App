@@ -27,8 +27,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>This class deliberately carries its own configuration rather than extending {@code
  * IntegrationTestBase} — a context that cannot reach the database is precisely what the shared one
- * must never be. It is the one justified exception to the single-configuration rule, so the suite
- * builds two contexts and no more.
+ * must never be. It is the one justified exception to the single-configuration rule, so the test
+ * framework builds two contexts and no more.
  *
  * <p><strong>The exception is the context, not the profile.</strong> {@code @ActiveProfiles} is
  * repeated here because the annotation arrives by inheritance and this class has no base to inherit

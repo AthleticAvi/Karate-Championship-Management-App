@@ -79,12 +79,12 @@ public class KumiteGameService {
    *
    * <p>Ordered so everything that can fail does so before the first write: colours are resolved and
    * validated, referees mapped and the duration determined, and only then are the fighters and the
-   * match saved, adjacent (#51). Those writes are separate operations on a standalone MongoDB with
-   * no transaction to span them, so <strong>every</strong> write after the first is inside the
-   * compensating block — a failure part-way through, including between the two fighter saves,
-   * deletes whatever was already written. Hand-rolled rollback, with one documented residual: the
-   * compensation itself can fail, and that narrow double-fault window is logged loudly with the
-   * stranded identifier rather than hidden.
+   * match saved, adjacent (#51). Those writes are separate operations with no transaction to span
+   * them, so <strong>every</strong> write after the first is inside the compensating block — a
+   * failure part-way through, including between the two fighter saves, deletes whatever was already
+   * written. Hand-rolled rollback, with one documented residual: the compensation itself can fail,
+   * and that narrow double-fault window is logged loudly with the stranded identifier rather than
+   * hidden.
    *
    * <p>Returns the composition rather than the bare match so the caller can answer without a second
    * read. Re-reading would put a fallible round trip between "the match exists" and "the caller was
