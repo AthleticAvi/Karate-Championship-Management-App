@@ -25,7 +25,7 @@ READMEs below.
 | Test suites and layout | `src/test/java/com/management/README.md` |
 | Quality gates, baselines, hooks, MCP | `config/README.md` |
 | Contributor rules | `CONTRIBUTING.md` |
-| Business rules, what the WKF rulebook says | The local rules reference: its location is in CLAUDE.local.md at the repo root, which is not committed. Grep its tags and indexes and take what the task needs. Without it, read the official WKF Kumite Competition Rules |
+| Business rules and where they come from | `[source]` in `src/main/java/com/management/rules/README.md` |
 
 Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and read that section:
 `grep -n "^## \[" <file>`.
@@ -89,5 +89,3 @@ java src/test/java/com/management/docs/IndexGenerator.java    regenerate indexes
 - Put business logic in a controller.
 - Reintroduce a service cycle, a `@Lazy` injection, or a second stored copy of a fighter.
 - Start a new feature until the current one is built, tested and signed off.
-- Name the local rules reference, or its location, in a comment. Cite the rulebook itself, by
-  version and article: `WKF Kumite Competition Rules 2026.01, Article 7.7`.
