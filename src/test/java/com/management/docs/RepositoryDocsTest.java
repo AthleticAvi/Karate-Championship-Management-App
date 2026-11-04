@@ -10,9 +10,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.xml.sax.InputSource;
 
 /**
  * Keeps the docs in this repository honest: indexes current, scaffold intact, workflow generic.
@@ -54,12 +57,18 @@ class RepositoryDocsTest {
           "ffmpeg");
 
   @Test
-  void javaVersionFile_matchesThePom() throws IOException {
-    String version = Files.readString(ROOT.resolve(".java-version")).strip();
+  void javaVersionFile_matchesThePom() throws IOException, XPathExpressionException {
+    String pomVersion =
+        XPathFactory.newInstance()
+            .newXPath()
+            .evaluate(
+                "/*[local-name()='project']/*[local-name()='properties']"
+                    + "/*[local-name()='java.version']",
+                new InputSource(ROOT.resolve("pom.xml").toUri().toString()));
 
-    assertThat(Files.readString(ROOT.resolve("pom.xml")))
+    assertThat(Files.readString(ROOT.resolve(".java-version")).strip())
         .as(".java-version feeds CI, the pom property feeds the build: they must agree")
-        .contains("<java.version>" + version + "</java.version>");
+        .isEqualTo(pomVersion);
   }
 
   @Test

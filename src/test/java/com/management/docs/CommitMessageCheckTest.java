@@ -2,11 +2,33 @@ package com.management.docs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.file.Path;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class CommitMessageCheckTest {
+
+  /** The floor in hooks/commit-msg: above it, the launcher's compile error blocks every commit. */
+  @Test
+  void checker_compilesOnTheHookFloor(@TempDir Path output) {
+    int exitCode =
+        ToolProvider.getSystemJavaCompiler()
+            .run(
+                null,
+                null,
+                null,
+                "--release",
+                "11",
+                "-proc:none",
+                "-d",
+                output.toString(),
+                "src/test/java/com/management/docs/CommitMessageCheck.java");
+
+    assertThat(exitCode).isZero();
+  }
 
   @Test
   void problems_whenMessageFollowsTheRules_findsNothing() {
