@@ -26,14 +26,21 @@ class IndexGeneratorTest {
       ## [one] First
       """;
 
-  private static final String EXPECTED_HEAD = "# T
+  private static final String REINDEXED =
+      """
+      # T
 
-## Index
+      ## Index
 
-- [b] Second
-- [a] First
+      - [b] Second
+      - [a] First
 
-## [b]";
+      ## [b] Second
+
+      x
+
+      ## [a] First
+      """;
 
   private Path root;
 
@@ -46,8 +53,7 @@ class IndexGeneratorTest {
   void withIndex_listsEveryTaggedSectionInOrder() {
     String text = "# T\n\n## Index\n\nstale\n\n## [b] Second\n\nx\n\n## [a] First\n";
 
-    assertThat(IndexGenerator.withIndex(text)).startsWith(EXPECTED_HEAD).endsWith("## [a] First
-");
+    assertThat(IndexGenerator.withIndex(text)).isEqualTo(REINDEXED);
   }
 
   @Test
