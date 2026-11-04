@@ -18,8 +18,8 @@
 
   <properties>
     <java.version>25</java.version>
-    <spotless.version>2.44.5</spotless.version>
-    <google-java-format.version>1.27.0</google-java-format.version>
+    <spotless.version>3.11.0</spotless.version>
+    <google-java-format.version>2.0.0</google-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <checkstyle.version>10.26.1</checkstyle.version>
     <error-prone.version>2.39.0</error-prone.version>
