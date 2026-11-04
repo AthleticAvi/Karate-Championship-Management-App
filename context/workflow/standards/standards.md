@@ -64,6 +64,8 @@ Scope: every language. Each language adds its own file under `languages/`.
 - Comments explain why, never what. If the what needs a comment, rename something.
 - Delete dead code. Never comment it out: version control remembers.
 - No leftover debug output.
+- A comment may cite the official source of a rule, by that source's own section number, so anyone
+  can open it. Never reference a local or private copy, or say where one lives.
 
 ## [dependencies] Dependencies
 

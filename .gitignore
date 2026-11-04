@@ -51,3 +51,4 @@ Thumbs.db
 *.ear
 # Claude Code local workspace - personal config, identity, and settings
 .claude/
+CLAUDE.local.md

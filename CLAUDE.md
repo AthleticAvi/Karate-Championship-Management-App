@@ -25,6 +25,7 @@ READMEs below.
 | Test suites and layout | `src/test/java/com/management/README.md` |
 | Quality gates, baselines, hooks, MCP | `config/README.md` |
 | Contributor rules | `CONTRIBUTING.md` |
+| Business rules and where they come from | `[source]` in `src/main/java/com/management/rules/README.md` |
 
 Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and read that section:
 `grep -n "^## \[" <file>`.

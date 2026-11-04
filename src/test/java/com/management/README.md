@@ -38,3 +38,7 @@ must be running for `mvn verify`: integration tests start their own MongoDB thro
 
 `docs/IndexGenerator.java` and `docs/CommitMessageCheck.java` are single-file programs that also run
 with `java`, so each must stay one file with only JDK imports.
+
+The reference check treats any backticked `.md` path as a committed file, and it reads the working
+tree. A git-ignored file therefore passes locally and fails in CI, so write ignored files as plain
+text.
