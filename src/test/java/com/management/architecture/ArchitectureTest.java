@@ -10,6 +10,10 @@ import com.management.enums.PointsType;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -101,6 +105,31 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .haveSimpleName("KumiteGameService")
+        .check(CLASSES);
+  }
+
+  @Test
+  void localDateTime_isNeverUsed() {
+    noClasses()
+        .should()
+        .dependOnClassesThat()
+        .belongToAnyOf(LocalDateTime.class)
+        .because("a local time depends on the zone of the instance that read it")
+        .check(CLASSES);
+  }
+
+  @Test
+  void currentTime_comesOnlyFromTheClockBean() {
+    noClasses()
+        .should()
+        .callMethod(Instant.class, "now")
+        .orShould()
+        .callMethod(Clock.class, "systemDefaultZone")
+        .orShould()
+        .callMethod(Clock.class, "systemUTC")
+        .orShould()
+        .callMethod(ZoneId.class, "systemDefault")
+        .because("one injected clock is what keeps match time the same on every instance")
         .check(CLASSES);
   }
 
