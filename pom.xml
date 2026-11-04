@@ -17,6 +17,7 @@
   <description>Karate Championship Management App</description>
 
   <properties>
+    <!-- Also in .java-version, which CI reads. RepositoryDocsTest fails if the two differ. -->
     <java.version>25</java.version>
     <spotless.version>3.11.0</spotless.version>
     <google-java-format.version>2.0.0</google-java-format.version>
@@ -112,6 +113,32 @@
 
   <build>
     <plugins>
+      <!--
+        First, so a wrong JDK gets this message rather than a compiler or analyser failure. Exact
+        major version, not a minimum: the Error Prone flags are JDK-sensitive, so a newer JDK is not
+        known to work until the project moves to it.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>require-project-jdk</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[${java.version},${java.version}.999]</version>
+                  <message>This build needs JDK ${java.version}. Point JAVA_HOME at it; `mvn -v` shows the JDK Maven is using.</message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

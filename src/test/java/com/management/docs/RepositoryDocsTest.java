@@ -3,6 +3,7 @@ package com.management.docs;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -51,6 +52,15 @@ class RepositoryDocsTest {
           "spotless",
           "python",
           "ffmpeg");
+
+  @Test
+  void javaVersionFile_matchesThePom() throws IOException {
+    String version = Files.readString(ROOT.resolve(".java-version")).strip();
+
+    assertThat(Files.readString(ROOT.resolve("pom.xml")))
+        .as(".java-version feeds CI, the pom property feeds the build: they must agree")
+        .contains("<java.version>" + version + "</java.version>");
+  }
 
   @Test
   void indexes_areCurrent() throws IOException {
