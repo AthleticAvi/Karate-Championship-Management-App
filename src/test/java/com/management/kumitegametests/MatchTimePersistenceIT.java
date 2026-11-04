@@ -7,10 +7,13 @@ import com.management.models.ClockAdjustment;
 import com.management.models.KumiteGame;
 import com.management.models.RefereeOverride;
 import com.management.repositories.KumiteGameRepository;
+import com.management.services.KumiteGameService;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.KumiteGameBuilder;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
@@ -33,6 +36,8 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
   private static final Duration FULL_MATCH = Duration.ofSeconds(120);
 
   @Autowired private KumiteGameRepository kumiteGameRepository;
+  @Autowired private KumiteGameService kumiteGameService;
+  @Autowired private Clock clock;
 
   @Test
   void startTime_survivesSaveAndLoadExactly() {
@@ -45,7 +50,9 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
   @Test
   void clockAdjustmentTime_survivesSaveAndLoadExactly() {
     KumiteGame game = runningMatch();
-    game.addTime(new ClockAdjustment(Duration.ofSeconds(10), ADJUSTED, "Timekeeper"));
+    game.addTime(
+        new ClockAdjustment(Duration.ofSeconds(10), ADJUSTED, "Timekeeper"),
+        Clock.fixed(ADJUSTED, ZoneOffset.UTC));
 
     KumiteGame saved = kumiteGameRepository.save(game);
 
@@ -57,7 +64,9 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
   @Test
   void overrideTime_survivesSaveAndLoadExactly() {
     KumiteGame game = runningMatch();
-    game.applyOverride(new RefereeOverride(PlayerColor.RED, "Reason", "Referee", DECIDED, null));
+    game.applyOverride(
+        new RefereeOverride(PlayerColor.RED, "Reason", "Referee", DECIDED, null),
+        Clock.fixed(DECIDED, ZoneOffset.UTC));
 
     KumiteGame saved = kumiteGameRepository.save(game);
 
@@ -80,6 +89,21 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
     } finally {
       TimeZone.setDefault(original);
     }
+  }
+
+  /** The value in memory and the value a reload returns are one value, so the two never differ. */
+  @Test
+  void startGame_onTheRealClock_keepsExactlyTheInstantItRecorded() {
+    String gameId = kumiteGameRepository.save(KumiteGameBuilder.newGame().build()).getId();
+
+    KumiteGame started = kumiteGameService.startGame(gameId);
+
+    assertThat(reload(started).getStartTime()).isEqualTo(started.getStartTime());
+  }
+
+  @Test
+  void clock_isUtc() {
+    assertThat(clock.getZone()).isEqualTo(ZoneOffset.UTC);
   }
 
   private static KumiteGame runningMatch() {

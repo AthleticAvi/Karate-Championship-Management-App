@@ -39,14 +39,6 @@ public final class KumiteGameBuilder {
 
   private static final Duration DEFAULT_DURATION = TestGameProperties.standard().defaultDuration();
 
-  /**
-   * A fixed instant, never {@code Instant.now()}.
-   *
-   * <p>A fixture that reads the clock is not deterministic, and a test that depends on wall-clock
-   * time is required to be deleted rather than tolerated.
-   */
-  private static final Instant FIXED_START = Instant.parse("2026-01-01T12:00:00Z");
-
   private final Map<PlayerColor, Player> fighters = new EnumMap<>(PlayerColor.class);
   private List<Referee> referees = List.of(new Referee("Test Referee"));
   private Duration gameDuration = DEFAULT_DURATION;
@@ -98,7 +90,7 @@ public final class KumiteGameBuilder {
   public KumiteGameBuilder runningWithRemaining(Duration remaining) {
     this.gameState = GameState.RUNNING;
     this.remainingTime = remaining;
-    this.startTime = FIXED_START;
+    this.startTime = TestClock.NOW;
     return this;
   }
 

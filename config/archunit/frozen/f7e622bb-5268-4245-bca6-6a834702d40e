@@ -2,7 +2,6 @@ Class <com.management.models.KumiteGame> is annotated with <org.springframework.
 Class <com.management.models.Player> is annotated with <org.springframework.data.mongodb.core.mapping.Document> in (Player.java:0)
 Constructor <com.management.models.KumiteGame.<init>()> is annotated with <org.springframework.data.annotation.PersistenceCreator> in (KumiteGame.java:0)
 Field <com.management.models.KumiteGame.id> is annotated with <org.springframework.data.annotation.Id> in (KumiteGame.java:0)
-Field <com.management.models.KumiteGame.timer> is annotated with <org.springframework.data.annotation.Transient> in (KumiteGame.java:0)
 Field <com.management.models.KumiteGame.version> is annotated with <org.springframework.data.annotation.Version> in (KumiteGame.java:0)
 Field <com.management.models.KumiteGame.winner> is annotated with <org.springframework.data.convert.ValueConverter> in (KumiteGame.java:0)
 Field <com.management.models.Player.id> is annotated with <org.springframework.data.annotation.Id> in (Player.java:0)

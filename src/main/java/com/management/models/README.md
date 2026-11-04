@@ -30,12 +30,22 @@ bypassed. `KumiteGame` and `Player` mixing domain and storage is a frozen layer 
 
 ## [timer] The timer
 
-`GameTimer` is `@Transient`, so it is never persisted. `KumiteGame.getTimer()` rebuilds it on demand
-from two persisted values, `remainingTime` **and** `startTime`. Both matter: a timer rebuilt without
+`GameTimer` is never persisted. `KumiteGame.timer(Clock)` builds a new one on every call from two
+persisted values, `remainingTime` **and** `startTime`. Both matter: a timer rebuilt without
 `startTime` treats `pause()` as a no-op and silently freezes the clock.
 
-No caller has to initialise the timer. The one rule: read the timer before mutating the fields it
-rebuilds from. The clock clamps at zero, never negative.
+The caller passes the `Clock`, so `models` stays free of Spring and a loaded document needs no
+setup. Only `KumiteGameService` and `TimeExpiredCondition` hold the bean. Two rules follow: a change
+made to a timer reaches the match only when it is copied back to the fields, and a caller that also
+clears `startTime` reads the timer first. The clock clamps at zero, never negative.
+
+`startTime`, `ClockAdjustment.addedAt` and `RefereeOverride.decidedAt` are `Instant`, stored as BSON
+dates, so no instance's zone or daylight saving reaches them.
+
+The stored values are the whole clock, so any instance rebuilds it, and one left running through a
+restart has counted the whole time. Instances do have to agree on the time: elapsed time is measured
+between two wall clocks, so a difference between hosts moves the clock by that much. A reader behind
+the writer counts nothing until it catches up, because elapsed time is never negative.
 
 ## [versioning] Versioned documents
 

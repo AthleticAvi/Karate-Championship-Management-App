@@ -9,9 +9,9 @@ import com.management.models.GameWithFighters;
 import com.management.models.MatchOutcome;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
+import com.management.testsupport.TestClock;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ class MatchOutcomeEvaluatorTest {
   void evaluate_whileTheMatchIsBeingFought_findsNoOutcome() {
     GameWithFighters match =
         KumiteGameBuilder.newGame()
-            .runningSince(Instant.now(), Duration.ofSeconds(60))
+            .runningSince(TestClock.NOW, Duration.ofSeconds(60))
             .buildWithFighters();
 
     assertThat(evaluator.evaluate(match)).isEmpty();
@@ -112,7 +112,7 @@ class MatchOutcomeEvaluatorTest {
   void evaluate_whenTimeExpiresWithLevelScores_senshuDecidesIt() {
     GameWithFighters match =
         KumiteGameBuilder.newGame()
-            .runningSince(Instant.now().minus(Duration.ofMinutes(5)), Duration.ofSeconds(30))
+            .runningSince(TestClock.NOW.minus(Duration.ofMinutes(5)), Duration.ofSeconds(30))
             .firstScorer(PlayerColor.BLUE)
             .with(PlayerColor.RED, scorer(PointsType.YUKO, 1))
             .with(
@@ -135,7 +135,7 @@ class MatchOutcomeEvaluatorTest {
   void evaluate_whenTimeExpiresWithNobodyHavingScored_isDrawn() {
     GameWithFighters match =
         KumiteGameBuilder.newGame()
-            .runningSince(Instant.now().minus(Duration.ofMinutes(5)), Duration.ofSeconds(30))
+            .runningSince(TestClock.NOW.minus(Duration.ofMinutes(5)), Duration.ofSeconds(30))
             .buildWithFighters();
 
     Optional<MatchOutcome> outcome = evaluator.evaluate(match);
@@ -159,7 +159,7 @@ class MatchOutcomeEvaluatorTest {
   }
 
   private static KumiteGameBuilder running() {
-    return KumiteGameBuilder.newGame().runningSince(Instant.now(), Duration.ofSeconds(60));
+    return KumiteGameBuilder.newGame().runningSince(TestClock.NOW, Duration.ofSeconds(60));
   }
 
   private static com.management.models.Player scorer(PointsType type, int times) {

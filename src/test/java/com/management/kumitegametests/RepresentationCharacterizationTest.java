@@ -69,7 +69,7 @@ class RepresentationCharacterizationTest {
     assertThat(stored.get("gameState")).isEqualTo("RUNNING");
     // An Instant is stored as a BSON date.
     assertThat(stored.get("startTime")).isEqualTo(Date.from(STARTED));
-    // The transient timer is never written.
+    // The timer is never written: it is rebuilt from the two fields above.
     assertThat(stored).doesNotContainKey("timer");
     // Spring Data writes a type hint alongside the data.
     assertThat(stored.get("_class")).isEqualTo("com.management.models.KumiteGame");

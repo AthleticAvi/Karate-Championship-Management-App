@@ -16,6 +16,7 @@ import com.management.exceptions.IllegalStateTransitionException;
 import com.management.exceptions.InvalidGameRequestException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.ClockAdjustment;
+import com.management.models.GameTimer;
 import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
 import com.management.models.MatchOutcome;
@@ -25,8 +26,8 @@ import com.management.models.RefereeOverride;
 import com.management.repositories.KumiteGameRepository;
 import com.management.rules.MatchOutcomeEvaluator;
 import com.management.util.KumiteGameManagementUtils;
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -60,18 +61,21 @@ public class KumiteGameService {
   private final PlayerService playerService;
   private final MatchOutcomeEvaluator outcomeEvaluator;
   private final MatchStateWriter matchStateWriter;
+  private final Clock clock;
 
   public KumiteGameService(
       KumiteGameRepository kumiteGameRepository,
       GameProperties gameProperties,
       PlayerService playerService,
       MatchOutcomeEvaluator outcomeEvaluator,
-      MatchStateWriter matchStateWriter) {
+      MatchStateWriter matchStateWriter,
+      Clock clock) {
     this.kumiteGameRepository = kumiteGameRepository;
     this.gameProperties = gameProperties;
     this.playerService = playerService;
     this.outcomeEvaluator = outcomeEvaluator;
     this.matchStateWriter = matchStateWriter;
+    this.clock = clock;
   }
 
   /**
@@ -268,7 +272,7 @@ public class KumiteGameService {
 
     GameWithFighters match = withFighters(kumiteGame);
     kumiteGame.applyOutcome(
-        new MatchOutcome(opponentOf(forfeitingColour), MatchEndReason.KIKEN, "Kiken"));
+        new MatchOutcome(opponentOf(forfeitingColour), MatchEndReason.KIKEN, "Kiken"), clock);
     return new GameWithFighters(saveGame(kumiteGame), match.fighters());
   }
 
@@ -305,7 +309,8 @@ public class KumiteGameService {
 
     kumiteGame.applyOverride(
         new RefereeOverride(
-            declared, request.reason(), request.decidedBy(), Instant.now(), engineOutcome));
+            declared, request.reason(), request.decidedBy(), clock.instant(), engineOutcome),
+        clock);
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -331,7 +336,7 @@ public class KumiteGameService {
               + " was requested.");
     }
 
-    kumiteGame.addTime(new ClockAdjustment(extra, Instant.now(), request.addedBy()));
+    kumiteGame.addTime(new ClockAdjustment(extra, clock.instant(), request.addedBy()), clock);
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -383,7 +388,7 @@ public class KumiteGameService {
             match.game().getId(),
             game -> {
               change.accept(game);
-              outcome.ifPresent(game::applyOutcome);
+              outcome.ifPresent(decided -> game.applyOutcome(decided, clock));
             });
     return new GameWithFighters(saved, match.fighters());
   }
@@ -413,7 +418,7 @@ public class KumiteGameService {
    */
   private void requireClockNotExpired(KumiteGame kumiteGame, String action) {
     if (kumiteGame.getGameState() != GameState.RUNNING
-        || !kumiteGame.getTimer().getRemainingTime().isZero()) {
+        || !kumiteGame.timer(clock).getRemainingTime().isZero()) {
       return;
     }
     settle(withFighters(kumiteGame), null);
@@ -439,17 +444,18 @@ public class KumiteGameService {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     requireCurrentState(kumiteGame, "started", EnumSet.of(GameState.QUEUED));
     kumiteGame.setGameState(GameState.RUNNING);
-    kumiteGame.setStartTime(Instant.now());
+    kumiteGame.setStartTime(clock.instant());
     return saveGame(kumiteGame);
   }
 
   public KumiteGame pauseGame(String gameId) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     requireCurrentState(kumiteGame, "paused", EnumSet.of(GameState.RUNNING));
-    // The timer must be read before startTime is cleared: getTimer() rebuilds it from the
-    // persisted startTime, which is what the elapsed time is measured against.
-    kumiteGame.getTimer().pause();
-    updateRemainingTime(kumiteGame);
+    // The timer must be read before startTime is cleared: timer() rebuilds it from the persisted
+    // startTime, which is what the elapsed time is measured against.
+    GameTimer timer = kumiteGame.timer(clock);
+    timer.pause();
+    kumiteGame.setRemainingTime(timer.getRemainingTime());
     kumiteGame.setStartTime(null);
     kumiteGame.setGameState(GameState.PAUSED);
     return saveGame(kumiteGame);
@@ -459,15 +465,16 @@ public class KumiteGameService {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     requireCurrentState(kumiteGame, "resumed", EnumSet.of(GameState.PAUSED));
     kumiteGame.setGameState(GameState.RUNNING);
-    kumiteGame.setStartTime(Instant.now());
+    kumiteGame.setStartTime(clock.instant());
     return saveGame(kumiteGame);
   }
 
   public KumiteGame endGame(String gameId) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     requireCurrentState(kumiteGame, "ended", EnumSet.of(GameState.RUNNING, GameState.PAUSED));
-    kumiteGame.getTimer().stop();
-    updateRemainingTime(kumiteGame);
+    GameTimer timer = kumiteGame.timer(clock);
+    timer.stop();
+    kumiteGame.setRemainingTime(timer.getRemainingTime());
     kumiteGame.setStartTime(null);
     kumiteGame.setGameState(GameState.FINISHED);
     return saveGame(kumiteGame);
@@ -504,10 +511,6 @@ public class KumiteGameService {
       throw new IllegalStateTransitionException(
           "Match " + kumiteGame.getId() + " is " + current + " and cannot be " + action + ".");
     }
-  }
-
-  private void updateRemainingTime(KumiteGame kumiteGame) {
-    kumiteGame.setRemainingTime(kumiteGame.getTimer().getRemainingTime());
   }
 
   private GameWithFighters withFighters(KumiteGame kumiteGame) {

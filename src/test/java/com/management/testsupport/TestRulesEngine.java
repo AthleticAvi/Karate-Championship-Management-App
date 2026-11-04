@@ -33,7 +33,7 @@ public final class TestRulesEngine {
             new DisqualificationCondition(),
             new FoulLimitCondition(TestGameProperties.standard()),
             new PointsThresholdCondition(TestGameProperties.standard()),
-            new TimeExpiredCondition()),
+            new TimeExpiredCondition(TestClock.FIXED)),
         List.of(
             new DisqualificationWinnerRule(),
             new FoulLimitWinnerRule(TestGameProperties.standard()),

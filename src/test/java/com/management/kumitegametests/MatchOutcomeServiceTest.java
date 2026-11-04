@@ -21,10 +21,10 @@ import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
+import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,8 @@ class MatchOutcomeServiceTest {
             TestGameProperties.standard(),
             playerService,
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
   }
 
   @Test
@@ -87,7 +88,7 @@ class MatchOutcomeServiceTest {
   void addPoint_endingTheMatchEarly_recordsTheTimeThatWasLeft() {
     String gameId =
         storedMatch(
-            match -> match.runningSince(Instant.now().minusSeconds(30), Duration.ofSeconds(120)));
+            match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
 
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
@@ -95,15 +96,15 @@ class MatchOutcomeServiceTest {
 
     assertThat(finished.game().getGameState()).isEqualTo(GameState.FINISHED);
     assertThat(finished.game().getRemainingTime())
-        .as("roughly 90s were left when the ninth point landed, not the full 120s")
-        .isBetween(Duration.ofSeconds(85), Duration.ofSeconds(92));
+        .as("90s were left when the ninth point landed, not the full 120s")
+        .isEqualTo(Duration.ofSeconds(90));
   }
 
   @Test
   void overrideWinner_onRunningMatch_recordsTheTimeThatWasLeft() {
     String gameId =
         storedMatch(
-            match -> match.runningSince(Instant.now().minusSeconds(30), Duration.ofSeconds(120)));
+            match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters overridden =
         service.overrideWinner(
@@ -124,7 +125,7 @@ class MatchOutcomeServiceTest {
   void addPoint_afterTheClockRanOut_isRefusedAndFinishesTheMatchAsDrawn() {
     String gameId =
         storedMatch(match ->
-            match.runningSince(Instant.now().minus(Duration.ofMinutes(5)), Duration.ofSeconds(30)));
+            match.runningSince(TestClock.NOW.minus(Duration.ofMinutes(5)), Duration.ofSeconds(30)));
 
     assertThatThrownBy(() -> service.addPoint(gameId, "RED", PointsType.IPPON.name()))
         .isInstanceOf(IllegalStateTransitionException.class)
@@ -295,7 +296,7 @@ class MatchOutcomeServiceTest {
   void addTime_whileRunning_extendsTheClockAndRecordsWhoDidIt() {
     String gameId =
         storedMatch(
-            match -> match.runningSince(Instant.now().minusSeconds(30), Duration.ofSeconds(120)));
+            match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters extended =
         service.addTime(gameId, new ClockAdjustmentRequest(30, "Timekeeper"));
@@ -338,7 +339,7 @@ class MatchOutcomeServiceTest {
 
   /** A running match whose fighters are stored, so scoring behaves as production does. */
   private String runningMatch() {
-    return storedMatch(match -> match.runningSince(Instant.now(), Duration.ofSeconds(120)));
+    return storedMatch(match -> match.runningSince(TestClock.NOW, Duration.ofSeconds(120)));
   }
 
   /**

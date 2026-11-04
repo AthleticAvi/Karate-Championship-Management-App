@@ -22,6 +22,9 @@ Typed settings, validated at startup.
 
 `StartupSettingsCheck`: see `[profiles]`.
 
+`TimeConfiguration`: the one `Clock` bean. It is UTC, and ticks in whole milliseconds because that
+is what a BSON date keeps, so a value in memory equals the value a reload returns.
+
 ## [facts] Rule values
 
 Never hardcode these. All come from configuration.
