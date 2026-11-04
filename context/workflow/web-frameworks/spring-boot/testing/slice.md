@@ -88,7 +88,7 @@ The mapping round trip is the point: save, load through the repository, assert e
 class WidgetRepositoryTest {
 
     @Container @ServiceConnection
-    static MongoDBContainer mongo = new MongoDBContainer("mongo:7");
+    static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0").withReplicaSet();
 
     @Autowired WidgetRepository repository;
 
