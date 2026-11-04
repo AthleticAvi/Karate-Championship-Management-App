@@ -10,11 +10,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 /**
  * Maps every exception this API can raise to a status code and an RFC 9457 problem detail.
@@ -131,6 +133,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     problem.setTitle("Invalid request");
     problem.setProperty("errors", errors);
     return handleExceptionInternal(ex, problem, headers, status, request);
+  }
+
+  /**
+   * A body past the limits the JSON parser enforces is 413, not the framework's 400.
+   *
+   * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
+   * wrong fault. Everything else unreadable stays with the base class.
+   */
+  @Override
+  protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    if (!(ex.getMostSpecificCause() instanceof StreamConstraintsException)) {
+      return super.handleHttpMessageNotReadable(ex, headers, status, request);
+    }
+    HttpStatus tooLarge = HttpStatus.CONTENT_TOO_LARGE;
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(tooLarge, "The request body is too large.");
+    problem.setTitle("Request too large");
+    return handleExceptionInternal(ex, problem, headers, tooLarge, request);
   }
 
   /**

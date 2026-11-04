@@ -29,6 +29,7 @@ Errors are RFC 9457 problem details: `application/problem+json`, with `status`, 
 | Not a point type | 400 | `PointTypeNotFoundException` | the message |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
+| Body past a JSON parser limit, usually its size | 413 | `HttpMessageNotReadableException` (framework) | generic |
 | A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
 | No such match | 404 | `GameNotFoundException` | the message |
 | No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
@@ -36,6 +37,9 @@ Errors are RFC 9457 problem details: `application/problem+json`, with `status`, 
 
 ## [facts] Project facts
 
+- **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
+  the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
+  application sees them.
 - The two colour failures differ on purpose: *not a colour* is the caller's mistake (400), *a colour
   this match does not have* is a missing resource (404).
 - **Only messages this project wrote are returned.** `InvalidGameRequestException` marks wording

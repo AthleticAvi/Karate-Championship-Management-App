@@ -24,7 +24,7 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p><strong>Active profile: test.</strong> Stated here rather than per subclass, so the slice
  * still resolves to one cached context. It matches {@code IntegrationTestBase}: every test in the
- * suite runs under {@code test}, and none under the {@code dev} default meant for a developer's
+ * suite runs under {@code test}, and none under the {@code dev} profile meant for a developer's
  * machine.
  */
 @WebMvcTest

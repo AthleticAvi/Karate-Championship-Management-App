@@ -52,20 +52,33 @@ The defaults reach this database. To use another, set `MONGO_URI` and, if needed
 
 ## Profiles
 
-- **dev**: active by default (`spring.profiles.default=dev`). Local development, so a clean clone runs with no extra steps. Lives in `src/main/resources`.
-- **test**: activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes. Lives in `src/test/resources`, so it stays off the runtime classpath and out of the packaged jar; `test` is not a profile the application should ever be started under.
+The application refuses to start without a profile. A deployment must choose one, so it can never
+fall back to local settings.
 
-Both profile files are currently empty. Nothing yet differs between an environment and the shared
-base, and an invented difference would only be a duplicated key waiting to drift.
+- **dev**: local development. `mvn spring-boot:run` sets it through `spring-boot.run.profiles` in `pom.xml`, so a clean clone needs no extra steps. Holds the default `MONGO_URI`, which reaches the database above.
+- **prod**: a deployment. Set `SPRING_PROFILES_ACTIVE=prod` and `MONGO_URI`, which has no default here: without it, startup stops and names it.
+- **test**: activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes. It has no file, because nothing differs. `test` is not a profile the application should ever be started under.
 
-To run with an explicit profile:
+A profile with no file of its own, such as a mistyped one, is refused too.
+
+**Running from an IDE:** the main class fails with no profile. Set the active profile to `dev` in its
+run configuration, or set the environment variable `SPRING_PROFILES_ACTIVE=dev`.
+
+To run the packaged application:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+SPRING_PROFILES_ACTIVE=prod MONGO_URI=<connection string> java -jar target/karate-championship-0.0.1-SNAPSHOT.jar
+```
+
+To run Maven under another profile:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=prod
 ```
 
 `spring-boot:run` always forks a separate JVM, so a plain `-Dspring.profiles.active=dev` is set on
-Maven and never reaches the application. Use the plugin's own `-Dspring-boot.run.profiles`.
+Maven and never reaches the application. Use the plugin's own `-Dspring-boot.run.profiles`. It also
+wins over `SPRING_PROFILES_ACTIVE`.
 
 ## Documentation
 
