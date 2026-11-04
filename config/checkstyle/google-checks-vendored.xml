@@ -23,11 +23,11 @@
        change which rules run and therefore the violation count. That would move the ratchet
        baseline for a reason that has nothing to do with the code. Vendoring pins it, and a
        ruleset change becomes a reviewable diff.
-    2. Two categories of rule are deliberately removed, and one is adjusted. A deviation belongs in
+    2. Two categories of rule are deliberately removed, and two rules are adjusted. A deviation belongs in
        the ruleset where it is visible in one place, not in a blanket suppression. See
        context/workflow/tooling/static-analysis.md.
 
-    REMOVED - layout (36 modules). google-java-format, applied by Spotless, is the sole authority
+    REMOVED - layout (35 modules). google-java-format, applied by Spotless, is the sole authority
     on layout. These rules re-check what the formatter has already guaranteed: FileTabCharacter,
     LineLength, NoLineWrap, LeftCurly, GoogleRightCurly, WhitespaceAfter, WhitespaceAround,
     WhitespaceBeforeEmptyBody, ArrayBracketNoWhitespace, SingleSpaceSeparator, EmptyLineSeparator,
@@ -35,8 +35,7 @@
     NoWhitespaceBeforeCaseDefaultColon, ParenPad, OperatorWrap, AnnotationLocation,
     CommentsIndentation, CustomImportOrder, JavadocTagContinuationIndentation,
     JavadocLeadingAsteriskAlign, JavadocMissingLeadingAsterisk, JavadocContentLocation,
-    TextBlockGoogleStyleFormatting, the trailing-whitespace RegexpSingleline, and the filters that
-    only served these rules.
+    TextBlockGoogleStyleFormatting, and the filters that only served these rules.
 
     Kept deliberately despite looking layout-adjacent: AvoidStarImport, AvoidModuleImport,
     NeedBraces and MultilineCommentLeadingAsteriskPresence. Neither google-java-format nor Spotless
@@ -48,11 +47,14 @@
     RequireEmptyLineBeforeBlockTagGroup, AtclauseOrder, JavadocMethod, SingleLineJavadoc,
     InvalidJavadocPosition.
 
+    ADJUSTED - the trailing-whitespace RegexpSingleline skips Java, which the formatter owns, and
+    stays for properties and XML, which it does not format.
+
     ADJUSTED - AbbreviationAsWordInName allows IT. Upstream does not, and dropping it fails every
     *IT test class, which cannot be renamed: the suffix is what selects the integration suite.
 
     To re-vendor after a Checkstyle upgrade: extract google_checks.xml from the new jar, reapply
-    the two removals and the adjustment above, and re-baseline maxAllowedViolations in pom.xml.
+    the two removals and the two adjustments above, and re-baseline maxAllowedViolations in pom.xml.
  -->
 
 <module name="Checker">
@@ -81,6 +83,15 @@
   <!-- Checks for whitespace                               -->
   <!-- See http://checkstyle.org/checks/whitespace/index.html -->
 
+
+  <module name="RegexpSingleline">
+    <property name="id" value="noTrailingWhitespace" />
+    <property name="fileExtensions" value="properties, xml" />
+    <property name="format" value="\s+$" />
+    <property name="minimum" value="0" />
+    <property name="maximum" value="0" />
+    <property name="message" value="Trailing whitespace is not allowed" />
+  </module>
 
   <module name="TreeWalker">
     <module name="IllegalTokenText">
