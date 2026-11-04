@@ -31,7 +31,7 @@ The data layer. One Spring Data repository per aggregate root.
   `replicaSet`, so tests never exercise member discovery. Local does, through
   `MONGO_REPLICA_SET`. Both give the same transaction and write concern behaviour.
 - **`mongo:8.0` refuses to start on Linux kernel 6.19 and newer** (SERVER-121912, a startup crash).
-  CI is pinned to `ubuntu-24.04` for this, and a Docker host that moves to such a kernel hits it too.
+  CI is pinned to `ubuntu-22.04` for this, and a Docker host that moves to such a kernel hits it too.
 - A one-member replica set has no failover, so neither local nor tests exercise one.
 - Connection settings bind through **`spring.mongodb.*`**, not `spring.data.mongodb.*`. Boot 4 split
   that namespace into driver level and repository level. Both resolve, so the wrong one fails
