@@ -25,8 +25,8 @@ No assumptions. Read in this order, and only what the task needs:
 
 1. The issue.
 2. The README of each domain it touches, through the router.
-3. The business rules reference, when the task touches business rules and the router names one.
-   Grep its index and read only the sections the task needs.
+3. Any authoritative reference those READMEs name, when the task depends on it. Grep its index
+   and read only the sections the task needs.
 4. The workflow for the work type, then the how-to files for the tools involved.
 
 ## [plan] Think and plan
