@@ -26,7 +26,7 @@ import com.management.repositories.KumiteGameRepository;
 import com.management.rules.MatchOutcomeEvaluator;
 import com.management.util.KumiteGameManagementUtils;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -305,7 +305,7 @@ public class KumiteGameService {
 
     kumiteGame.applyOverride(
         new RefereeOverride(
-            declared, request.reason(), request.decidedBy(), LocalDateTime.now(), engineOutcome));
+            declared, request.reason(), request.decidedBy(), Instant.now(), engineOutcome));
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -331,7 +331,7 @@ public class KumiteGameService {
               + " was requested.");
     }
 
-    kumiteGame.addTime(new ClockAdjustment(extra, LocalDateTime.now(), request.addedBy()));
+    kumiteGame.addTime(new ClockAdjustment(extra, Instant.now(), request.addedBy()));
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -439,7 +439,7 @@ public class KumiteGameService {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     requireCurrentState(kumiteGame, "started", EnumSet.of(GameState.QUEUED));
     kumiteGame.setGameState(GameState.RUNNING);
-    kumiteGame.setStartTime(LocalDateTime.now());
+    kumiteGame.setStartTime(Instant.now());
     return saveGame(kumiteGame);
   }
 
@@ -459,7 +459,7 @@ public class KumiteGameService {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     requireCurrentState(kumiteGame, "resumed", EnumSet.of(GameState.PAUSED));
     kumiteGame.setGameState(GameState.RUNNING);
-    kumiteGame.setStartTime(LocalDateTime.now());
+    kumiteGame.setStartTime(Instant.now());
     return saveGame(kumiteGame);
   }
 

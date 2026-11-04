@@ -2,7 +2,7 @@ package com.management.models;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,12 +21,12 @@ import org.jspecify.annotations.Nullable;
  */
 public class GameTimer {
   private final Clock clock;
-  @Nullable private LocalDateTime startTime;
+  @Nullable private Instant startTime;
   private Duration remainingTime;
 
   /** A fresh clock with the full duration on it, not yet running. */
   public GameTimer(Duration initialDuration) {
-    this(initialDuration, null, Clock.systemDefaultZone());
+    this(initialDuration, null, Clock.systemUTC());
   }
 
   /**
@@ -36,18 +36,18 @@ public class GameTimer {
    *     paused
    * @param startTime when the clock last started counting, or {@code null} if it is not counting
    */
-  public GameTimer(Duration remainingTime, @Nullable LocalDateTime startTime) {
-    this(remainingTime, startTime, Clock.systemDefaultZone());
+  public GameTimer(Duration remainingTime, @Nullable Instant startTime) {
+    this(remainingTime, startTime, Clock.systemUTC());
   }
 
-  GameTimer(Duration remainingTime, @Nullable LocalDateTime startTime, Clock clock) {
+  GameTimer(Duration remainingTime, @Nullable Instant startTime, Clock clock) {
     this.remainingTime = remainingTime;
     this.startTime = startTime;
     this.clock = clock;
   }
 
   public void start() {
-    this.startTime = LocalDateTime.now(clock);
+    this.startTime = clock.instant();
   }
 
   public void pause() {
@@ -59,7 +59,7 @@ public class GameTimer {
 
   public void resume() {
     if (startTime == null) {
-      this.startTime = LocalDateTime.now(clock);
+      this.startTime = clock.instant();
     }
   }
 
@@ -100,7 +100,7 @@ public class GameTimer {
     }
     if (startTime != null) {
       this.remainingTime = clampToZero(remainingTime.minus(elapsedSinceStart(startTime)));
-      this.startTime = LocalDateTime.now(clock);
+      this.startTime = clock.instant();
     }
     this.remainingTime = remainingTime.plus(extra);
   }
@@ -111,7 +111,7 @@ public class GameTimer {
   }
 
   /** The instant the clock last started counting, or {@code null} if it is not running. */
-  public @Nullable LocalDateTime startedAt() {
+  public @Nullable Instant startedAt() {
     return startTime;
   }
 
@@ -127,8 +127,8 @@ public class GameTimer {
    * Elapsed time since the clock started counting, never negative: a host clock stepped backwards
    * must not add time to the match.
    */
-  private Duration elapsedSinceStart(LocalDateTime since) {
-    return clampToZero(Duration.between(since, LocalDateTime.now(clock)));
+  private Duration elapsedSinceStart(Instant since) {
+    return clampToZero(Duration.between(since, clock.instant()));
   }
 
   private static Duration clampToZero(Duration duration) {

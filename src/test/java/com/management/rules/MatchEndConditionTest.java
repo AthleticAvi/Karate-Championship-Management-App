@@ -14,7 +14,7 @@ import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
 import com.management.testsupport.TestGameProperties;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -71,7 +71,7 @@ class MatchEndConditionTest {
   void timeExpired_whileTimeRemains_doesNotEndTheMatch() {
     GameWithFighters running =
         KumiteGameBuilder.newGame()
-            .runningSince(LocalDateTime.now(), Duration.ofSeconds(30))
+            .runningSince(Instant.now(), Duration.ofSeconds(30))
             .buildWithFighters();
 
     assertThat(timeExpired.evaluate(running)).isEmpty();
@@ -81,7 +81,7 @@ class MatchEndConditionTest {
   void timeExpired_whenTheClockHasRunOut_endsTheMatch() {
     GameWithFighters expired =
         KumiteGameBuilder.newGame()
-            .runningSince(LocalDateTime.now().minusMinutes(5), Duration.ofSeconds(30))
+            .runningSince(Instant.now().minus(Duration.ofMinutes(5)), Duration.ofSeconds(30))
             .buildWithFighters();
 
     assertThat(timeExpired.evaluate(expired)).contains(MatchEndReason.TIME_EXPIRED);

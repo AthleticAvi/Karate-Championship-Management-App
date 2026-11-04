@@ -15,7 +15,7 @@ import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -127,7 +127,7 @@ class KumiteGameReloadTest {
         storage
             .save(
                 KumiteGameBuilder.newGame()
-                    .runningSince(LocalDateTime.now().minusSeconds(30), FULL_MATCH)
+                    .runningSince(Instant.now().minusSeconds(30), FULL_MATCH)
                     .build())
             .getId();
 
@@ -145,7 +145,7 @@ class KumiteGameReloadTest {
         storage
             .save(
                 KumiteGameBuilder.newGame()
-                    .runningSince(LocalDateTime.now().minusSeconds(30), FULL_MATCH)
+                    .runningSince(Instant.now().minusSeconds(30), FULL_MATCH)
                     .build())
             .getId();
     final Duration atPause = service.pauseGame(gameId).getRemainingTime();
@@ -167,7 +167,7 @@ class KumiteGameReloadTest {
         storage
             .save(
                 KumiteGameBuilder.newGame()
-                    .runningSince(LocalDateTime.now().minusHours(2), FULL_MATCH)
+                    .runningSince(Instant.now().minus(Duration.ofHours(2)), FULL_MATCH)
                     .build())
             .getId();
 

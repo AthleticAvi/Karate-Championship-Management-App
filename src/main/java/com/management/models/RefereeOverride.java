@@ -1,7 +1,7 @@
 package com.management.models;
 
 import com.management.enums.PlayerColor;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,5 +24,5 @@ public record RefereeOverride(
     @Nullable PlayerColor winner,
     String reason,
     String decidedBy,
-    LocalDateTime decidedAt,
+    Instant decidedAt,
     @Nullable MatchOutcome supersededOutcome) {}

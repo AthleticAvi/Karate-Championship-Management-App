@@ -7,7 +7,7 @@ import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.converters.LegacyWinnerConverter;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +91,7 @@ public class KumiteGame {
   /** Every time addition a referee applied, in the order they were applied. */
   private List<ClockAdjustment> clockAdjustments = new ArrayList<>();
 
-  private LocalDateTime startTime;
+  @Nullable private Instant startTime;
   private Duration remainingTime;
   private Duration gameDuration;
   @JsonIgnore @Transient private GameTimer timer;
@@ -283,11 +283,11 @@ public class KumiteGame {
     this.winner = winner;
   }
 
-  public void setStartTime(LocalDateTime startTime) {
+  public void setStartTime(@Nullable Instant startTime) {
     this.startTime = startTime;
   }
 
-  public LocalDateTime getStartTime() {
+  public @Nullable Instant getStartTime() {
     return startTime;
   }
 

@@ -24,7 +24,7 @@ import com.management.testsupport.PlayerBuilder;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,8 +86,8 @@ class MatchOutcomeServiceTest {
   @Test
   void addPoint_endingTheMatchEarly_recordsTheTimeThatWasLeft() {
     String gameId =
-        storedMatch(match ->
-            match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
+        storedMatch(
+            match -> match.runningSince(Instant.now().minusSeconds(30), Duration.ofSeconds(120)));
 
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
@@ -102,8 +102,8 @@ class MatchOutcomeServiceTest {
   @Test
   void overrideWinner_onRunningMatch_recordsTheTimeThatWasLeft() {
     String gameId =
-        storedMatch(match ->
-            match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
+        storedMatch(
+            match -> match.runningSince(Instant.now().minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters overridden =
         service.overrideWinner(
@@ -124,7 +124,7 @@ class MatchOutcomeServiceTest {
   void addPoint_afterTheClockRanOut_isRefusedAndFinishesTheMatchAsDrawn() {
     String gameId =
         storedMatch(match ->
-            match.runningSince(LocalDateTime.now().minusMinutes(5), Duration.ofSeconds(30)));
+            match.runningSince(Instant.now().minus(Duration.ofMinutes(5)), Duration.ofSeconds(30)));
 
     assertThatThrownBy(() -> service.addPoint(gameId, "RED", PointsType.IPPON.name()))
         .isInstanceOf(IllegalStateTransitionException.class)
@@ -294,8 +294,8 @@ class MatchOutcomeServiceTest {
   @Test
   void addTime_whileRunning_extendsTheClockAndRecordsWhoDidIt() {
     String gameId =
-        storedMatch(match ->
-            match.runningSince(LocalDateTime.now().minusSeconds(30), Duration.ofSeconds(120)));
+        storedMatch(
+            match -> match.runningSince(Instant.now().minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters extended =
         service.addTime(gameId, new ClockAdjustmentRequest(30, "Timekeeper"));
@@ -338,7 +338,7 @@ class MatchOutcomeServiceTest {
 
   /** A running match whose fighters are stored, so scoring behaves as production does. */
   private String runningMatch() {
-    return storedMatch(match -> match.runningSince(LocalDateTime.now(), Duration.ofSeconds(120)));
+    return storedMatch(match -> match.runningSince(Instant.now(), Duration.ofSeconds(120)));
   }
 
   /**
