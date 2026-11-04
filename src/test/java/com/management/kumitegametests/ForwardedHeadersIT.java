@@ -24,6 +24,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 class ForwardedHeadersIT {
 
   private static final String PUBLIC_ADDRESS = "https://scores.example";
+  private static final String LOCAL_ADDRESS = "http://localhost:";
   private static final String LOOPBACK = "127.0.0.0/8,::1/128";
 
   @Test
@@ -52,7 +53,7 @@ class ForwardedHeadersIT {
   @Test
   void request_fromAnyoneElse_isIgnored() throws Exception {
     try (ConfigurableApplicationContext context = start(trusting("192.0.2.0/24"))) {
-      assertThat(actuatorIndex(context)).doesNotContain(PUBLIC_ADDRESS);
+      assertThat(actuatorIndex(context)).contains(LOCAL_ADDRESS).doesNotContain(PUBLIC_ADDRESS);
     }
   }
 
@@ -60,14 +61,14 @@ class ForwardedHeadersIT {
   void request_withNoProxyNamed_isIgnored() throws Exception {
     try (ConfigurableApplicationContext context =
         start(Map.of("FORWARD_HEADERS_STRATEGY", "native"))) {
-      assertThat(actuatorIndex(context)).doesNotContain(PUBLIC_ADDRESS);
+      assertThat(actuatorIndex(context)).contains(LOCAL_ADDRESS).doesNotContain(PUBLIC_ADDRESS);
     }
   }
 
   @Test
   void request_underTheDefaults_isIgnored() throws Exception {
     try (ConfigurableApplicationContext context = start(Map.of())) {
-      assertThat(actuatorIndex(context)).doesNotContain(PUBLIC_ADDRESS);
+      assertThat(actuatorIndex(context)).contains(LOCAL_ADDRESS).doesNotContain(PUBLIC_ADDRESS);
     }
   }
 

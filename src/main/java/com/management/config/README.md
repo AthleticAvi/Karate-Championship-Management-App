@@ -79,8 +79,8 @@ pass through it.
 |---|---|
 | No profile | Refuses, exit 1, says what to set |
 | `prod`, no `MONGO_URI` | Refuses, exit 1, names `MONGO_URI` |
-| `prod`, empty `MONGO_URI` | Refuses, exit 1, the driver reports an invalid connection string |
-| A profile with no file, such as a typo | Refuses, exit 1, names `spring.mongodb.uri` |
+| `prod` or `dev`, empty `MONGO_URI` | Refuses, exit 1, names `MONGO_URI` |
+| A profile with no file, such as a typo | Refuses, exit 1, names the profile |
 
 The check exists because Boot stops neither of the first two: with no profile it activates one named
 `default`, and the binder leaves an unresolved `${MONGO_URI}` as text. Reading the key through the
@@ -98,9 +98,9 @@ here.
 | Largest form body | 64KB | `server.tomcat.max-http-form-post-size` | No endpoint takes a form. Matches the JSON limit |
 | Refused body read and discarded | 2MB | `server.tomcat.max-swallow-size` | Past this the connection closes, and the caller may not see the answer |
 | Silence allowed during a request | 20s | `server.tomcat.connection-timeout` | Also ends a stalled body, with a 408 |
-| Silence allowed between requests | 60s | `server.tomcat.keep-alive-timeout` | Longer than a proxy is likely to hold an idle connection |
+| Silence allowed between requests | 75s | `server.tomcat.keep-alive-timeout` | Above the 60s idle timeout common in proxies, so a proxy never reuses a connection closing here |
 | Shutdown | graceful | `server.shutdown` | Boot's default, stated on purpose |
-| Longest wait on shutdown | 20s | `spring.lifecycle.timeout-per-shutdown-phase` | Twice the datastore operation timeout, under a usual 30s kill |
+| Longest wait on shutdown | 20s | `spring.lifecycle.timeout-per-shutdown-phase` | Room for a normal request and a slow datastore operation, under a usual 30s kill. A request retrying through an outage can outlast it |
 | Form filter | off | `spring.mvc.formcontent.filter.enabled` | It reads a form `PUT` whole, with no limit |
 | Multipart | off | `spring.servlet.multipart.enabled` | No endpoint takes an upload |
 

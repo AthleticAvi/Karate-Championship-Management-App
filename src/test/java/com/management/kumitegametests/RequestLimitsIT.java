@@ -61,6 +61,16 @@ class RequestLimitsIT extends IntegrationTestBase {
     assertThat(post("{not json").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
   }
 
+  /** A smaller body would not cure this, so it is not a 413. */
+  @Test
+  void post_pastAnotherParserLimit_staysA400() {
+    String nested = "[".repeat(600) + "]".repeat(600);
+
+    ResponseEntity<String> response = post("{\"other\":" + nested + ",\"name\":\"Kata\"}");
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+  }
+
   /** Tomcat answers before Spring runs, so this is its own page and not a problem detail. */
   @Test
   void get_withHeadersOverTheLimit_isRefused() {

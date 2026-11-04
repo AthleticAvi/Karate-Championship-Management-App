@@ -136,10 +136,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * A body past the limits the JSON parser enforces is 413, not the framework's 400.
+   * A body past the JSON parser's size limit is 413, not the framework's 400.
    *
    * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
-   * wrong fault. Everything else unreadable stays with the base class.
+   * wrong fault. Everything else unreadable stays with the base class, including the parser's other
+   * limits, such as nesting depth, which a smaller body would not cure.
    */
   @Override
   protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(
@@ -147,7 +148,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
-    if (!(ex.getMostSpecificCause() instanceof StreamConstraintsException)) {
+    if (!isBodyTooLong(ex)) {
       return super.handleHttpMessageNotReadable(ex, headers, status, request);
     }
     HttpStatus tooLarge = HttpStatus.CONTENT_TOO_LARGE;
@@ -216,6 +217,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatus.BAD_REQUEST, "The request contained an invalid value.");
     problem.setTitle("Invalid request");
     return problem;
+  }
+
+  /** Jackson has one exception type for every limit, so only its wording tells them apart. */
+  private static boolean isBodyTooLong(HttpMessageNotReadableException ex) {
+    return ex.getMostSpecificCause() instanceof StreamConstraintsException limit
+        && limit.getOriginalMessage().startsWith("Document length");
   }
 
   private ProblemDetail notFound(String title, Exception ex) {
