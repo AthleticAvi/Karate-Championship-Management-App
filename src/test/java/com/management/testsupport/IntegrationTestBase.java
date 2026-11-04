@@ -1,12 +1,20 @@
 package com.management.testsupport;
 
+import static org.awaitility.Awaitility.await;
+
 import com.management.KumiteGameStarter;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.GenericContainer;
@@ -74,6 +82,71 @@ public abstract class IntegrationTestBase {
   /** A standalone server, weaker than the shared one, for the tests that must be refused. */
   public static GenericContainer<?> standaloneMongo() {
     return new MongoDBContainer(MONGO_IMAGE);
+  }
+
+  /** A started replica set that requires a login, for the tests of rejected credentials. */
+  public static GenericContainer<?> authenticatedMongo(String user, String password) {
+    GenericContainer<?> mongo =
+        new GenericContainer<>(MONGO_IMAGE)
+            .withEnv("MONGO_INITDB_ROOT_USERNAME", user)
+            .withEnv("MONGO_INITDB_ROOT_PASSWORD", password)
+            .withCreateContainerCmdModifier(command -> command.withEntrypoint("bash"))
+            .withCommand(
+                "-c",
+                "openssl rand -base64 756 > /tmp/key && chmod 400 /tmp/key"
+                    + " && chown mongodb /tmp/key"
+                    + " && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/key")
+            .withExposedPorts(MONGO_PORT)
+            .waitingFor(Wait.forLogMessage(".*Waiting for connections.*\\n", 2));
+    mongo.start();
+    mongosh(mongo, user, password, "rs.initiate()");
+    await()
+        .atMost(Duration.ofSeconds(30))
+        .until(
+            () -> mongosh(mongo, user, password, "db.hello().isWritablePrimary").contains("true"));
+    return mongo;
+  }
+
+  private static String mongosh(
+      GenericContainer<?> mongo, String user, String password, String script) {
+    try {
+      return mongo
+          .execInContainer(
+              "mongosh",
+              "-u",
+              user,
+              "-p",
+              password,
+              "--authenticationDatabase",
+              "admin",
+              "--quiet",
+              "--eval",
+              script)
+          .getStdout();
+    } catch (IOException e) {
+      throw new IllegalStateException("mongosh could not run", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("mongosh was interrupted", e);
+    }
+  }
+
+  /**
+   * Starts the application by hand, for tests where a failed start is the expected result.
+   *
+   * <p>Arguments, because the builder's own properties rank below application.properties.
+   */
+  public static ConfigurableApplicationContext startApplication(
+      String uri, Map<String, String> settings) {
+    Map<String, String> all = new LinkedHashMap<>();
+    all.put("server.port", "0");
+    all.put("spring.mongodb.uri", uri);
+    all.putAll(settings);
+    String[] args =
+        all.entrySet().stream()
+            .map(setting -> "--" + setting.getKey() + "=" + setting.getValue())
+            .toArray(String[]::new);
+    return new SpringApplicationBuilder(KumiteGameStarter.class).profiles("test").run(args);
   }
 
   /** A replica set member nobody initiated, for the tests that must be refused. */

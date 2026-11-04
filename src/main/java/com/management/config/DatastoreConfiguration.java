@@ -1,5 +1,6 @@
 package com.management.config;
 
+import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
 import java.util.concurrent.TimeUnit;
 import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
@@ -25,10 +26,12 @@ class DatastoreConfiguration {
     return settings ->
         settings
             .writeConcern(WriteConcern.MAJORITY)
+            .readPreference(ReadPreference.primary())
+            .retryWrites(true)
             .timeout(properties.operationTimeout().toMillis(), TimeUnit.MILLISECONDS)
             .applyToSocketSettings(socket ->
                 socket.connectTimeout(
-                    Math.toIntExact(properties.connectTimeout().toMillis()), TimeUnit.MILLISECONDS))
+                    properties.connectTimeout().toMillis(), TimeUnit.MILLISECONDS))
             .applyToClusterSettings(cluster ->
                 cluster.serverSelectionTimeout(
                     properties.serverSelectionTimeout().toMillis(), TimeUnit.MILLISECONDS))

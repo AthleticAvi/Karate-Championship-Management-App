@@ -7,7 +7,9 @@ import com.management.models.Player;
 import com.management.repositories.PlayerRepository;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.PlayerBuilder;
+import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
+import com.mongodb.ReadPreference;
 import com.mongodb.client.MongoDatabase;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -62,17 +64,31 @@ class DatastoreGuaranteesIT extends IntegrationTestBase {
         .isEqualTo(properties.operationTimeout().toMillis());
   }
 
-  /** Built through the application's customizers, because a client does not expose these. */
   @Test
   void connection_boundsConnectingAndServerSelection() {
-    MongoClientSettings.Builder builder = MongoClientSettings.builder();
-    customizers.forEach(customizer -> customizer.customize(builder));
-    MongoClientSettings settings = builder.build();
+    MongoClientSettings settings = settingsFrom("mongodb://localhost");
 
     assertThat(settings.getSocketSettings().getConnectTimeout(TimeUnit.MILLISECONDS))
         .isEqualTo(properties.connectTimeout().toMillis());
     assertThat(settings.getClusterSettings().getServerSelectionTimeout(TimeUnit.MILLISECONDS))
         .isEqualTo(properties.serverSelectionTimeout().toMillis());
+  }
+
+  @Test
+  void weakerOptionsInTheConnectionString_areOverridden() {
+    MongoClientSettings settings =
+        settingsFrom("mongodb://localhost/?retryWrites=false&readPreference=secondary");
+
+    assertThat(settings.getRetryWrites()).isTrue();
+    assertThat(settings.getReadPreference()).isEqualTo(ReadPreference.primary());
+  }
+
+  /** Built through the application's customizers, because a client does not expose these. */
+  private MongoClientSettings settingsFrom(String connectionString) {
+    MongoClientSettings.Builder builder =
+        MongoClientSettings.builder().applyConnectionString(new ConnectionString(connectionString));
+    customizers.forEach(customizer -> customizer.customize(builder));
+    return builder.build();
   }
 
   private String namespaceOf(MongoDatabase database, Player player) {

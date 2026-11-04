@@ -25,12 +25,13 @@ The data layer. One Spring Data repository per aggregate root.
 
 - MongoDB 8.0 in Docker at `localhost:27017`, database `kumitedb`, a one-member replica set named
   `rs0`, published to `127.0.0.1` only. Tests run a replica set on the same image.
-- `w=majority` and every timeout are set in `config`, not in a connection string, so no environment
-  can weaken them, and the same option in `MONGO_URI` is ignored. The application refuses a reachable standalone: see the config
-  README.
+- `w=majority`, primary reads, retryable writes and every timeout are set in `config`, not in a
+  connection string, so no environment can weaken them, and the same option in `MONGO_URI` is
+  ignored. The application refuses a reachable standalone: see the config README.
 - **Tests connect directly, local connects by discovery.** The Testcontainers URL names no
   `replicaSet`, so tests never exercise member discovery. Local does, through
-  `replicaSet` in the default `MONGO_URI`. Both give the same transaction and write concern behaviour.
+  `replicaSet` in the default `MONGO_URI`. Both give the same transaction and write concern
+  behaviour.
 - **`mongo:8.0` refuses to start on Linux kernel 6.19 and newer** (SERVER-121912, a startup crash).
   CI is pinned to `ubuntu-22.04` for this, and a Docker host that moves to such a kernel hits it too.
 - A one-member replica set has no failover, so neither local nor tests exercise one.
@@ -42,9 +43,13 @@ The data layer. One Spring Data repository per aggregate root.
   TLS on.
 - `MONGO_DB` wins over a database named in `MONGO_URI`. A hosted URI usually names none, and without
   this the driver would write to `test`.
-- **The password never reaches a log, the username and hosts do.** The driver prints both at INFO
-  when the client starts, with the password hidden. `DatastoreConnectionIT` proves the password and
-  the URI stay out, on a good connection, a failed one and a malformed URI.
+- **The database password never reaches a log, the username and hosts do.** The driver prints both
+  at INFO when the client starts, with the password hidden. `DatastoreConnectionIT` proves the
+  password stays out on a failed connection, rejected credentials and a malformed URI. A
+  `proxyPassword` in the URI is the exception: the driver prints it in clear, so never use one.
+- **`/actuator/health` shows the username and hosts to anyone while the login or connection fails,**
+  with the password hidden, because `show-details` is `always`. #80 closes this, and it must land
+  before a hosted database has a public address in front of it.
 - The hosts in `MONGO_URI` only pick the first server to ask. The driver then uses the member
   addresses stored in the replica set, so they must be reachable from the application: publishing
   the container on another port needs a matching member address in `rs.initiate`.
@@ -59,16 +64,21 @@ The data layer. One Spring Data repository per aggregate root.
 ## [backup] Backup and restore
 
 `mongodump` and `mongorestore`, because they work on any plan and any host. The `mongo:8.0` image
-ships both. Keep the URI out of shell history and out of any file under version control.
+ships both. Keep the URI out of shell history and out of any file under version control. Name the
+database the application uses: a wrong name exits 0 and writes an empty archive, so check the
+collection count in the output.
 
 ```bash
-mongodump --uri="$MONGO_URI" --db=kumitedb --archive=kumitedb.archive --gzip
+mongodump --uri="$MONGO_URI" --db="${MONGO_DB:-kumitedb}" --archive=kumitedb.archive --gzip
 mongorestore --uri="$MONGO_URI" --archive=kumitedb.archive --gzip --drop
 ```
 
-`--drop` replaces each collection in the archive, so check the target first. A database user with
-`readWrite` on `kumitedb` can run both. A dump is a point in time: anything written after it is lost
-on restore. Hosted free clusters refuse `--oplog`, and these commands do not use it.
+`--drop` replaces each collection in the archive, so check the target first. A restore writes back
+to the database named in the archive. A database user with `readWrite` on it can run both.
+
+**Take the dump with no bout running.** Each collection is read at a different moment, so a dump
+taken during scoring can hold a game and a fighter that disagree, and `--oplog`, which would prevent
+it, is refused on hosted free clusters. Anything written after the dump is lost on restore.
 
 ## [known-gaps] Known gaps against the ACID rules
 
