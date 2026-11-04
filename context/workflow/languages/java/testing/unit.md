@@ -2,19 +2,22 @@
 
 Applies when: testing a single class, using test doubles, mocking, stubbing, verifying interactions
 Status: enforced
-Framework-first: no container. If a test needs the container to run, it is not a unit test — see `patterns/testing-slice.md`.
+Framework-first: no container. If a test needs the container to run, it is not a unit test. See `web-frameworks/spring-boot/testing/slice.md`.
+Builds on: `testing/testing.md`
 
-## Rules
+## Index
+
+## [rules] Rules
 
 - **Construct the subject with `new`.** Pass test doubles as constructor arguments. Reflection-based injection into a unit test is a smell that the subject cannot be built normally, which is a design defect in the subject.
 - **Use the framework's JUnit extension for mock lifecycle.** Never open mocks manually. Manual initialisation in both a field initialiser and a setup method is a double-initialisation leak that also silently discards the first set.
 - **Strict stubbing on.** An unused stub means the test does not exercise what its author believed. Let it fail.
-- **Mock only what you own and what has behaviour** — collaborators across a boundary. Never mock value objects, records, collections, or types from the standard library; construct the real thing.
+- **Mock only what you own and what has behaviour**: collaborators across a boundary. Never mock value objects, records, collections, or types from the standard library; construct the real thing.
 - **Prefer state assertions to interaction assertions.** Verifying that a collaborator was called asserts how the subject works. Assert the outcome instead, and verify interactions only when the interaction *is* the outcome, such as a message being dispatched.
-- **A test double must not be more capable than the real thing.** See round-trip fidelity in `patterns/testing-strategy.md`.
+- **A test double must not be more capable than the real thing.** See round-trip fidelity in `testing/testing.md`.
 - **No container annotations.** If one appears, the test has changed layer and belongs in a different file.
 
-## The final-field trap
+## [final-field-trap] The final-field trap
 
 Mock injection frameworks do not write to `final` fields, and a field initialised inline is already assigned before any injection runs. A class that constructs its own collaborator in a `final` field cannot receive a double:
 
@@ -26,11 +29,11 @@ public class WidgetService {
 
 A declared mock of that type will appear in the test, be stubbed, and never reach the subject. The test passes, exercising the real collaborator, and the author believes otherwise. There is no warning.
 
-The fix is in the subject, not the test: take the collaborator as a constructor argument. See `standards/spring-boot.md`.
+The fix is in the subject, not the test: take the collaborator as a constructor argument. See `web-frameworks/spring-boot/standards/standards.md`.
 
 Where a mock is declared and stubbed but the subject builds its own instance, the stub is silently dead. Treat an unused-stub failure as a signal to check for this, not as noise to suppress.
 
-## Do
+## [do] Do
 
 ```java
 @ExtendWith(MockitoExtension.class)
@@ -67,9 +70,9 @@ class WidgetServiceTest {
 }
 ```
 
-Real configuration object, not a mock — it is a value type with no behaviour to stub.
+Real configuration object, not a mock: it is a value type with no behaviour to stub.
 
-## Don't
+## [dont] Don't
 
 ```java
 class WidgetServiceTest {
@@ -91,11 +94,11 @@ class WidgetServiceTest {
 }
 ```
 
-## Testing time-dependent logic
+## [testing-time-dependent-logic] Testing time-dependent logic
 
 Inject a clock; never sleep, never call a static "now" inside the subject. A test that must observe elapsed time advances a controllable clock. Code that cannot be tested without sleeping has a missing dependency, not a hard-to-test behaviour.
 
-## Verify
+## [verify] Verify
 
 - Every test constructs its subject with `new`.
 - Strict stubbing enabled and passing.

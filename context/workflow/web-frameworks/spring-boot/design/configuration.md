@@ -3,8 +3,11 @@
 Applies when: reading a setting, adding a property, profiles, environment differences, secrets, startup validation
 Status: enforced
 Framework-first: typed binding, relaxed naming, profile layering, environment-variable override and startup validation are all provided. Loading a properties file by hand is a defect.
+Builds on: `web-frameworks/spring-boot/standards/standards.md`
 
-## Rules
+## Index
+
+## [rules] Rules
 
 - **Settings bind to a typed record**, one per cohesive group, validated at startup. Never read a raw key at the point of use.
 - **Injected as a dependency**, through the constructor, like anything else. A configuration object constructed with `new` inside a class is outside the container: unvalidated, unmockable, and re-read per instance.
@@ -29,15 +32,15 @@ widget:
   max-retries: 3
 ```
 
-## Profiles
+## [profiles] Profiles
 
 Layer profile-specific files over a shared base. The base holds what is genuinely common; a profile file holds only differences.
 
 - Create a profile when something actually differs. An empty profile is noise.
 - Default to the development profile locally; require the profile to be set explicitly elsewhere, so an unset environment fails rather than silently running development settings.
-- Never branch on the active profile in code. Bind a value that differs per profile instead — the condition belongs in configuration, not in a method.
+- Never branch on the active profile in code. Bind a value that differs per profile instead: the condition belongs in configuration, not in a method.
 
-## Secrets
+## [secrets] Secrets
 
 Never in a file under version control, in any profile, including development. Secrets arrive from the environment or a secret manager; configuration files may reference them but never contain them.
 
@@ -45,17 +48,17 @@ A default value for a secret is a way of shipping one. Leave it absent so startu
 
 Confirm the ignore rules cover local override files before adding the first one.
 
-## Precedence
+## [precedence] Precedence
 
 Environment overrides file, and a more specific profile overrides the base. Rely on this rather than duplicating a value to force it. When a value is not what you expect at runtime, inspect the resolved configuration rather than guessing which file won.
 
-## Local development
+## [local-development] Local development
 
 Every setting an application needs to start must have a working local default, or be documented in one place as required. A new contributor cloning the repository should reach a running application without being told a value privately.
 
 Connection details for local infrastructure come from the environment with local defaults, never hardcoded.
 
-## Verify
+## [verify] Verify
 
 - Removing a required key fails startup with a message naming it.
 - No class constructs its configuration with `new`.
@@ -63,6 +66,6 @@ Connection details for local infrastructure come from the environment with local
 - No code branches on the active profile.
 - A clean clone starts with documented steps only.
 
-## Sources
+## [sources] Sources
 
-- Fail Fast (Shore, *IEEE Software*, 2004; popularised by Fowler) — when a precondition for functioning is unmet, stop at startup rather than degrading into a later, unrelated failure.
+- Fail Fast (Shore, *IEEE Software*, 2004; popularised by Fowler): when a precondition for functioning is unmet, stop at startup rather than degrading into a later, unrelated failure.

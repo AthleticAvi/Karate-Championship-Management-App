@@ -2,11 +2,14 @@
 
 Applies when: adding a bean, wiring a dependency, reading configuration, choosing a library, structuring packages
 Status: enforced
-Scope: framework level only. Language rules live in `standards/java.md`.
+Scope: framework level only. Language rules live in `languages/java/standards/standards.md`.
+Builds on: `languages/java/standards/standards.md`
 
-## Framework-first
+## Index
 
-Before writing any mechanism, establish that the framework does not already provide it. A hand-rolled equivalent of a framework feature is rejected in review regardless of quality — it duplicates behaviour the framework will keep maintaining, and it will not receive that maintenance.
+## [framework-first] Framework-first
+
+Before writing any mechanism, establish that the framework does not already provide it. A hand-rolled equivalent of a framework feature is rejected in review regardless of quality: it duplicates behaviour the framework will keep maintaining, and it will not receive that maintenance.
 
 | Need | Use this | Never hand-roll |
 |---|---|---|
@@ -23,19 +26,19 @@ Before writing any mechanism, establish that the framework does not already prov
 
 Where the framework offers a choice, take the one the reference documentation shows first. Reaching for a third-party library when a starter exists is a project-wide decision, not a per-change one.
 
-## Rules
+## [rules] Rules
 
 - **Constructor injection only.** No `@Autowired` on fields. A single constructor needs no annotation at all. Dependencies are `final`.
 - **Circular dependencies are a design defect, not a wiring problem.** `spring.main.allow-circular-references` stays unset. `@Lazy` to break a cycle is a temporary measure that must carry a linked owner and a removal plan; it is never the resolution.
 - **Configuration binds to a typed record**, validated at startup with `@Validated` and constraint annotations. A malformed value fails the context, not the first request.
-- **Persistence types never cross the HTTP boundary** in either direction. Requests bind to a request type, responses are built from a response type. See `patterns/service-exposure.md`.
+- **Persistence types never cross the HTTP boundary** in either direction. Requests bind to a request type, responses are built from a response type. See `design/service-exposure.md`.
 - **Controllers contain no logic.** Accept, delegate, return. No mapping, no branching on domain state, no persistence calls.
-- **The application class sits at the root of the package tree.** Component scanning and repository discovery both derive from its package. Explicit `scanBasePackages` or `basePackages` arguments are a symptom of a misplaced application class — move the class rather than widening the scan.
+- **The application class sits at the root of the package tree.** Component scanning and repository discovery both derive from its package. Explicit `scanBasePackages` or `basePackages` arguments are a symptom of a misplaced application class: move the class rather than widening the scan.
 - **One starter, not a pile of coordinates.** Depend on the starter; let the parent manage versions. Never pin a version the parent already manages.
 - **Bean methods are package-private or private where possible.** Public is not required and widens the surface.
 - **No business logic in a `@Configuration` class.** It wires; it does not decide.
 
-## Do
+## [do] Do
 
 ```java
 @Service
@@ -66,7 +69,7 @@ widget:
 
 Durations, periods and data sizes bind from suffixed strings. Parsing them by hand is a defect.
 
-## Don't
+## [dont] Don't
 
 ```java
 @Service
@@ -78,9 +81,9 @@ public class WidgetService {
 }
 ```
 
-A field initialised inline and marked `final` cannot be replaced by a test double — mock injection does not write to final fields. Any class built this way is untestable in the dimension that matters.
+A field initialised inline and marked `final` cannot be replaced by a test double: mock injection does not write to final fields. Any class built this way is untestable in the dimension that matters.
 
-## Package layout
+## [package-layout] Package layout
 
 ```
 <root>                    application class, nothing else
@@ -92,7 +95,7 @@ A field initialised inline and marked `final` cannot be replaced by a test doubl
 
 Package by feature above package by layer once a second feature exists. Layer-only packaging stops scaling at the point where two features share a layer and neither owns it.
 
-## Verify
+## [verify] Verify
 
 - Application starts with no circular-reference support enabled.
 - Every service can be constructed in a test with `new` and test doubles.

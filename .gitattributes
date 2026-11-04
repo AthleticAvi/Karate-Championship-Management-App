@@ -3,3 +3,6 @@
 # look for an interpreter named "/bin/sh\r", which does not exist. The hook then fails on the
 # machines most likely to be running it.
 hooks/** text eol=lf
+
+# Markdown stays LF on every platform, so generated indexes compare equal on Windows and in CI.
+*.md text eol=lf
