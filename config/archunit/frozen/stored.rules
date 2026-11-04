@@ -1,0 +1,6 @@
+#
+#Wed Nov 04 08:31:30 IST 2026
+no\ classes\ should\ reside\ in\ a\ package\ '..util..'=a9f1f70f-d692-439e-9973-89c50e34877f
+no\ classes\ that\ reside\ in\ a\ package\ '..models..'\ and\ reside\ outside\ of\ package\ '..models.converters..'\ should\ depend\ on\ classes\ that\ reside\ in\ a\ package\ 'org.springframework.data..'=f7e622bb-5268-4245-bca6-6a834702d40e
+no\ classes\ that\ reside\ in\ any\ package\ ['..services..',\ '..rules..']\ should\ depend\ on\ classes\ that\ reside\ in\ a\ package\ '..dto..'=2640b308-afc9-41fc-bd72-9c0433dc2e30
+slices\ matching\ 'com.management.(*)..'\ should\ be\ free\ of\ cycles=7d0763e7-81de-466d-b5d9-f5752e828955
