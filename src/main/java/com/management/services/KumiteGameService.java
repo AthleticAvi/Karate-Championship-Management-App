@@ -45,7 +45,7 @@ import org.springframework.stereotype.Service;
  * <p>Scoring, creation and match rendering all need both aggregates: the match knows which fighter
  * id wears which colour, the fighter documents own the names and scores. Those operations live here
  * and call <em>down</em> into {@link PlayerService} — one direction, acyclically, per {@code
- * workflow/patterns/service-interaction.md}. This replaced the mutual dependency that {@code
+ * context/workflow/design/service-interaction.md}. This replaced the mutual dependency that {@code
  * GameHelperService} and {@code @Lazy} used to paper over.
  */
 @Service

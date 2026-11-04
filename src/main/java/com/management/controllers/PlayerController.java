@@ -38,8 +38,8 @@ public class PlayerController {
    *
    * <p>204 rather than 200 with the sentence "Player deleted successfully." A success sentence is
    * not a contract — it cannot be parsed, it says nothing the status code does not, and it commits
-   * the API to an English string. The status table in {@code workflow/patterns/service-exposure.md}
-   * gives 204 for "succeeded, nothing to return".
+   * the API to an English string. The status table in {@code
+   * context/workflow/design/service-exposure.md} gives 204 for "succeeded, nothing to return".
    */
   @DeleteMapping("/{playerId}")
   public ResponseEntity<Void> deletePlayer(@PathVariable String playerId) {

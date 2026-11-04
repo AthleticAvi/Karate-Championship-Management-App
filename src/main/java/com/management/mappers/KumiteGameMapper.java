@@ -22,7 +22,7 @@ import java.util.List;
  *
  * <p>Hand-written rather than generated. Two response types with seven fields between them do not
  * justify an annotation processor, and adding one is a project-wide decision rather than something
- * a single change adopts (see {@code workflow/standards/java.md}).
+ * a single change adopts (see {@code context/workflow/languages/java/standards/standards.md}).
  *
  * <p>Static rather than a bean, so the slice tests exercise the real mapping instead of importing
  * one more thing into every web-slice context.

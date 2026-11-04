@@ -28,6 +28,7 @@
     <!-- Flipped to true by the selective-run profiles at the bottom of this file. -->
     <coverage.check.skip>false</coverage.check.skip>
     <git-build-hook.version>3.5.0</git-build-hook.version>
+    <archunit.version>1.5.1</archunit.version>
   </properties>
 
   <dependencies>
@@ -98,6 +99,15 @@
       <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!-- The core artifact, not archunit-junit5: rules run from plain @Test methods, so nothing
+         here depends on the engine integration tracking JUnit's major versions. -->
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit</artifactId>
+      <version>${archunit.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -127,7 +137,7 @@
               CatchAndPrintStackTrace is OFF because config/checkstyle/project-standards.xml
               already enforces this as ForbidPrintStackTrace. One defect, one source: the
               Checkstyle rule is kept because it catches every printStackTrace call rather than
-              only those inside a catch block, and its message cites the java.md rule.
+              only those inside a catch block, and its message cites the Java standards rule.
             -->
             <arg>-Xplugin:ErrorProne -XepAllErrorsAsWarnings -XepAllSuggestionsAsWarnings
               -Xep:CatchAndPrintStackTrace:OFF
@@ -153,8 +163,8 @@
         anyone builds - the same lifecycle trick husky uses with npm install. Hooks become committed
         files rather than per-clone setup.
 
-        The hook is a convenience and never a gate; see hooks/pre-commit and
-        workflow/standards/enforcement.md. It is bypassable by the commit flag that skips hooks, and
+        The hook is a convenience and never a gate; see hooks/pre-push and
+        context/workflow/tooling/static-analysis.md. It is bypassable by the commit flag that skips hooks, and
         does not exist until someone runs a build, which is exactly why CI runs the full build
         regardless.
       -->
@@ -387,7 +397,7 @@
             The floor. Set to what the suite actually achieves, so it catches a drop rather than
             expressing an aspiration. Raise it as coverage rises; never lower it.
 
-            This is a floor, not a target. workflow/patterns/testing-strategy.md lists what must not
+            This is a floor, not a target. context/workflow/testing/testing.md lists what must not
             be tested - getters, setters, framework behaviour, configuration values - and coverage
             bought that way is a worse suite with a better number.
 

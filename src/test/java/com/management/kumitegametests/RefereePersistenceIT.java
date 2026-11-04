@@ -42,8 +42,8 @@ class RefereePersistenceIT extends IntegrationTestBase {
    * {@code dropEveryCollection} had stopped working entirely.
    *
    * <p>It now writes the state it needs and proves it is gone, so it depends on nothing but itself.
-   * The isolation rule is stated in {@code workflow/patterns/testing-integration.md}: clean before,
-   * not after.
+   * The isolation rule is stated in {@code
+   * context/workflow/web-frameworks/spring-boot/testing/integration.md}: clean before, not after.
    */
   @Test
   void eachTestStartsWithAnEmptyDatabase() {

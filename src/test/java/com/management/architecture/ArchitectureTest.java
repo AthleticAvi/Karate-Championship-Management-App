@@ -1,0 +1,151 @@
+package com.management.architecture;
+
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
+
+import com.management.enums.PointsType;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import org.junit.jupiter.api.Test;
+
+/**
+ * The layer boundaries: gateways, business and data stay apart.
+ *
+ * <p>Rules the code already passes are strict. Rules it does not yet pass are frozen: recorded
+ * violations in {@code config/archunit/frozen} are tolerated and new ones fail the build. See
+ * {@code src/main/java/com/management/README.md}.
+ */
+class ArchitectureTest {
+
+  private static final String[] GATEWAYS = {
+    "..controllers..", "..dto..", "..mappers..", "..exceptions.."
+  };
+  private static final String[] BUSINESS = {"..services..", "..rules.."};
+  private static final String[] DOMAIN_AND_BUSINESS = {
+    "..services..", "..rules..", "..models..", "..enums.."
+  };
+  private static final String[] DATA = {"..repositories..", "..models.converters.."};
+
+  private static final JavaClasses CLASSES =
+      new ClassFileImporter()
+          .withImportOption(new ImportOption.DoNotIncludeTests())
+          .importPackages("com.management");
+
+  @Test
+  void gateways_neverReachRulesOrTheDataLayer() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(GATEWAYS)
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..rules..", "..repositories..")
+        .check(CLASSES);
+  }
+
+  @Test
+  void business_neverDependsOnControllersOrMappers() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(DOMAIN_AND_BUSINESS)
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..controllers..", "..mappers..")
+        .check(CLASSES);
+  }
+
+  @Test
+  void business_neverSeesWebTypes() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(DOMAIN_AND_BUSINESS)
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("org.springframework.web..", "org.springframework.http..")
+        .check(CLASSES);
+  }
+
+  @Test
+  void dataLayer_neverDependsOnBusinessOrGateways() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(DATA)
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            "..services..", "..rules..", "..controllers..", "..dto..", "..mappers..")
+        .check(CLASSES);
+  }
+
+  @Test
+  void domainTypes_neverKnowTheApiShapes() {
+    noClasses()
+        .that()
+        .resideInAnyPackage("..models..", "..enums..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..dto..")
+        .check(CLASSES);
+  }
+
+  @Test
+  void services_dependOneWayOnKumiteGameService() {
+    noClasses()
+        .that()
+        .resideInAPackage("..services..")
+        .and()
+        .doNotHaveSimpleName("KumiteGameService")
+        .should()
+        .dependOnClassesThat()
+        .haveSimpleName("KumiteGameService")
+        .check(CLASSES);
+  }
+
+  /**
+   * Strict rather than frozen, with the one known edge named: a frozen cycle is stored as a single
+   * message that counts its dependencies, so any edit to either package would read as a new cycle.
+   */
+  @Test
+  void packages_areFreeOfCyclesBeyondThePointStrategies() {
+    slices()
+        .matching("com.management.(*)..")
+        .should()
+        .beFreeOfCycles()
+        .ignoreDependency(equivalentTo(PointsType.class), resideInAPackage("..models.strategies.."))
+        .check(CLASSES);
+  }
+
+  @Test
+  void business_doesNotKnowTheApiShapes() {
+    freeze(
+            noClasses()
+                .that()
+                .resideInAnyPackage(BUSINESS)
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("..dto.."))
+        .check(CLASSES);
+  }
+
+  @Test
+  void domainTypes_carryNoPersistenceMapping() {
+    freeze(
+            noClasses()
+                .that()
+                .resideInAPackage("..models..")
+                .and()
+                .resideOutsideOfPackage("..models.converters..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("org.springframework.data.."))
+        .check(CLASSES);
+  }
+
+  @Test
+  void noUtilityPackage() {
+    freeze(noClasses().should().resideInAPackage("..util..")).check(CLASSES);
+  }
+}

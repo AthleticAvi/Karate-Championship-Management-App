@@ -25,7 +25,7 @@
        ruleset change becomes a reviewable diff.
     2. Two categories of rule are deliberately removed. A deviation belongs in the ruleset where
        it is visible in one place, not in a blanket suppression. See
-       workflow/standards/enforcement.md.
+       context/workflow/tooling/static-analysis.md.
 
     REMOVED - layout (28 modules). google-java-format, applied by Spotless, is the sole authority
     on layout. These rules re-check what the formatter has already guaranteed: FileTabCharacter,
@@ -172,7 +172,7 @@
     <module name="NoFinalizer" />
 
     <!--
-      'IT' is permitted. workflow/patterns/testing-strategy.md requires integration tests to end in
+      'IT' is permitted. context/workflow/testing/testing.md requires integration tests to end in
       that suffix, and the build selects the test phase on it, so the name is functional rather than
       stylistic. Without this the two rules contradict: every correctly named integration test would
       be a permanent violation, and the only way to satisfy the analyser would be to break the build.

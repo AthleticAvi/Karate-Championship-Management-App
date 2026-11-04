@@ -4,7 +4,7 @@
     "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 
 <!--
-  Every suppression is a decision and carries a reason, per workflow/standards/enforcement.md:
+  Every suppression is a decision and carries a reason, per context/workflow/tooling/static-analysis.md:
 
     "A suppression is a decision, so it carries a reason. Blanket file-level or project-level
      suppression of a rule is equivalent to deleting the rule."
