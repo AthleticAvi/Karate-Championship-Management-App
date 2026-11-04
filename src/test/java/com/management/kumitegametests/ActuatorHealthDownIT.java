@@ -32,9 +32,8 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p><strong>The exception is the context, not the profile.</strong> {@code @ActiveProfiles} is
  * repeated here because the annotation arrives by inheritance and this class has no base to inherit
- * it from. Without it this would be the only test in the suite running under the {@code dev}
- * default, and the first property added to {@code application-test.properties} would reach every
- * test except this one.
+ * it from. Without it this would be the only test in the suite running with no profile, and the
+ * first property added to a test profile file would reach every test except this one.
  */
 @AutoConfigureTestRestTemplate
 @ActiveProfiles("test")

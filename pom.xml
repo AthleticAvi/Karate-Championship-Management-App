@@ -37,6 +37,12 @@
     <mockito.agent>"-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"</mockito.agent>
     <git-build-hook.version>3.6.0</git-build-hook.version>
     <archunit.version>1.5.1</archunit.version>
+    <!--
+      The profile mvn spring-boot:run starts with, so local development needs no extra steps. The
+      plugin's own property and not a configuration entry, which -Dspring-boot.run.profiles could
+      not override.
+    -->
+    <spring-boot.run.profiles>dev</spring-boot.run.profiles>
   </properties>
 
   <dependencies>

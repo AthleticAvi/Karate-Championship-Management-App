@@ -41,7 +41,7 @@ The data layer. One Spring Data repository per aggregate root.
   silently by falling back to the default host.
 - Environment variables: `MONGO_URI` and `MONGO_DB`. The same build reaches local and hosted
   MongoDB by changing them alone. Credentials and TLS arrive in `MONGO_URI`, and `mongodb+srv` turns
-  TLS on.
+  TLS on. Only the `dev` profile defaults `MONGO_URI`: see `[profiles]` in the config README.
 - `MONGO_DB` wins over a database named in `MONGO_URI`. A hosted URI usually names none, and without
   this the driver would write to `test`.
 - **The database password never reaches a log.** `DatastoreConnectionIT` proves it on a failed

@@ -36,7 +36,6 @@ target/
 .env.*
 
 # Application properties with sensitive values
-application-prod.properties
 application-staging.properties
 
 # Maven wrapper

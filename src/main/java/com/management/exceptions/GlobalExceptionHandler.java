@@ -10,11 +10,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 /**
  * Maps every exception this API can raise to a status code and an RFC 9457 problem detail.
@@ -134,6 +136,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * A body past the JSON parser's size limit is 413, not the framework's 400.
+   *
+   * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
+   * wrong fault. Everything else unreadable stays with the base class, including the parser's other
+   * limits, such as nesting depth, which a smaller body would not cure.
+   */
+  @Override
+  protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    if (!isBodyTooLong(ex)) {
+      return super.handleHttpMessageNotReadable(ex, headers, status, request);
+    }
+    HttpStatus tooLarge = HttpStatus.CONTENT_TOO_LARGE;
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(tooLarge, "The request body is too large.");
+    problem.setTitle("Request too large");
+    return handleExceptionInternal(ex, problem, headers, tooLarge, request);
+  }
+
+  /**
    * A concurrent modification the application could not absorb.
    *
    * <p>Optimistic-lock conflicts on scoring are retried inside {@code PlayerService}; this handler
@@ -192,6 +217,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatus.BAD_REQUEST, "The request contained an invalid value.");
     problem.setTitle("Invalid request");
     return problem;
+  }
+
+  /** Jackson has one exception type for every limit, so only its wording tells them apart. */
+  private static boolean isBodyTooLong(HttpMessageNotReadableException ex) {
+    return ex.getMostSpecificCause() instanceof StreamConstraintsException limit
+        && limit.getOriginalMessage().startsWith("Document length");
   }
 
   private ProblemDetail notFound(String title, Exception ex) {

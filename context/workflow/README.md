@@ -52,7 +52,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `testing/testing.md`: [layer-selection] [rules] [round-trip-fidelity] [what-not-to-test] [naming-and-shape] [fixtures] [suite-performance] [verify] [sources]
 - `tooling/static-analysis.md`: [principle] [gate-order] [adoption-sequence] [required-build-settings] [what-each-analyser-is] [one-job-per-tool] [vendor-the-ruleset] [suppression-policy] [architecture-rules] [ci] [review-only-rules] [verify]
 - `web-frameworks/spring-boot/design/auth.md`: [shape] [rules] [401-versus-403] [management-endpoints] [cors] [testing] [verify]
-- `web-frameworks/spring-boot/design/configuration.md`: [rules] [profiles] [secrets] [precedence] [local-development] [verify] [sources]
+- `web-frameworks/spring-boot/design/configuration.md`: [rules] [profiles] [request-limits] [secrets] [precedence] [local-development] [verify] [sources]
 - `web-frameworks/spring-boot/design/error-handling.md`: [response-format] [rules] [messages] [extension-fields] [verify] [sources]
 - `web-frameworks/spring-boot/design/layers.md`: [mapping] [contract] [stereotypes] [verify]
 - `web-frameworks/spring-boot/design/patterns.md`: [framework-provides] [add-a-rule] [enum-strategy] [verify]

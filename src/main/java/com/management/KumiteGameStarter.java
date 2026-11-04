@@ -1,5 +1,6 @@
 package com.management;
 
+import com.management.config.StartupSettingsCheck;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
@@ -21,6 +22,8 @@ import org.springframework.resilience.annotation.EnableResilientMethods;
 public class KumiteGameStarter {
 
   public static void main(String[] args) {
-    SpringApplication.run(KumiteGameStarter.class, args);
+    SpringApplication application = new SpringApplication(KumiteGameStarter.class);
+    application.addInitializers(new StartupSettingsCheck());
+    application.run(args);
   }
 }
