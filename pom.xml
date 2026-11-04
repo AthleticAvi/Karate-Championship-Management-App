@@ -28,6 +28,8 @@
     <jacoco.version>0.8.16</jacoco.version>
     <!-- Flipped to true by the selective-run profiles at the bottom of this file. -->
     <coverage.check.skip>false</coverage.check.skip>
+    <!-- JaCoCo fills this in. Empty by default, so @{argLine} resolves when JaCoCo is skipped. -->
+    <argLine></argLine>
     <git-build-hook.version>3.6.0</git-build-hook.version>
     <archunit.version>1.5.1</archunit.version>
   </properties>
@@ -317,7 +319,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+          <argLine>@{argLine} "-javaagent:${org.mockito:mockito-core:jar}"</argLine>
           <includes>
             <include>**/*Test.java</include>
             <include>**/*Tests.java</include>
@@ -329,7 +331,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
-          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+          <argLine>@{argLine} "-javaagent:${org.mockito:mockito-core:jar}"</argLine>
           <includes>
             <include>**/*IT.java</include>
           </includes>
