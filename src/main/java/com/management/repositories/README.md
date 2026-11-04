@@ -28,6 +28,10 @@ The data layer. One Spring Data repository per aggregate root.
   that namespace into driver level and repository level. Both resolve, so the wrong one fails
   silently by falling back to the default host.
 - Environment variables: `MONGO_HOST`, `MONGO_PORT`, `MONGO_DB`.
+- This package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring Data adds a runtime
+  null check to every repository: a null argument is rejected, and a finder returning nothing throws
+  `EmptyResultDataAccessException`, which `GlobalExceptionHandler` does not handle. Marking it is a
+  behaviour change. Finders return `Optional` either way.
 
 ## [known-gaps] Known gaps against the ACID rules
 
