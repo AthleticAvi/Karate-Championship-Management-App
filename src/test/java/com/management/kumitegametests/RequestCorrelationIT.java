@@ -6,6 +6,12 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.management.testsupport.IntegrationTestBase;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.AfterEach;
@@ -114,6 +120,26 @@ class RequestCorrelationIT extends IntegrationTestBase {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(linesFor(idOf(response))).hasSize(1);
+  }
+
+  /**
+   * The framework's own line for a refused method would repeat the client's word and add a line.
+   */
+  @Test
+  void unknownMethod_logsOneLineThatDoesNotRepeatIt() throws Exception {
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(rest.getRootUri() + "/api/v1/players/none"))
+            .method("CLIENTWORD", BodyPublishers.noBody())
+            .build();
+
+    HttpResponse<Void> response;
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      response = client.send(request, BodyHandlers.discarding());
+    }
+
+    assertThat(response.statusCode()).isEqualTo(405);
+    assertThat(linesFor(response.headers().firstValue(HEADER).orElseThrow())).hasSize(1);
+    assertThat(everythingLogged()).doesNotContain("CLIENTWORD");
   }
 
   @Test

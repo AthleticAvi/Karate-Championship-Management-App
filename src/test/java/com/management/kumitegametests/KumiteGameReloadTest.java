@@ -84,7 +84,7 @@ class KumiteGameReloadTest {
         .as("the running state is persisted")
         .isEqualTo(GameState.RUNNING);
     assertThat(storage.writeForInspection(reloaded).containsKey("timer"))
-        .as("the timer object itself is @Transient and never stored")
+        .as("the timer is rebuilt from the stored fields and never stored itself")
         .isFalse();
   }
 

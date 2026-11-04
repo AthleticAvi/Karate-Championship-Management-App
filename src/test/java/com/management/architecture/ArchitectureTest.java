@@ -1,7 +1,9 @@
 package com.management.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.properties.HasName.AndFullName.Predicates.fullNameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
@@ -10,10 +12,8 @@ import com.management.enums.PointsType;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.util.Date;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,6 +33,12 @@ class ArchitectureTest {
     "..services..", "..rules..", "..models..", "..enums.."
   };
   private static final String[] DATA = {"..repositories..", "..models.converters.."};
+
+  private static final String READS_THE_CURRENT_TIME =
+      "java\\.time\\..+\\.now\\(\\)"
+          + "|java\\.time\\.Clock\\.(system|tick).*"
+          + "|java\\.time\\.ZoneId\\.systemDefault\\(\\)"
+          + "|java\\.lang\\.System\\.currentTimeMillis\\(\\)";
 
   private static final JavaClasses CLASSES =
       new ClassFileImporter()
@@ -118,17 +124,16 @@ class ArchitectureTest {
         .check(CLASSES);
   }
 
+  /** {@code System.nanoTime} stays allowed: it measures a duration and never names a time. */
   @Test
   void currentTime_comesOnlyFromTheClockBean() {
     noClasses()
+        .that()
+        .doNotHaveSimpleName("TimeConfiguration")
         .should()
-        .callMethod(Instant.class, "now")
+        .callMethodWhere(target(fullNameMatching(READS_THE_CURRENT_TIME)))
         .orShould()
-        .callMethod(Clock.class, "systemDefaultZone")
-        .orShould()
-        .callMethod(Clock.class, "systemUTC")
-        .orShould()
-        .callMethod(ZoneId.class, "systemDefault")
+        .callConstructor(Date.class)
         .because("one injected clock is what keeps match time the same on every instance")
         .check(CLASSES);
   }

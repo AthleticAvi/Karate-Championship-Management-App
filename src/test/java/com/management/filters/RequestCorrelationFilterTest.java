@@ -181,6 +181,22 @@ class RequestCorrelationFilterTest {
     assertThat(MDC.get(RequestCorrelationFilter.MDC_KEY)).isNull();
   }
 
+  /** The client has its answer by then, so the line reports that and not the failure after it. */
+  @Test
+  void chainThatThrowsAfterAnswering_logsWhatTheClientReceived() {
+    FilterChain chain =
+        (req, res) -> {
+          response.setStatus(201);
+          response.flushBuffer();
+          throw new ServletException("failed after the answer");
+        };
+
+    assertThatThrownBy(() -> filter.doFilter(request, response, chain))
+        .isInstanceOf(ServletException.class);
+
+    assertThat(fields(lines.list.get(0))).containsEntry("status", 201);
+  }
+
   private String returnedId() {
     return Objects.requireNonNull(response.getHeader(RequestCorrelationFilter.HEADER));
   }

@@ -24,8 +24,8 @@ The inbound gateway's first step: what happens to every request before and after
 | 1 to 64 letters, digits, `_` or `-` | Used as it is |
 | Anything else | Replaced with a new UUID, and not logged |
 
-The response always returns the ID in `X-Correlation-ID`, on errors too. Every line logged during
-the request carries it as `correlationId`.
+The response always returns the ID in `X-Correlation-ID`, on errors too. Every line logged while
+the chain runs carries it as `correlationId`.
 
 The request line is `Request completed` at INFO, with these fields:
 
@@ -33,7 +33,7 @@ The request line is `Request completed` at INFO, with these fields:
 |---|---|
 | `method` | The HTTP method, or `OTHER` if it is not a standard one |
 | `route` | The mapped pattern, such as `/api/v1/players/{playerId}`, or `UNMATCHED` |
-| `status` | The status answered, 500 if the chain threw |
+| `status` | The status answered, 500 if the chain threw before answering |
 | `durationMs` | Time spent in the chain |
 
 ## [may-call] May call
@@ -48,6 +48,11 @@ Nothing in this application. Never `services`, `repositories` or `rules`.
   left: a request no handler took, such as a verb the path does not allow.
 - **Tomcat refuses some requests before any filter runs,** such as headers past the size limit. They
   get no ID and no line: see `[facts]` in the exceptions README.
+- **An exception that escapes the chain outlives the ID.** The container logs it after this filter
+  finishes, so that line has no `correlationId`. `GlobalExceptionHandler` catches everything an
+  endpoint throws, so only a failure in the handler itself or in a later filter gets this far.
+- The framework's `PageNotFound` logger is set to ERROR, because its line for a refused method
+  repeats what the client sent.
 - Actuator requests get an ID and a line like any other, so health probes appear in the logs.
 - Text output shows the ID and fields through `logging.pattern.correlation`: see `[logging]` in the
   config README.

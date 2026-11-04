@@ -232,7 +232,7 @@ public class KumiteGame {
    * Adds time to the clock and records that it happened.
    *
    * <p>Delegates the arithmetic to the timer, then copies the result back into the persisted fields
-   * — the timer is rebuilt from those on every load, so a change kept only in the timer object
+   * — the timer is rebuilt from those on every call, so a change kept only in the timer object
    * would vanish on the next read.
    */
   public void addTime(ClockAdjustment adjustment, Clock clock) {

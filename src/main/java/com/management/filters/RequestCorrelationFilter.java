@@ -63,7 +63,8 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
       chain.doFilter(request, response);
       status = response.getStatus();
     } finally {
-      logRequest(request, status, started);
+      // A committed response has been answered, whatever failed after it.
+      logRequest(request, response.isCommitted() ? response.getStatus() : status, started);
       MDC.remove(MDC_KEY);
     }
   }
