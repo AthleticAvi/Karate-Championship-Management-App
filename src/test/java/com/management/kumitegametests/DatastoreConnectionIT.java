@@ -42,7 +42,10 @@ class DatastoreConnectionIT {
           .satisfies(failure -> assertThat(failure.toString()).doesNotContain(PASSWORD));
     }
 
-    assertThat(output.getAll()).contains("localhost:1").doesNotContain(PASSWORD);
+    assertThat(output.getAll())
+        .contains("localhost:1")
+        .doesNotContain(PASSWORD)
+        .doesNotContain("userName");
   }
 
   /** The server answers and refuses the login, a path an unreachable port never runs. */
@@ -62,7 +65,7 @@ class DatastoreConnectionIT {
         ResponseEntity<String> health = health(context);
 
         assertThat(health.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        assertThat(health.getBody()).doesNotContain(PASSWORD);
+        assertThat(health.getBody()).doesNotContain(PASSWORD).doesNotContain(USER);
       }
     } finally {
       mongo.stop();

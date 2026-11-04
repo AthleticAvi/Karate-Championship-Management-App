@@ -44,13 +44,14 @@ The data layer. One Spring Data repository per aggregate root.
   TLS on.
 - `MONGO_DB` wins over a database named in `MONGO_URI`. A hosted URI usually names none, and without
   this the driver would write to `test`.
-- **The database password never reaches a log, the username and hosts do.** The driver prints both
-  at INFO when the client starts, with the password hidden. `DatastoreConnectionIT` proves the
-  password stays out on a failed connection, rejected credentials and a malformed URI. A
-  `proxyPassword` in the URI is the exception: the driver prints it in clear, so never use one.
-- **`/actuator/health` shows the username and hosts to anyone while the login or connection fails,**
-  with the password hidden, because `show-details` is `always`. #80 closes this, and it must land
-  before a hosted database has a public address in front of it.
+- **The database password never reaches a log.** `DatastoreConnectionIT` proves it on a failed
+  connection, rejected credentials and a malformed URI. A `proxyPassword` in the URI is the
+  exception: the driver prints it in clear, so never use one.
+- **The username stays out of the logs until a login fails.** The driver's start line is off, through
+  `logging.level.org.mongodb.driver.client`. A rejected login still logs it, with the password
+  hidden, in the health check's warning. Hosts appear in the driver's cluster logs.
+- `/actuator/health` shows the overall status only. Its detail would name the username, hosts and
+  disk paths, so `show-details` is `when-authorized`, which is nobody until security lands.
 - The hosts in `MONGO_URI` only pick the first server to ask. The driver then uses the member
   addresses stored in the replica set, so they must be reachable from the application: publishing
   the container on another port needs a matching member address in `rs.initiate`.

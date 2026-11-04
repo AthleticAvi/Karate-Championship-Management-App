@@ -25,11 +25,11 @@ class ActuatorHealthIT extends IntegrationTestBase {
   @Autowired private TestRestTemplate rest;
 
   @Test
-  void health_whenMongoIsReachable_reportsUpWithMongoDetail() {
+  void health_whenMongoIsReachable_reportsUpWithoutDetail() {
     ResponseEntity<String> response = rest.getForEntity("/actuator/health", String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).contains("\"status\":\"UP\"");
-    assertThat(response.getBody()).contains("\"mongo\"");
+    assertThat(response.getBody()).doesNotContain("\"mongo\"");
   }
 }
