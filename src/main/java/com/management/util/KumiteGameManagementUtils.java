@@ -6,9 +6,11 @@ import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PointTypeNotFoundException;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@NullMarked
 public class KumiteGameManagementUtils {
 
   private KumiteGameManagementUtils() {
