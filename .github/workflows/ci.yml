@@ -20,19 +20,17 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# One job per concern, so a failure names what broke. Together they are `mvn verify`
+# plus the commit message check. See [ci] in config/README.md before changing a job.
 jobs:
-  build:
-    name: Build and test
-    # Pinned: mongo:8.0 refuses to start on Linux kernel 6.19 and newer, which ubuntu-24.04 and later run.
-    # See the repositories README before moving this.
+  static:
+    name: Static checks
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # the commit message check reads the whole PR range
 
       - name: Set up JDK
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -41,12 +39,28 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Build and test
-        run: mvn -B --no-transfer-progress verify
+      - name: Check the JDK, formatting and conventions, and compile
+        run: mvn -B --no-transfer-progress test-compile
 
-      # After the build, so one badly worded commit never hides the test results.
+  commits:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the check reads the whole PR range
+
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version-file: .java-version
+          distribution: temurin
+
       - name: Check commit messages
-        if: always() && github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -61,23 +75,142 @@ jobs:
           done
           exit "$failed"
 
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version-file: .java-version
+          distribution: temurin
+          cache: maven
+
+      - name: Run the unit suite
+        run: mvn -B --no-transfer-progress test -Dspotless.check.skip=true -Dcheckstyle.skip=true
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-reports
-          path: |
-            **/target/surefire-reports/*
-            **/target/failsafe-reports/*
+          name: unit-test-reports
+          path: target/surefire-reports/*
           if-no-files-found: ignore
           retention-days: 7
 
-      # Merged coverage across both suites. Browse index.html from the artifact.
+      - name: Upload coverage data
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-data-unit
+          path: target/jacoco-unit.exec
+          if-no-files-found: error
+          retention-days: 1
+
+  integration:
+    name: Integration tests
+    # Pinned: mongo:8.0 refuses to start on Linux kernel 6.19 and newer, which ubuntu-24.04 and later run.
+    # See the repositories README before moving this.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version-file: .java-version
+          distribution: temurin
+          cache: maven
+
+      # A test filter matching nothing leaves the unit suite to its own job. Any filter also skips
+      # the coverage floor, which the coverage job checks across both suites.
+      - name: Run the integration suite
+        run: >-
+          mvn -B --no-transfer-progress verify
+          -Dtest=NoUnitTestsInThisJob -Dsurefire.failIfNoSpecifiedTests=false
+          -Dspotless.check.skip=true -Dcheckstyle.skip=true
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-test-reports
+          path: target/failsafe-reports/*
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-data-integration
+          path: target/jacoco-integration.exec
+          if-no-files-found: error
+          retention-days: 1
+
+  coverage:
+    name: Coverage
+    needs: [unit, integration]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version-file: .java-version
+          distribution: temurin
+          cache: maven
+
+      # Before the download: the build discards stale coverage data at the start of a lifecycle run.
+      - name: Compile
+        run: mvn -B --no-transfer-progress compile -Dspotless.check.skip=true -Dcheckstyle.skip=true
+
+      - name: Download coverage data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-data-*
+          path: target
+          merge-multiple: true
+
+      - name: Merge both suites and check the floor
+        run: >-
+          mvn -B --no-transfer-progress
+          jacoco:merge@coverage-merge jacoco:report@coverage-report jacoco:check@coverage-check
+
+      # Browse index.html from the artifact.
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
-          path: '**/target/site/jacoco/*'
+          path: target/site/jacoco/*
           if-no-files-found: ignore
           retention-days: 7
+
+  # The one required status check, so jobs can change without touching branch protection.
+  gate:
+    name: Build and test
+    if: always()
+    needs: [static, commits, unit, integration, coverage]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+
+    steps:
+      - name: Require every job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case "$RESULTS" in
+            *failure*|*cancelled*) exit 1 ;;
+          esac

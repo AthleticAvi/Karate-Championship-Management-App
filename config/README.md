@@ -8,6 +8,7 @@
 - [change] How to change each tool
 - [ratchet] The ratchet
 - [hooks] Git hooks
+- [ci] CI jobs
 - [not-sonar] Why not SonarQube
 - [mcp] MCP tooling
 
@@ -80,6 +81,24 @@ Both are conveniences: CI is what protects the repository. Only the formatter ru
 analyser findings are not auto-fixable. It reports rather than fixes because a formatter in
 pre-commit has to stage files mid-commit, which silently commits unstaged edits. `.gitattributes`
 pins `hooks/**` to LF. To stop using hooks: `git config --unset core.hooksPath`.
+
+## [ci] CI jobs
+
+One job per concern, in `.github/workflows/ci.yml`. Together they are `mvn verify` plus the commit
+message check.
+
+| Job | Runs |
+|---|---|
+| Static checks | Enforcer, Spotless, Checkstyle, compile with Error Prone |
+| Commit messages | The commit message check, on pull requests |
+| Unit tests | The `*Test` suite |
+| Integration tests | The `*IT` suite |
+| Coverage | Merges the data from both suites and checks the floor, after both |
+| Build and test | Passes only if the jobs above did |
+
+`Build and test` is the one required status check on `main`, so keep that name. The coverage job
+recompiles rather than sharing classes, which works because the same source and JDK give the same
+class files. If coverage ever drops to near zero with the suites green, look there first.
 
 ## [not-sonar] Why not SonarQube
 
