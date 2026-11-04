@@ -1,18 +1,20 @@
 # MongoDB Persistence
 
-Applies when: defining a document, mapping fields, object construction on read, indexes, transactions, local database setup, versioning
+Applies when: defining a document, mapping fields, object construction on read, indexes, transactions, local database setup, versioning, ACID, write concern, read concern, journaling, replica set, standalone, retryable writes, durability
 Status: enforced
 Framework-first: the repository abstraction, mapping layer, auditing, index declaration and optimistic locking are all provided. Direct driver calls in a service are a defect.
-Builds on: `design/concurrency-consistency.md`
+Builds on: `design/acid.md`, `design/concurrency-consistency.md`
 
 ## Index
 
 - [document-design] Document design
+- [acid] How MongoDB meets ACID
 - [object-construction-on-read] Object construction on read
 - [excluded-fields] Excluded fields
 - [identifiers] Identifiers
 - [optimistic-locking] Optimistic locking
 - [transactions] Transactions
+- [write-and-read-concern] Write and read concern
 - [indexes] Indexes
 - [auditing] Auditing
 - [local-setup-and-initialisation] Local setup and initialisation
@@ -23,6 +25,19 @@ Builds on: `design/concurrency-consistency.md`
 - **One document type per aggregate root.** A repository exists per aggregate root, not per class.
 - **Store references, not copies.** Embedding a copy of another aggregate creates two sources of truth that must be written together. See `design/concurrency-consistency.md`. Embed only value objects that have no independent identity and are always read with their parent.
 - **Documents are not API types.** They never appear in a controller signature. See `design/service-exposure.md`.
+- **What must change together lives in one document.** A single document is the only atomic unit that needs no transaction. Moving a fact into the document that owns it is not a copy: a copy is the same fact stored twice.
+- **Bound what you embed.** A document is capped at 16 MB, so an array that grows without limit does not belong inside one.
+
+## [acid] How MongoDB meets ACID
+
+The rules are in `design/acid.md`. This is where they meet the engine.
+
+| Property | What the engine gives | What it does not |
+|---|---|---|
+| Atomicity | A write to one document is atomic, even across many fields | A write spanning documents is not atomic, even one command such as `updateMany`, unless it runs in a transaction |
+| Consistency | Unique indexes | No schema by default: invariants live in the domain type |
+| Isolation | A reader never sees a half-written document | The default is read uncommitted. Across documents, other operations interleave and reads are not point in time |
+| Durability | `w: majority` with journaling | A write acknowledged only in memory can be lost: see `[write-and-read-concern]` |
 
 ## [object-construction-on-read] Object construction on read
 
@@ -59,10 +74,49 @@ Handling the conflict is a separate concern: see `design/concurrency-consistency
 
 ## [transactions] Transactions
 
-Multi-document transactions require the engine to run as a replica set. A standalone instance does not support them at all, so an annotation requesting one has no effect and gives no warning.
+Reach for a transaction last. The manual says it costs more than a single-document write and is no replacement for schema design, so first try to put what changes together in one document.
 
-Before designing anything that needs two documents written atomically, confirm the deployment topology in every environment including local development. If it is standalone, the correct response is to remove the need for the second write, not to add an annotation that does nothing.
+Multi-document transactions require a replica set or a sharded cluster. A standalone instance does not support them, and the two ways this goes wrong look nothing alike:
 
+- **No transaction manager registered:** the framework's support is off, so a transactional annotation does nothing and gives no warning. Each write commits alone.
+- **Manager registered, standalone server:** the first write fails at runtime with `Transaction numbers are only allowed on a replica set member or mongos`.
+
+Before designing anything that needs two documents written atomically, confirm the deployment topology in every environment including local development. If it is standalone, remove the need for the second write.
+
+When a transaction is the right answer:
+
+- Keep it under a minute. Past that it is aborted as expired.
+- Expect aborts. A lock not acquired within 5 ms aborts it, and so does a write conflict with a change made outside it.
+- Use the driver's callback form. It retries on `TransientTransactionError` and `UnknownTransactionCommitResult`. A transient error re-runs the whole transaction, so the body must be safe to run again.
+- Individual writes inside a transaction are never retried on their own, whatever `retryWrites` says.
+- Commit with `w: majority`. Read concern guarantees inside a transaction hold only then.
+- Create collections and indexes beforehand. The framework's documentation requires it, and a pending index build blocks new transactions on that collection.
+- Put `replicaSet` in the connection string.
+
+## [write-and-read-concern] Write and read concern
+
+Write concern decides what "acknowledged" means. Durability depends on it, and it behaves differently per topology.
+
+| Topology | Default | Acknowledged when |
+|---|---|---|
+| Replica set | `w: majority`, journaled | A majority has journaled it |
+| Replica set with an arbiter, where non-arbiters do not exceed the voting majority | `w: 1` | The primary applied it, in memory |
+| Standalone | Not reported: `getDefaultRWConcern` is refused on a standalone | `w: 1`: in memory. `w: majority`: on-disk journal |
+
+- **Set `w=majority` in the connection string in every environment.** It gives journaled writes on a standalone and on a replica set, and removes the dependence on topology.
+- **The journal is flushed every 100 ms.** A write acknowledged in memory can be lost on a hard shutdown inside that window.
+- **`j: true` alone does not survive a failover.** It says nothing about replication. Use `w: majority`.
+- **Never use `w: 0`.** It cannot report a conflict, and it cannot be retried.
+- **Always set `wtimeout`.** Without it, an unachievable write concern blocks forever.
+- **A write concern error does not undo the write.** The change stays and may replicate or roll back. Treat it as an unknown outcome: see `[idempotency]` in `design/concurrency-consistency.md`.
+
+Reads:
+
+- **The default read concern is `local`, which can return data later rolled back.** A version check on the write protects a decision made on it, so an unguarded decision is the defect, not the read.
+- **Use `majority` when returned data must be durable.** It costs about the same.
+- **Read your own writes across members needs a causally consistent session,** with `majority` on both the read and the write.
+
+Retryable writes are on by default in current drivers, but they need a replica set or sharded cluster: a standalone gives none. They retry once by default, for single-document operations only, and the manual does not promise exactly-once. They cover a dropped connection between the driver and the server. They are no substitute for a key from the caller.
 ## [indexes] Indexes
 
 Add an index when a query filters on something other than the identifier, never speculatively. An index on an unqueried field costs write throughput and storage and returns nothing.
@@ -78,6 +132,8 @@ Created and modified timestamps and actors are provided by the framework's audit
 ## [local-setup-and-initialisation] Local setup and initialisation
 
 - The database runs in a container, pinned to the same major version as production.
+- **The topology matches production too.** Hosted services run a replica set. A one-member replica set gives the same transaction and write concern behaviour locally, though the manual's production advice is several members, so it has no failover. Start the server with `--replSet`, then run `rs.initiate()` once.
+- **A test container's topology is a setting: check it.** Some container libraries start a standalone unless asked for a replica set, so tests can run on a weaker topology than production. Confirm it with `db.hello().setName`, which is absent on a standalone.
 - Connection settings come from the environment with local defaults, never hardcoded.
 - Schema is implicit, so the burden moves to migrations: a change in field name or type must be paired with a plan for documents already written in the old shape. There is no engine-level error for a shape mismatch: it surfaces as a null field or a mapping failure at read time.
 - Never point tests at the developer's local database. Tests own their own instance: see `web-frameworks/spring-boot/testing/integration.md`.
@@ -88,3 +144,8 @@ Created and modified timestamps and actors are provided by the framework's audit
 - A save-then-load round trip preserves every field, including those the creator does not take.
 - Removing a document type's version field makes a concurrency test fail.
 - Every declared index corresponds to a query in the codebase and is confirmed used by the query plan.
+- Everything in `[verify]` in `design/acid.md` holds, as tests.
+- Every multi-document write runs in a transaction, or has a written reason why it cannot.
+- A test proves a transaction rolls back, on the same topology as production.
+- The connection string sets `w=majority` and a `wtimeout` in every environment.
+- `db.hello().setName` gives the same kind of answer in local, test and production.
