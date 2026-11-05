@@ -1,7 +1,9 @@
 package com.management.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.properties.HasName.AndFullName.Predicates.fullNameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
@@ -10,6 +12,8 @@ import com.management.enums.PointsType;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import java.time.LocalDateTime;
+import java.util.Date;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -22,13 +26,19 @@ import org.junit.jupiter.api.Test;
 class ArchitectureTest {
 
   private static final String[] GATEWAYS = {
-    "..controllers..", "..dto..", "..mappers..", "..exceptions.."
+    "..controllers..", "..filters..", "..dto..", "..mappers..", "..exceptions.."
   };
   private static final String[] BUSINESS = {"..services..", "..rules.."};
   private static final String[] DOMAIN_AND_BUSINESS = {
     "..services..", "..rules..", "..models..", "..enums.."
   };
   private static final String[] DATA = {"..repositories..", "..models.converters.."};
+
+  private static final String READS_THE_CURRENT_TIME =
+      "java\\.time\\..+\\.now\\(\\)"
+          + "|java\\.time\\.Clock\\.(system|tick).*"
+          + "|java\\.time\\.ZoneId\\.systemDefault\\(\\)"
+          + "|java\\.lang\\.System\\.currentTimeMillis\\(\\)";
 
   private static final JavaClasses CLASSES =
       new ClassFileImporter()
@@ -53,7 +63,7 @@ class ArchitectureTest {
         .resideInAnyPackage(DOMAIN_AND_BUSINESS)
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("..controllers..", "..mappers..")
+        .resideInAnyPackage("..controllers..", "..filters..", "..mappers..")
         .check(CLASSES);
   }
 
@@ -76,7 +86,7 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage(
-            "..services..", "..rules..", "..controllers..", "..dto..", "..mappers..")
+            "..services..", "..rules..", "..controllers..", "..filters..", "..dto..", "..mappers..")
         .check(CLASSES);
   }
 
@@ -101,6 +111,30 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .haveSimpleName("KumiteGameService")
+        .check(CLASSES);
+  }
+
+  @Test
+  void localDateTime_isNeverUsed() {
+    noClasses()
+        .should()
+        .dependOnClassesThat()
+        .belongToAnyOf(LocalDateTime.class)
+        .because("a local time depends on the zone of the instance that read it")
+        .check(CLASSES);
+  }
+
+  /** {@code System.nanoTime} stays allowed: it measures a duration and never names a time. */
+  @Test
+  void currentTime_comesOnlyFromTheClockBean() {
+    noClasses()
+        .that()
+        .doNotHaveSimpleName("TimeConfiguration")
+        .should()
+        .callMethodWhere(target(fullNameMatching(READS_THE_CURRENT_TIME)))
+        .orShould()
+        .callConstructor(Date.class)
+        .because("one injected clock is what keeps match time the same on every instance")
         .check(CLASSES);
   }
 

@@ -12,9 +12,9 @@ import com.management.rules.conditions.PointsThresholdCondition;
 import com.management.rules.conditions.TimeExpiredCondition;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
+import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,7 +28,7 @@ class MatchEndConditionTest {
       new PointsThresholdCondition(TestGameProperties.standard());
   private final FoulLimitCondition foulLimit =
       new FoulLimitCondition(TestGameProperties.standard());
-  private final TimeExpiredCondition timeExpired = new TimeExpiredCondition();
+  private final TimeExpiredCondition timeExpired = new TimeExpiredCondition(TestClock.FIXED);
   private final DisqualificationCondition disqualification = new DisqualificationCondition();
 
   @Test
@@ -71,7 +71,7 @@ class MatchEndConditionTest {
   void timeExpired_whileTimeRemains_doesNotEndTheMatch() {
     GameWithFighters running =
         KumiteGameBuilder.newGame()
-            .runningSince(LocalDateTime.now(), Duration.ofSeconds(30))
+            .runningSince(TestClock.NOW, Duration.ofSeconds(30))
             .buildWithFighters();
 
     assertThat(timeExpired.evaluate(running)).isEmpty();
@@ -81,7 +81,7 @@ class MatchEndConditionTest {
   void timeExpired_whenTheClockHasRunOut_endsTheMatch() {
     GameWithFighters expired =
         KumiteGameBuilder.newGame()
-            .runningSince(LocalDateTime.now().minusMinutes(5), Duration.ofSeconds(30))
+            .runningSince(TestClock.NOW.minus(Duration.ofMinutes(5)), Duration.ofSeconds(30))
             .buildWithFighters();
 
     assertThat(timeExpired.evaluate(expired)).contains(MatchEndReason.TIME_EXPIRED);

@@ -17,12 +17,12 @@ This README maps the packages. Each package has its own README.
 
 | Responsibility | Packages | Job |
 |---|---|---|
-| Gateways | `controllers`, `dto`, `mappers`, `exceptions` handler | HTTP in and out. Translate, then delegate |
+| Gateways | `controllers`, `filters`, `dto`, `mappers`, `exceptions` handler | HTTP in and out. Translate, then delegate |
 | Business | `services`, `rules`, `models`, `enums`, `exceptions` types | Orchestration, rules, domain types |
 | Data | `repositories`, `models/converters` | MongoDB access and stored-form conversion |
 | Wiring | `config`, `KumiteGameStarter` | Typed settings and application start |
 
-Flow: `Controller -> Service -> Repository -> MongoDB`. There are no outbound gateways yet.
+Flow: `Filter -> Controller -> Service -> Repository -> MongoDB`. There are no outbound gateways yet.
 
 `KumiteGameStarter` sits at the root of the package tree. Component scanning, repository discovery
 and test slice configuration all derive from its location, so no `scanBasePackages` or

@@ -12,10 +12,12 @@ import com.management.services.PlayerService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
+import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
+import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -23,19 +25,18 @@ import org.mockito.Mockito;
 /**
  * The game lifecycle exercised across a real save-and-reload boundary.
  *
- * <p>{@code GameTimer} is {@code @Transient}, so a game fetched from storage never carries one —
- * {@code KumiteGame.getTimer()} rebuilds it from the persisted {@code remainingTime} and {@code
- * startTime}. Every lifecycle method fetches before it acts, which makes the reload the interesting
- * part rather than an incidental detail.
+ * <p>{@code GameTimer} is never stored, so {@code KumiteGame.timer(Clock)} rebuilds it from the
+ * persisted {@code remainingTime} and {@code startTime}. Every lifecycle method fetches before it
+ * acts, which makes the reload the interesting part rather than an incidental detail.
  *
  * <p>This class replaced {@code KumiteGameTimerTest}, whose repository stub handed back the same
  * in-memory instance on every read. That stub preserved the transient timer across "reloads", so
  * all five of its tests passed against code that crashed on the first real pause (#25, #27).
  *
  * <p>Elapsed-time behaviour is asserted without sleeping: a match saved with a {@code startTime} a
- * known offset in the past has a known amount of elapsed time the moment it is paused. The exact
- * clock arithmetic, including the clamp at zero, is unit-tested in {@code GameTimerTest} with an
- * injected clock; here the point is that the values survive persistence.
+ * known offset before the fixed clock has exactly that much elapsed time. The clock arithmetic,
+ * including the clamp at zero, is unit-tested in {@code GameTimerTest}; here the point is that the
+ * values survive persistence.
  */
 class KumiteGameReloadTest {
 
@@ -55,7 +56,8 @@ class KumiteGameReloadTest {
             TestGameProperties.standard(),
             Mockito.mock(PlayerService.class),
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
   }
 
   @Test
@@ -82,7 +84,7 @@ class KumiteGameReloadTest {
         .as("the running state is persisted")
         .isEqualTo(GameState.RUNNING);
     assertThat(storage.writeForInspection(reloaded).containsKey("timer"))
-        .as("the timer object itself is @Transient and never stored")
+        .as("the timer is rebuilt from the stored fields and never stored itself")
         .isFalse();
   }
 
@@ -127,16 +129,14 @@ class KumiteGameReloadTest {
         storage
             .save(
                 KumiteGameBuilder.newGame()
-                    .runningSince(LocalDateTime.now().minusSeconds(30), FULL_MATCH)
+                    .runningSince(TestClock.NOW.minusSeconds(30), FULL_MATCH)
                     .build())
             .getId();
 
     service.pauseGame(gameId);
 
     KumiteGame paused = storage.findById(KumiteGame.class, gameId).orElseThrow();
-    assertThat(paused.getRemainingTime())
-        .as("about thirty seconds elapsed, with slack for a slow machine")
-        .isBetween(Duration.ofSeconds(85), Duration.ofSeconds(90));
+    assertThat(paused.getRemainingTime()).isEqualTo(Duration.ofSeconds(90));
   }
 
   @Test
@@ -145,7 +145,7 @@ class KumiteGameReloadTest {
         storage
             .save(
                 KumiteGameBuilder.newGame()
-                    .runningSince(LocalDateTime.now().minusSeconds(30), FULL_MATCH)
+                    .runningSince(TestClock.NOW.minusSeconds(30), FULL_MATCH)
                     .build())
             .getId();
     final Duration atPause = service.pauseGame(gameId).getRemainingTime();
@@ -167,7 +167,7 @@ class KumiteGameReloadTest {
         storage
             .save(
                 KumiteGameBuilder.newGame()
-                    .runningSince(LocalDateTime.now().minusHours(2), FULL_MATCH)
+                    .runningSince(TestClock.NOW.minus(Duration.ofHours(2)), FULL_MATCH)
                     .build())
             .getId();
 
@@ -175,6 +175,19 @@ class KumiteGameReloadTest {
 
     KumiteGame paused = storage.findById(KumiteGame.class, gameId).orElseThrow();
     assertThat(paused.getRemainingTime()).isEqualTo(Duration.ZERO);
+  }
+
+  /** The stored values are all a clock is, so a second instance or a restart reads the same. */
+  @Test
+  void timer_rebuiltLaterOnAnotherInstance_continuesFromTheStoredStart() {
+    String gameId = saveQueuedGame();
+    service.startGame(gameId);
+
+    KumiteGame reloaded = storage.findById(KumiteGame.class, gameId).orElseThrow();
+    Clock otherInstance = Clock.fixed(TestClock.NOW.plusSeconds(45), ZoneId.of("Asia/Tokyo"));
+
+    assertThat(reloaded.timer(otherInstance).getRemainingTime())
+        .isEqualTo(FULL_MATCH.minusSeconds(45));
   }
 
   private String saveQueuedGame() {

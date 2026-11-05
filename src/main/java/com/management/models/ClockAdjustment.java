@@ -1,7 +1,7 @@
 package com.management.models;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * Time a referee added to the clock, and who added it.
@@ -14,4 +14,4 @@ import java.time.LocalDateTime;
  * @param addedAt when it was added
  * @param addedBy who added it
  */
-public record ClockAdjustment(Duration added, LocalDateTime addedAt, String addedBy) {}
+public record ClockAdjustment(Duration added, Instant addedAt, String addedBy) {}

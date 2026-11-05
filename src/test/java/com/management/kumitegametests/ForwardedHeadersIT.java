@@ -39,14 +39,14 @@ class ForwardedHeadersIT {
   void request_fromNamedProxy_buildsLocationThatResolvesToThePublicAddress() throws Exception {
     try (ConfigurableApplicationContext context = start(trusting(LOOPBACK))) {
       HttpRequest.Builder create =
-          forwarded(context, "/api/players")
+          forwarded(context, "/api/v1/players")
               .header("Content-Type", "application/json")
               .POST(BodyPublishers.ofString("{\"name\":\"Kata\"}"));
 
       String location = send(create).headers().firstValue("Location").orElseThrow();
 
       assertThat(URI.create(PUBLIC_ADDRESS).resolve(location).toString())
-          .startsWith(PUBLIC_ADDRESS + "/api/players/");
+          .startsWith(PUBLIC_ADDRESS + "/api/v1/players/");
     }
   }
 

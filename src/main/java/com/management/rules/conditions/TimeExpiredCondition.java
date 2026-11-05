@@ -4,6 +4,7 @@ import com.management.enums.GameState;
 import com.management.enums.MatchEndReason;
 import com.management.models.GameWithFighters;
 import com.management.rules.MatchEndCondition;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 import org.springframework.core.annotation.Order;
@@ -25,12 +26,18 @@ import org.springframework.stereotype.Component;
 @Order(40)
 public class TimeExpiredCondition implements MatchEndCondition {
 
+  private final Clock clock;
+
+  public TimeExpiredCondition(Clock clock) {
+    this.clock = clock;
+  }
+
   @Override
   public Optional<MatchEndReason> evaluate(GameWithFighters match) {
     if (match.game().getGameState() != GameState.RUNNING) {
       return Optional.empty();
     }
-    return match.game().getTimer().getRemainingTime().equals(Duration.ZERO)
+    return match.game().timer(clock).getRemainingTime().equals(Duration.ZERO)
         ? Optional.of(MatchEndReason.TIME_EXPIRED)
         : Optional.empty();
   }

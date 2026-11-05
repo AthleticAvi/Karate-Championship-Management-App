@@ -44,14 +44,11 @@ class InMemoryMongoFidelityTest {
   }
 
   @Test
-  void save_neverWritesTheTransientTimerIntoTheDocument() {
+  void save_neverWritesTheTimerIntoTheDocument() {
     KumiteGame game = KumiteGameBuilder.newGame().build();
-    assertThat(game.getTimer())
-        .as("precondition: the timer object exists in memory before saving")
-        .isNotNull();
 
     assertThat(storage.writeForInspection(game).containsKey("timer"))
-        .as("@Transient GameTimer is never persisted; only remainingTime and startTime are")
+        .as("GameTimer is never persisted; only remainingTime and startTime are")
         .isFalse();
   }
 

@@ -2,7 +2,7 @@ package com.management.models;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -14,20 +14,17 @@ import org.jspecify.annotations.Nullable;
  * with only the remaining time silently freezes the clock: {@link #pause()} does nothing when
  * {@code startTime} is {@code null}, so a reconstruction that drops a live {@code startTime} turns
  * a running clock into a stopped one with no error. Both values must survive the round trip, which
- * is why the reconstruction constructor takes both.
+ * is why the constructor takes both.
  *
- * <p>Time is read through an injected {@link Clock} so elapsed-time behaviour is testable without
- * sleeping. Production uses the system clock.
+ * <p>Nothing here belongs to one instance: any instance rebuilds the same clock from the stored
+ * values, and a clock left running through a restart has counted the whole time. The {@link Clock}
+ * comes from the caller, so this class has no default and elapsed time is testable without
+ * sleeping.
  */
 public class GameTimer {
   private final Clock clock;
-  @Nullable private LocalDateTime startTime;
+  @Nullable private Instant startTime;
   private Duration remainingTime;
-
-  /** A fresh clock with the full duration on it, not yet running. */
-  public GameTimer(Duration initialDuration) {
-    this(initialDuration, null, Clock.systemDefaultZone());
-  }
 
   /**
    * Reconstructs the clock from persisted state.
@@ -35,19 +32,16 @@ public class GameTimer {
    * @param remainingTime the time left when {@code startTime} was last set, or when the clock last
    *     paused
    * @param startTime when the clock last started counting, or {@code null} if it is not counting
+   * @param clock where the current time comes from
    */
-  public GameTimer(Duration remainingTime, @Nullable LocalDateTime startTime) {
-    this(remainingTime, startTime, Clock.systemDefaultZone());
-  }
-
-  GameTimer(Duration remainingTime, @Nullable LocalDateTime startTime, Clock clock) {
+  GameTimer(Duration remainingTime, @Nullable Instant startTime, Clock clock) {
     this.remainingTime = remainingTime;
     this.startTime = startTime;
     this.clock = clock;
   }
 
   public void start() {
-    this.startTime = LocalDateTime.now(clock);
+    this.startTime = clock.instant();
   }
 
   public void pause() {
@@ -59,7 +53,7 @@ public class GameTimer {
 
   public void resume() {
     if (startTime == null) {
-      this.startTime = LocalDateTime.now(clock);
+      this.startTime = clock.instant();
     }
   }
 
@@ -100,7 +94,7 @@ public class GameTimer {
     }
     if (startTime != null) {
       this.remainingTime = clampToZero(remainingTime.minus(elapsedSinceStart(startTime)));
-      this.startTime = LocalDateTime.now(clock);
+      this.startTime = clock.instant();
     }
     this.remainingTime = remainingTime.plus(extra);
   }
@@ -111,7 +105,7 @@ public class GameTimer {
   }
 
   /** The instant the clock last started counting, or {@code null} if it is not running. */
-  public @Nullable LocalDateTime startedAt() {
+  public @Nullable Instant startedAt() {
     return startTime;
   }
 
@@ -127,8 +121,8 @@ public class GameTimer {
    * Elapsed time since the clock started counting, never negative: a host clock stepped backwards
    * must not add time to the match.
    */
-  private Duration elapsedSinceStart(LocalDateTime since) {
-    return clampToZero(Duration.between(since, LocalDateTime.now(clock)));
+  private Duration elapsedSinceStart(Instant since) {
+    return clampToZero(Duration.between(since, clock.instant()));
   }
 
   private static Duration clampToZero(Duration duration) {

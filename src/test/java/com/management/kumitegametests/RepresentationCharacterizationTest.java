@@ -10,6 +10,7 @@ import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
@@ -41,12 +42,14 @@ import org.junit.jupiter.api.Test;
  * bare {@code ObjectMapper} here would pin a format the application never actually produces — it
  * lacks the date handling Spring Boot configures.
  *
- * <p>Assertions are on <em>shape and format</em>, never on a value that depends on the machine. The
- * instant stored for {@code startTime} is resolved through the default time-zone, so pinning the
- * literal value would fail on a colleague's laptop rather than on a real change. What is pinned is
- * that it is stored as a BSON date at all — if it became a string, this test would say so. See #93.
+ * <p>Assertions are on <em>shape and format</em>, never on a value that depends on the machine.
+ * {@code startTime} is an {@code Instant}, which names one point in time on any machine, so its
+ * literal value is pinned as well as its BSON date type: if it became a string, or moved with the
+ * default time-zone, this test would say so.
  */
 class RepresentationCharacterizationTest {
+
+  private static final Instant STARTED = Instant.parse("2026-01-01T12:00:00Z");
 
   private static Document asStoredDocument(Object entity) {
     return new InMemoryMongo().writeForInspection(entity);
@@ -55,7 +58,7 @@ class RepresentationCharacterizationTest {
   @Test
   void kumiteGame_storedForm_isPinned() {
     KumiteGame game =
-        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
+        KumiteGameBuilder.newGame().runningSince(STARTED, Duration.ofSeconds(87)).build();
 
     Document stored = asStoredDocument(game);
 
@@ -64,9 +67,9 @@ class RepresentationCharacterizationTest {
     assertThat(stored.get("gameDuration")).isEqualTo("PT2M");
     // Enums are stored as their names.
     assertThat(stored.get("gameState")).isEqualTo("RUNNING");
-    // LocalDateTime is stored as a BSON date.
-    assertThat(stored.get("startTime")).isInstanceOf(Date.class);
-    // The transient timer is never written.
+    // An Instant is stored as a BSON date.
+    assertThat(stored.get("startTime")).isEqualTo(Date.from(STARTED));
+    // The timer is never written: it is rebuilt from the two fields above.
     assertThat(stored).doesNotContainKey("timer");
     // Spring Data writes a type hint alongside the data.
     assertThat(stored.get("_class")).isEqualTo("com.management.models.KumiteGame");

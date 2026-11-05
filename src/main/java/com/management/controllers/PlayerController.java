@@ -10,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/players")
+@RequestMapping(PlayerController.PATH)
 public class PlayerController {
+
+  static final String PATH = "/players";
 
   private final PlayerService playerService;
 
@@ -24,7 +26,7 @@ public class PlayerController {
       @Valid @RequestBody PlayerRequestDTO newPlayer) {
     PlayerResponse created = PlayerMapper.toResponse(playerService.createPlayer(newPlayer));
     return ResponseEntity.status(HttpStatus.CREATED)
-        .header("Location", "/api/players/" + created.id())
+        .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.id())
         .body(created);
   }
 

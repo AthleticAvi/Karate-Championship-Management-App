@@ -11,6 +11,7 @@ Builds on: `design/acid.md`, `design/concurrency-consistency.md`
 - [acid] How MongoDB meets ACID
 - [object-construction-on-read] Object construction on read
 - [excluded-fields] Excluded fields
+- [dates] Dates
 - [identifiers] Identifiers
 - [optimistic-locking] Optimistic locking
 - [transactions] Transactions
@@ -57,6 +58,12 @@ A field marked transient is never written and never populated on read. It is `nu
 Any object holding a transient field must reconstruct it before use, from state that *is* persisted, on every path that touches it. Reconstructing from partial state is worse than leaving it null: it produces an object that looks valid and behaves wrongly. If a transient field derives from two persisted values, restore both.
 
 Prefer computing such state on demand from persisted fields over holding it in a field at all. A field that cannot be persisted is a field that can be forgotten.
+
+## [dates] Dates
+
+A BSON date is UTC and keeps whole milliseconds. A finer value in memory differs from what a reload returns, with no error, so read the current time from a clock that ticks in milliseconds.
+
+Store an instant, never a local date-time. A local value is converted through the default zone of the instance that writes it, and read back through the zone of the one that reads it: two zones give two different times.
 
 ## [identifiers] Identifiers
 

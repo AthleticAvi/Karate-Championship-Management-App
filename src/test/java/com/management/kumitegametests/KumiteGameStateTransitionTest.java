@@ -13,6 +13,7 @@ import com.management.services.PlayerService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
+import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
@@ -44,7 +45,8 @@ class KumiteGameStateTransitionTest {
             TestGameProperties.standard(),
             Mockito.mock(PlayerService.class),
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
   }
 
   @Test

@@ -16,9 +16,12 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 
 ## [owns] Owns
 
-- `KumiteGameController` at `/api/kumitegame`: match creation, retrieval, points, fouls, winner
+- `KumiteGameController` at `/api/v1/kumitegame`: match creation, retrieval, points, fouls, winner
   assignment, disqualification, KIKEN, referee override and clock extension.
-- `PlayerController` at `/api/players`: player CRUD.
+- `PlayerController` at `/api/v1/players`: player CRUD.
+- `ApiVersionConfiguration`: `PREFIX`, the one place the version is named. It adds the prefix to
+  every controller in this package through the framework's path matching, so a controller maps only
+  its own resource. Nothing else moves: the actuator and the error path stay where they are.
 
 ## [may-call] May call
 
@@ -26,14 +29,20 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 
 ## [contract] Response contract
 
+`Location` is built from `PREFIX` and stays a relative path: see `[server]` in the config README.
+It lives here and not in `config` because it is a fact about HTTP routes, which the controllers need
+for `Location`.
+
+A request on an old path, or on any other version, answers 404 before a controller runs.
+
 Persistence types do not cross the HTTP boundary in either direction. `KumiteGameMapper` and
 `PlayerMapper` are the only places a document becomes a response.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | everything under `/api/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
+| `KumiteGameResponse` | everything under `/api/v1/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
 | `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
-| `PlayerResponse` | `/api/players` | `id`, `name`, `points`, `fouls` |
+| `PlayerResponse` | `/api/v1/players` | `id`, `name`, `points`, `fouls` |
 
 ## [wire-formats] Wire formats, and why
 
@@ -56,7 +65,7 @@ thing between this contract and a silent shift under a dependency upgrade.
 
 Scoring, disqualification, KIKEN, override and add-time endpoints answer with the updated
 `KumiteGameResponse`, so a scoreboard never needs a follow-up read, including when the mutation
-finished the match. `DELETE /api/players/{id}` answers 204 with no body.
+finished the match. `DELETE /api/v1/players/{id}` answers 204 with no body.
 
 ## [validation] Validation at the boundary
 

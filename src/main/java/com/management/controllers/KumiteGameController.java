@@ -12,8 +12,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/kumitegame")
+@RequestMapping(KumiteGameController.PATH)
 public class KumiteGameController {
+
+  static final String PATH = "/kumitegame";
 
   private final KumiteGameService kumiteGameService;
 
@@ -27,7 +29,7 @@ public class KumiteGameController {
     KumiteGameResponse created =
         KumiteGameMapper.toResponse(kumiteGameService.createKumiteGame(gameDetails));
     return ResponseEntity.status(HttpStatus.CREATED)
-        .header("Location", "/api/kumitegame/" + created.id())
+        .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.id())
         .body(created);
   }
 

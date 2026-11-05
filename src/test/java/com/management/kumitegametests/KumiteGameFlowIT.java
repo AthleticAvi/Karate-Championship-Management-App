@@ -48,25 +48,25 @@ class KumiteGameFlowIT extends IntegrationTestBase {
     String gameId = created.id();
 
     KumiteGameResponse afterRedScored =
-        put("/api/kumitegame/" + gameId + "/add-point?color=RED&pointType=IPPON");
+        put("/api/v1/kumitegame/" + gameId + "/add-point?color=RED&pointType=IPPON");
     assertThat(afterRedScored.red().points()).isEqualTo(3);
     assertThat(afterRedScored.blue().points()).isZero();
 
     KumiteGameResponse afterBlueScored =
-        put("/api/kumitegame/" + gameId + "/add-point?color=BLUE&pointType=YUKO");
+        put("/api/v1/kumitegame/" + gameId + "/add-point?color=BLUE&pointType=YUKO");
     assertThat(afterBlueScored.blue().points()).isEqualTo(1);
     assertThat(afterBlueScored.red().points())
         .as("scoring for one fighter must not disturb the other")
         .isEqualTo(3);
 
-    KumiteGameResponse afterFoul = put("/api/kumitegame/" + gameId + "/add-foul?color=BLUE");
+    KumiteGameResponse afterFoul = put("/api/v1/kumitegame/" + gameId + "/add-foul?color=BLUE");
     assertThat(afterFoul.blue().fouls()).isEqualTo(1);
 
-    KumiteGameResponse decided = put("/api/kumitegame/" + gameId + "/update-winner/RED");
+    KumiteGameResponse decided = put("/api/v1/kumitegame/" + gameId + "/update-winner/RED");
     assertThat(decided.winner()).isEqualTo(PlayerColor.RED);
 
     ResponseEntity<KumiteGameResponse> readBack =
-        rest.getForEntity("/api/kumitegame/" + gameId, KumiteGameResponse.class);
+        rest.getForEntity("/api/v1/kumitegame/" + gameId, KumiteGameResponse.class);
     assertThat(readBack.getStatusCode()).isEqualTo(HttpStatus.OK);
     KumiteGameResponse finalState = readBack.getBody();
     assertThat(finalState).isNotNull();
@@ -85,7 +85,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
 
     ResponseEntity<String> response =
         rest.exchange(
-            "/api/kumitegame/" + gameId + "/add-point?color=purple&pointType=IPPON",
+            "/api/v1/kumitegame/" + gameId + "/add-point?color=purple&pointType=IPPON",
             HttpMethod.PUT,
             null,
             String.class);
@@ -126,7 +126,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
         """;
 
     ResponseEntity<String> response =
-        rest.postForEntity("/api/kumitegame", new HttpEntity<>(bothRed, headers), String.class);
+        rest.postForEntity("/api/v1/kumitegame", new HttpEntity<>(bothRed, headers), String.class);
 
     assertThat(response.getStatusCode())
         .as("a request that cannot produce a valid match is the caller's mistake, not a 500")
@@ -156,7 +156,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
 
     ResponseEntity<KumiteGameResponse> response =
         rest.postForEntity(
-            "/api/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
+            "/api/v1/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     KumiteGameResponse created = response.getBody();

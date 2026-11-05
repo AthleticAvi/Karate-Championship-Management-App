@@ -26,7 +26,7 @@ import org.springframework.web.multipart.MultipartResolver;
  */
 class RequestLimitsIT extends IntegrationTestBase {
 
-  private static final String PLAYERS = "/api/players";
+  private static final String PLAYERS = "/api/v1/players";
 
   @Autowired private TestRestTemplate rest;
   @Autowired private ApplicationContext context;

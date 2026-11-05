@@ -23,6 +23,7 @@ import com.management.services.MatchStateWriter;
 import com.management.services.PlayerService;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
+import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
@@ -56,7 +57,8 @@ class KumiteGameCreationTest {
             TestGameProperties.standard(),
             playerService,
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
   }
 
   @Test
@@ -103,7 +105,8 @@ class KumiteGameCreationTest {
             TestGameProperties.standard(),
             new PlayerService(flakyFighters),
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
 
     assertThatThrownBy(() ->
             flakyService.createKumiteGame(
@@ -137,7 +140,8 @@ class KumiteGameCreationTest {
             fiveMinutes,
             playerService,
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
 
     GameWithFighters created =
         customised.createKumiteGame(
@@ -206,7 +210,8 @@ class KumiteGameCreationTest {
             TestGameProperties.standard(),
             playerService,
             TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)));
+            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+            TestClock.FIXED);
 
     assertThatThrownBy(() ->
             failingService.createKumiteGame(

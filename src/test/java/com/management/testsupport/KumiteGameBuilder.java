@@ -9,7 +9,7 @@ import com.management.models.Player;
 import com.management.models.Points;
 import com.management.models.Referee;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,22 +39,12 @@ public final class KumiteGameBuilder {
 
   private static final Duration DEFAULT_DURATION = TestGameProperties.standard().defaultDuration();
 
-  /**
-   * A fixed instant, never {@code LocalDateTime.now()}.
-   *
-   * <p>Two reasons. A fixture that reads the clock is not deterministic, and a test that depends on
-   * wall-clock time is required to be deleted rather than tolerated. And {@code now()} silently
-   * resolves against the machine's default time-zone, which makes the value depend on where the
-   * suite runs.
-   */
-  private static final LocalDateTime FIXED_START = LocalDateTime.of(2026, 1, 1, 12, 0, 0);
-
   private final Map<PlayerColor, Player> fighters = new EnumMap<>(PlayerColor.class);
   private List<Referee> referees = List.of(new Referee("Test Referee"));
   private Duration gameDuration = DEFAULT_DURATION;
   private GameState gameState = GameState.QUEUED;
   @Nullable private Duration remainingTime;
-  @Nullable private LocalDateTime startTime;
+  @Nullable private Instant startTime;
   @Nullable private PlayerColor winner;
   @Nullable private PlayerColor senshu;
   @Nullable private String id;
@@ -100,7 +90,7 @@ public final class KumiteGameBuilder {
   public KumiteGameBuilder runningWithRemaining(Duration remaining) {
     this.gameState = GameState.RUNNING;
     this.remainingTime = remaining;
-    this.startTime = FIXED_START;
+    this.startTime = TestClock.NOW;
     return this;
   }
 
@@ -111,7 +101,7 @@ public final class KumiteGameBuilder {
    * com.management.models.GameTimer} measures against, so a start instant a known offset in the
    * past yields a known amount of elapsed time without sleeping.
    */
-  public KumiteGameBuilder runningSince(LocalDateTime since, Duration remaining) {
+  public KumiteGameBuilder runningSince(Instant since, Duration remaining) {
     this.gameState = GameState.RUNNING;
     this.remainingTime = remaining;
     this.startTime = since;

@@ -1,13 +1,13 @@
 package com.management.models;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.management.enums.GameState;
 import com.management.enums.MatchEndReason;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.converters.LegacyWinnerConverter;
+import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +15,6 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
-import org.springframework.data.annotation.Transient;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -91,10 +90,9 @@ public class KumiteGame {
   /** Every time addition a referee applied, in the order they were applied. */
   private List<ClockAdjustment> clockAdjustments = new ArrayList<>();
 
-  private LocalDateTime startTime;
+  @Nullable private Instant startTime;
   private Duration remainingTime;
   private Duration gameDuration;
-  @JsonIgnore @Transient private GameTimer timer;
 
   /**
    * The mapper's way in (#52): builds an empty shell that the mapping layer populates field by
@@ -161,7 +159,7 @@ public class KumiteGame {
    * happened. A later call changes nothing, which is what lets the evaluator run after every event
    * without guarding each call site.
    */
-  public void applyOutcome(MatchOutcome outcome) {
+  public void applyOutcome(MatchOutcome outcome, Clock clock) {
     if (gameState == GameState.FINISHED) {
       return;
     }
@@ -172,10 +170,10 @@ public class KumiteGame {
     this.endReason = outcome.reason();
     this.decidedBy = outcome.decidedBy();
     this.gameState = GameState.FINISHED;
-    // The clock is read before startTime is cleared: getTimer() rebuilds from that field, so
+    // The clock is read before startTime is cleared: timer() rebuilds from that field, so
     // clearing it first would hand back a timer that never started and report the match's full
     // remaining time, making an early finish look like one that ran its distance.
-    this.remainingTime = getTimer().stopAndReport();
+    this.remainingTime = timer(clock).stopAndReport();
     this.startTime = null;
   }
 
@@ -205,7 +203,7 @@ public class KumiteGame {
    * applies to a match the rules engine may already have finished — that is its whole purpose. What
    * the engine had decided is preserved inside the override record.
    */
-  public void applyOverride(RefereeOverride override) {
+  public void applyOverride(RefereeOverride override, Clock clock) {
     if (override.winner() != null) {
       requireFields(override.winner());
     }
@@ -216,7 +214,7 @@ public class KumiteGame {
     if (gameState != GameState.FINISHED) {
       this.gameState = GameState.FINISHED;
       // Read the clock before clearing startTime, for the reason applyOutcome states.
-      this.remainingTime = getTimer().stopAndReport();
+      this.remainingTime = timer(clock).stopAndReport();
       this.startTime = null;
     }
   }
@@ -234,15 +232,15 @@ public class KumiteGame {
    * Adds time to the clock and records that it happened.
    *
    * <p>Delegates the arithmetic to the timer, then copies the result back into the persisted fields
-   * — the timer is rebuilt from those on every load, so a change kept only in the timer object
+   * — the timer is rebuilt from those on every call, so a change kept only in the timer object
    * would vanish on the next read.
    */
-  public void addTime(ClockAdjustment adjustment) {
-    GameTimer clock = getTimer();
-    clock.add(adjustment.added());
-    this.remainingTime = clock.getRemainingTime();
-    if (clock.isRunning()) {
-      this.startTime = clock.startedAt();
+  public void addTime(ClockAdjustment adjustment, Clock clock) {
+    GameTimer timer = timer(clock);
+    timer.add(adjustment.added());
+    this.remainingTime = timer.getRemainingTime();
+    if (timer.isRunning()) {
+      this.startTime = timer.startedAt();
     }
     this.clockAdjustments.add(adjustment);
   }
@@ -283,11 +281,11 @@ public class KumiteGame {
     this.winner = winner;
   }
 
-  public void setStartTime(LocalDateTime startTime) {
+  public void setStartTime(@Nullable Instant startTime) {
     this.startTime = startTime;
   }
 
-  public LocalDateTime getStartTime() {
+  public @Nullable Instant getStartTime() {
     return startTime;
   }
 
@@ -308,23 +306,18 @@ public class KumiteGame {
   }
 
   /**
-   * The match clock, rebuilt on demand from persisted state.
+   * The match clock, built from persisted state on every call.
    *
-   * <p>The {@code timer} field is {@code @Transient}, so a game loaded from MongoDB never has one.
-   * Rebuilding here — from both {@code remainingTime} and {@code startTime} — is what makes every
-   * lifecycle method safe against a freshly loaded game; a caller cannot forget a rebuild it never
-   * has to perform. Dropping {@code startTime} from the reconstruction would silently freeze a
-   * running clock (see {@link GameTimer}), so both values go in.
+   * <p>Nothing is kept, so a game loaded from MongoDB needs no setup and the mapping layer needs no
+   * way to supply a {@link Clock}: the caller passes it in. Dropping {@code startTime} from the
+   * reconstruction would silently freeze a running clock (see {@link GameTimer}), so both values go
+   * in.
    *
-   * <p>Order matters for callers that also mutate {@code startTime}: the rebuild captures the
-   * persisted value at the first {@code getTimer()} call, so read the timer before overwriting the
-   * field it rebuilds from.
+   * <p>Each call returns a new timer, so a change made to one reaches this match only when the
+   * caller copies it back, and a caller that also clears {@code startTime} reads the timer first.
    */
-  public GameTimer getTimer() {
-    if (timer == null) {
-      timer = new GameTimer(remainingTime, startTime);
-    }
-    return timer;
+  public GameTimer timer(Clock clock) {
+    return new GameTimer(remainingTime, startTime, clock);
   }
 
   /**

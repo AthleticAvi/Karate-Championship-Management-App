@@ -38,7 +38,7 @@ import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Every endpoint on {@code /api/kumitegame}, at the HTTP boundary.
+ * Every endpoint on {@code /api/v1/kumitegame}, at the HTTP boundary.
  *
  * <p>Started life in #87 as a two-test harness deliberately kept small until the response contract
  * settled; #37 filled it in once #33, #34, #35 and #36 had decided what the contract is. Each
@@ -62,7 +62,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            post("/api/kumitegame")
+            post("/api/v1/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -76,7 +76,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                     }
                     """))
         .andExpect(status().isCreated())
-        .andExpect(header().string("Location", "/api/kumitegame/game-1"))
+        .andExpect(header().string("Location", "/api/v1/kumitegame/game-1"))
         .andExpect(jsonPath("$.id").value("game-1"))
         .andExpect(jsonPath("$.gameState").value("QUEUED"));
   }
@@ -90,7 +90,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
-        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isOk())
         // Asserted at the wire level, not against the object. Object equality passes while the
         // serialised contract changes underneath -- which is the whole point of Epic #32.
@@ -116,7 +116,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
-        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isOk())
         // The colour-keyed structure is internal; the response names red and blue.
         .andExpect(jsonPath("$.playersMap").doesNotExist())
@@ -179,7 +179,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
-        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(
@@ -219,7 +219,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
 
     mockMvc
-        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.gameState").value("FINISHED"))
         .andExpect(jsonPath("$.remainingSeconds").value(0))
@@ -239,7 +239,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            put("/api/kumitegame/{gameId}/add-point", "game-1")
+            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
                 .param("color", "RED")
                 .param("pointType", "IPPON"))
         .andExpect(status().isOk())
@@ -254,7 +254,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            put("/api/kumitegame/{gameId}/remove-point", "game-1")
+            put("/api/v1/kumitegame/{gameId}/remove-point", "game-1")
                 .param("color", "RED")
                 .param("pointType", "IPPON"))
         .andExpect(status().isOk())
@@ -266,7 +266,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     given(kumiteGameService.addFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(1));
 
     mockMvc
-        .perform(put("/api/kumitegame/{gameId}/add-foul", "game-1").param("color", "BLUE"))
+        .perform(put("/api/v1/kumitegame/{gameId}/add-foul", "game-1").param("color", "BLUE"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.blue.fouls").value(1));
   }
@@ -276,7 +276,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     given(kumiteGameService.removeFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(0));
 
     mockMvc
-        .perform(put("/api/kumitegame/{gameId}/remove-foul", "game-1").param("color", "BLUE"))
+        .perform(put("/api/v1/kumitegame/{gameId}/remove-foul", "game-1").param("color", "BLUE"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.blue.fouls").value(0));
   }
@@ -292,7 +292,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .buildWithFighters());
 
     mockMvc
-        .perform(put("/api/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
+        .perform(put("/api/v1/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.winner").value("RED"))
         .andExpect(jsonPath("$.gameState").value("FINISHED"));
@@ -318,7 +318,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .willThrow(new GameNotFoundException("Game not found! Game Id: nope"));
 
     mockMvc
-        .perform(get("/api/kumitegame/{gameId}", "nope"))
+        .perform(get("/api/v1/kumitegame/{gameId}", "nope"))
         .andExpect(status().isNotFound())
         // The media type is half the contract: it tells a client the body is an error, in a
         // format it can parse without a bespoke agreement.
@@ -343,7 +343,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            put("/api/kumitegame/{gameId}/add-point", "game-1")
+            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
                 .param("color", "purple")
                 .param("pointType", "IPPON"))
         .andExpect(status().isBadRequest())
@@ -360,7 +360,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            put("/api/kumitegame/{gameId}/add-point", "game-1")
+            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
                 .param("color", "RED")
                 .param("pointType", "triple-axel"))
         .andExpect(status().isBadRequest())
@@ -382,7 +382,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            put("/api/kumitegame/{gameId}/add-point", "game-1")
+            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
                 .param("color", "BLUE")
                 .param("pointType", "IPPON"))
         .andExpect(status().isNotFound())
@@ -403,7 +403,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
             new IllegalStateTransitionException("Match game-1 is FINISHED and cannot be started."));
 
     mockMvc
-        .perform(put("/api/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
+        .perform(put("/api/v1/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
         .andExpect(status().isConflict())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(409))
@@ -426,7 +426,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            post("/api/kumitegame")
+            post("/api/v1/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -461,7 +461,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
       throws Exception {
     mockMvc
         .perform(
-            post("/api/kumitegame")
+            post("/api/v1/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -491,7 +491,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   void createKumiteGame_whenOneFighterIsNull_returns400NotServerError() throws Exception {
     mockMvc
         .perform(
-            post("/api/kumitegame")
+            post("/api/v1/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -525,7 +525,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     mockMvc
         .perform(
-            put("/api/kumitegame/{gameId}/add-point", "game-1")
+            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
                 .param("color", "RED")
                 .param("pointType", "IPPON"))
         .andExpect(status().isBadRequest())
@@ -544,7 +544,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   void createKumiteGame_whenTheDurationIsNotNumeric_returns400() throws Exception {
     mockMvc
         .perform(
-            post("/api/kumitegame")
+            post("/api/v1/kumitegame")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"gameDuration\":\"two minutes\"}"))
         .andExpect(status().isBadRequest());
@@ -563,7 +563,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .willThrow(new IllegalStateException("connection string mongodb://user:secret@host/db"));
 
     mockMvc
-        .perform(get("/api/kumitegame/{gameId}", "game-1"))
+        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
         .andExpect(status().isInternalServerError())
         .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
         .andExpect(content().string(not(containsString("secret"))));
@@ -578,7 +578,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Test
   void createKumiteGame_whenTheBodyIsNotReadable_returns400FromTheBaseHandler() throws Exception {
     mockMvc
-        .perform(post("/api/kumitegame").contentType(MediaType.APPLICATION_JSON).content("{ not"))
+        .perform(
+            post("/api/v1/kumitegame").contentType(MediaType.APPLICATION_JSON).content("{ not"))
         .andExpect(status().isBadRequest());
   }
 }

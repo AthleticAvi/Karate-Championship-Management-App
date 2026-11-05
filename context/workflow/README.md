@@ -17,7 +17,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 
 ## Catalogue
 
-- `databases/mongodb/design/persistence.md`: [document-design] [acid] [object-construction-on-read] [excluded-fields] [identifiers] [optimistic-locking] [transactions] [write-and-read-concern] [indexes] [auditing] [local-setup-and-initialisation] [verify]
+- `databases/mongodb/design/persistence.md`: [document-design] [acid] [object-construction-on-read] [excluded-fields] [dates] [identifiers] [optimistic-locking] [transactions] [write-and-read-concern] [indexes] [auditing] [local-setup-and-initialisation] [verify]
 - `delivery/attended.md`: [plan] [decisions] [findings] [progress]
 - `delivery/bug.md`: [differs]
 - `delivery/change.md`: [differs]

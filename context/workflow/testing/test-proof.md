@@ -13,7 +13,8 @@ Status: enforced
 A passing test proves nothing until it has failed for the right reason. For every new test:
 
 1. Break the behaviour it covers: change the line, or remove it.
-2. Run the test and confirm it fails.
+2. Run the test and confirm that test fails. A red build proves nothing on its own: a linter or
+   formatter can stop the build on the deliberate break, so the test never ran.
 3. Restore the code. Record what was broken in the PR.
 
 If the test still passes, it is testing nothing. Fix the test, not the code.
