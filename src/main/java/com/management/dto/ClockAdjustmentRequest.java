@@ -1,5 +1,6 @@
 package com.management.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -16,6 +17,8 @@ import jakarta.validation.constraints.Size;
  *     authenticated identity.
  */
 public record ClockAdjustmentRequest(
-    @Positive(message = "time added must be a positive number of seconds") int seconds,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+        @Positive(message = "time added must be a positive number of seconds")
+        int seconds,
     @NotBlank(message = "a clock adjustment must record who made it") @Size(max = 100)
         String addedBy) {}

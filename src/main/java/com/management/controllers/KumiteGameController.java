@@ -4,8 +4,13 @@ import com.management.dto.ClockAdjustmentRequest;
 import com.management.dto.KumiteGameRequestDTO;
 import com.management.dto.KumiteGameResponse;
 import com.management.dto.WinnerOverrideRequest;
+import com.management.enums.PlayerColor;
+import com.management.enums.PointsType;
 import com.management.mappers.KumiteGameMapper;
 import com.management.services.KumiteGameService;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +28,7 @@ public class KumiteGameController {
     this.kumiteGameService = kumiteGameService;
   }
 
+  @ApiResponse(responseCode = "201", description = "Created")
   @PostMapping
   public ResponseEntity<KumiteGameResponse> createKumiteGame(
       @Valid @RequestBody KumiteGameRequestDTO gameDetails) {
@@ -41,34 +47,43 @@ public class KumiteGameController {
 
   @PutMapping("/{gameId}/add-point")
   public ResponseEntity<KumiteGameResponse> addPoint(
-      @PathVariable String gameId, @RequestParam String color, @RequestParam String pointType) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @RequestParam String color,
+      @Parameter(schema = @Schema(implementation = PointsType.class)) @RequestParam
+          String pointType) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(kumiteGameService.addPoint(gameId, color, pointType)));
   }
 
   @PutMapping("/{gameId}/remove-point")
   public ResponseEntity<KumiteGameResponse> removePoint(
-      @PathVariable String gameId, @RequestParam String color, @RequestParam String pointType) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @RequestParam String color,
+      @Parameter(schema = @Schema(implementation = PointsType.class)) @RequestParam
+          String pointType) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(kumiteGameService.removePoint(gameId, color, pointType)));
   }
 
   @PutMapping("/{gameId}/add-foul")
   public ResponseEntity<KumiteGameResponse> addFoul(
-      @PathVariable String gameId, @RequestParam String color) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @RequestParam String color) {
     return ResponseEntity.ok(KumiteGameMapper.toResponse(kumiteGameService.addFoul(gameId, color)));
   }
 
   @PutMapping("/{gameId}/remove-foul")
   public ResponseEntity<KumiteGameResponse> removeFoul(
-      @PathVariable String gameId, @RequestParam String color) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @RequestParam String color) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(kumiteGameService.removeFoul(gameId, color)));
   }
 
   @PutMapping("/{gameId}/update-winner/{color}")
   public ResponseEntity<KumiteGameResponse> updateKumiteGameWinner(
-      @PathVariable String gameId, @PathVariable String color) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @PathVariable String color) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(kumiteGameService.updateKumiteGameWinner(gameId, color)));
   }
@@ -76,7 +91,8 @@ public class KumiteGameController {
   /** Puts a fighter out of the match; the rules engine awards the win to the opponent. */
   @PutMapping("/{gameId}/disqualify/{color}")
   public ResponseEntity<KumiteGameResponse> disqualify(
-      @PathVariable String gameId, @PathVariable String color) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @PathVariable String color) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(kumiteGameService.disqualify(gameId, color)));
   }
@@ -84,7 +100,8 @@ public class KumiteGameController {
   /** Records a forfeit — KIKEN — against a fighter who did not appear or withdrew. */
   @PutMapping("/{gameId}/kiken/{color}")
   public ResponseEntity<KumiteGameResponse> forfeit(
-      @PathVariable String gameId, @PathVariable String color) {
+      @PathVariable String gameId,
+      @Parameter(schema = @Schema(implementation = PlayerColor.class)) @PathVariable String color) {
     return ResponseEntity.ok(KumiteGameMapper.toResponse(kumiteGameService.forfeit(gameId, color)));
   }
 

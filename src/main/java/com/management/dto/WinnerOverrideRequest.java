@@ -1,5 +1,7 @@
 package com.management.dto;
 
+import com.management.enums.PlayerColor;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
@@ -17,6 +19,6 @@ import org.jspecify.annotations.Nullable;
  *     authenticated identity to record instead — the field stays, its source changes.
  */
 public record WinnerOverrideRequest(
-    @Nullable String winner,
+    @Schema(implementation = PlayerColor.class) @Nullable String winner,
     @NotBlank(message = "an override must record why it was made") @Size(max = 500) String reason,
     @NotBlank(message = "an override must record who decided") @Size(max = 100) String decidedBy) {}
