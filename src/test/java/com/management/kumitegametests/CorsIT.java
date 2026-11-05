@@ -19,7 +19,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.Ordered;
 
 /**
  * Cross-origin rules, proven over real HTTP against the application under its real profiles.
@@ -39,6 +41,9 @@ class CorsIT {
   private static final String ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials";
   private static final String EXPOSE_HEADERS = "Access-Control-Expose-Headers";
   private static final String CORRELATION_ID = "X-Correlation-ID";
+
+  /** Where Spring Security's filter chain sits by default, once it is added. */
+  private static final int SECURITY_CHAIN_ORDER = -100;
 
   private static ConfigurableApplicationContext dev;
   private static ConfigurableApplicationContext prod;
@@ -80,7 +85,7 @@ class CorsIT {
 
   @Test
   void preflight_fromOtherOrigin_isRefused() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, PLAYERS, OTHER_ORIGIN, "POST", null));
+    HttpResponse<String> response = send(preflight(dev, PLAYERS, OTHER_ORIGIN, "POST"));
 
     assertThat(response.statusCode()).isEqualTo(403);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
@@ -88,7 +93,7 @@ class CorsIT {
 
   @Test
   void preflight_forMethodTheApiDoesNotUse_isRefused() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "PATCH", null));
+    HttpResponse<String> response = send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "PATCH"));
 
     assertThat(response.statusCode()).isEqualTo(403);
   }
@@ -103,7 +108,7 @@ class CorsIT {
 
   @Test
   void refusal_carriesItsIdAndIsNotProblemDetail() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, PLAYERS, OTHER_ORIGIN, "POST", null));
+    HttpResponse<String> response = send(preflight(dev, PLAYERS, OTHER_ORIGIN, "POST"));
 
     assertThat(response.headers().firstValue(CORRELATION_ID)).isPresent();
     assertThat(response.headers().firstValue("Content-Type")).isEmpty();
@@ -162,7 +167,7 @@ class CorsIT {
 
   @Test
   void request_withNoOrigin_isNotCrossOrigin() throws Exception {
-    HttpResponse<String> response = send(request(dev, PLAYERS + "/none", null).GET());
+    HttpResponse<String> response = send(request(dev, PLAYERS + "/none").GET());
 
     assertThat(response.statusCode()).isEqualTo(404);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
@@ -179,7 +184,7 @@ class CorsIT {
 
   @Test
   void prod_refusesTheLocalOrigin() throws Exception {
-    HttpResponse<String> preflight = send(preflight(prod, PLAYERS, LOCAL_ORIGIN, "POST", null));
+    HttpResponse<String> preflight = send(preflight(prod, PLAYERS, LOCAL_ORIGIN, "POST"));
     HttpResponse<String> request = send(createPlayer(prod, LOCAL_ORIGIN));
 
     assertThat(preflight.statusCode()).isEqualTo(403);
@@ -190,11 +195,21 @@ class CorsIT {
   void prod_withAnOriginSet_allowsIt() throws Exception {
     try (ConfigurableApplicationContext context =
         boot("prod", Map.of("cors.allowed-origins", OTHER_ORIGIN))) {
-      HttpResponse<String> response = send(preflight(context, PLAYERS, OTHER_ORIGIN, "POST", null));
+      HttpResponse<String> response = send(preflight(context, PLAYERS, OTHER_ORIGIN, "POST"));
 
       assertThat(response.statusCode()).isEqualTo(200);
       assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(OTHER_ORIGIN);
     }
+  }
+
+  /** A preflight carries no credentials, so authentication must never see it first. */
+  @Test
+  void filter_runsAfterCorrelationAndBeforeSecurity() {
+    FilterRegistrationBean<?> filter = dev.getBean("apiCorsFilter", FilterRegistrationBean.class);
+
+    assertThat(filter.getOrder())
+        .isGreaterThan(Ordered.HIGHEST_PRECEDENCE + 1)
+        .isLessThan(SECURITY_CHAIN_ORDER);
   }
 
   @Test
@@ -208,8 +223,7 @@ class CorsIT {
   /** The filter ends any preflight it sees, so this proves it never sees the actuator. */
   @Test
   void actuator_preflightIsNotAnsweredByCors() throws Exception {
-    HttpResponse<String> response =
-        send(preflight(dev, "/actuator/health", LOCAL_ORIGIN, "GET", null));
+    HttpResponse<String> response = send(preflight(dev, "/actuator/health", LOCAL_ORIGIN, "GET"));
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.headers().firstValue("Allow")).isPresent();
@@ -229,16 +243,20 @@ class CorsIT {
   }
 
   private static HttpRequest.Builder preflight(
+      ConfigurableApplicationContext context, String path, String origin, String method) {
+    return request(context, path, origin)
+        .method("OPTIONS", noBody())
+        .header("Access-Control-Request-Method", method);
+  }
+
+  private static HttpRequest.Builder preflight(
       ConfigurableApplicationContext context,
       String path,
       String origin,
       String method,
       String headers) {
-    HttpRequest.Builder request =
-        request(context, path, origin)
-            .method("OPTIONS", noBody())
-            .header("Access-Control-Request-Method", method);
-    return headers == null ? request : request.header("Access-Control-Request-Headers", headers);
+    return preflight(context, path, origin, method)
+        .header("Access-Control-Request-Headers", headers);
   }
 
   private static HttpRequest.Builder createPlayer(
@@ -255,8 +273,11 @@ class CorsIT {
 
   private static HttpRequest.Builder request(
       ConfigurableApplicationContext context, String path, String origin) {
-    HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(addressOf(context) + path));
-    return origin == null ? request : request.header("Origin", origin);
+    return request(context, path).header("Origin", origin);
+  }
+
+  private static HttpRequest.Builder request(ConfigurableApplicationContext context, String path) {
+    return HttpRequest.newBuilder(URI.create(addressOf(context) + path));
   }
 
   private static BodyPublisher noBody() {

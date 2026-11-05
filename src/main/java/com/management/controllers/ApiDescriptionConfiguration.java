@@ -17,6 +17,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -74,7 +75,9 @@ class ApiDescriptionConfiguration {
    */
   private static void allowNullInEnums(Schema<?> schema) {
     if (schema.getProperties() != null) {
-      schema.getProperties().values().forEach(ApiDescriptionConfiguration::allowNullInEnum);
+      for (Schema<?> property : schema.getProperties().values()) {
+        allowNullInEnum(property);
+      }
     }
   }
 
@@ -100,7 +103,7 @@ class ApiDescriptionConfiguration {
       return;
     }
     String name = reference.get$ref().substring(Components.COMPONENTS_SCHEMAS_REF.length());
-    Schema<?> schema = (Schema<?>) schemas.get(name);
+    Schema<?> schema = (Schema<?>) Objects.requireNonNull(schemas.get(name));
     schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
     schema.getProperties().values().forEach(field -> requireEveryField(field, schemas));
   }
@@ -166,17 +169,19 @@ class ApiDescriptionConfiguration {
   }
 
   private static Schema<?> problemSchema() {
-    return new ObjectSchema()
-        .description("An RFC 9457 problem detail")
-        .addProperty("title", new StringSchema())
-        .addProperty("status", new IntegerSchema())
-        .addProperty("detail", new StringSchema())
-        .addProperty("instance", new StringSchema())
-        .addProperty(
-            "errors",
-            new MapSchema()
-                .additionalProperties(new StringSchema())
-                .description("Each failing field and why, on a failed validation only"))
-        .required(List.of("title", "status", "detail", "instance"));
+    Schema<?> problem =
+        new ObjectSchema()
+            .description("An RFC 9457 problem detail")
+            .addProperty("title", new StringSchema())
+            .addProperty("status", new IntegerSchema())
+            .addProperty("detail", new StringSchema())
+            .addProperty("instance", new StringSchema())
+            .addProperty(
+                "errors",
+                new MapSchema()
+                    .additionalProperties(new StringSchema())
+                    .description("Each failing field and why, on a failed validation only"));
+    problem.setRequired(List.of("title", "status", "detail", "instance"));
+    return problem;
   }
 }
