@@ -36,7 +36,7 @@ import org.springframework.web.servlet.HandlerMapping;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestCorrelationFilter extends OncePerRequestFilter {
 
-  static final String HEADER = "X-Correlation-ID";
+  public static final String HEADER = "X-Correlation-ID";
   static final String MDC_KEY = "correlationId";
   static final String UNMATCHED_ROUTE = "UNMATCHED";
   static final String OTHER_METHOD = "OTHER";

@@ -138,6 +138,12 @@ public abstract class IntegrationTestBase {
    */
   public static ConfigurableApplicationContext startApplication(
       String uri, Map<String, String> settings) {
+    return startApplication("test", uri, settings);
+  }
+
+  /** The same, under a profile a real deployment uses, for what differs between them. */
+  public static ConfigurableApplicationContext startApplication(
+      String profile, String uri, Map<String, String> settings) {
     Map<String, String> all = new LinkedHashMap<>();
     all.put("server.port", "0");
     all.put("spring.mongodb.uri", uri);
@@ -146,7 +152,7 @@ public abstract class IntegrationTestBase {
         all.entrySet().stream()
             .map(setting -> "--" + setting.getKey() + "=" + setting.getValue())
             .toArray(String[]::new);
-    return new SpringApplicationBuilder(KumiteGameStarter.class).profiles("test").run(args);
+    return new SpringApplicationBuilder(KumiteGameStarter.class).profiles(profile).run(args);
   }
 
   /** A replica set member nobody initiated, for the tests that must be refused. */
