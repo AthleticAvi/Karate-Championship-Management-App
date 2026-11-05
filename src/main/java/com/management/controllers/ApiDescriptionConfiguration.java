@@ -31,8 +31,8 @@ import org.springframework.http.MediaType;
  * <p>It reads a status only from an annotation, and the exception handler sets statuses at runtime,
  * so on its own it lists no failure at all. The rules in {@link #addFailures} state which failures
  * each kind of operation can meet, from the table in {@code
- * src/main/java/com/management/exceptions/README.md}. They apply to every operation, so a new
- * endpoint is described with no extra work here.
+ * src/main/java/com/management/exceptions/README.md}. They are a default for every operation, so
+ * check a new endpoint against them: one that can fail differently states it with an annotation.
  *
  * <p>The problem schema is written out because the framework's {@code ProblemDetail} class does not
  * match its own wire form: extension fields sit at the top level, and an unset type is not sent.
@@ -109,23 +109,21 @@ class ApiDescriptionConfiguration {
   }
 
   private static void addFailures(PathItem.HttpMethod method, Operation operation) {
-    boolean changesExisting =
-        method == PathItem.HttpMethod.PUT || method == PathItem.HttpMethod.DELETE;
-    boolean takesInput = method == PathItem.HttpMethod.POST || method == PathItem.HttpMethod.PUT;
-    if (takesInput) {
+    boolean reads = method == PathItem.HttpMethod.GET;
+    boolean addressesOne = hasPathParameter(operation);
+    if (!reads && method != PathItem.HttpMethod.DELETE) {
       addFailure(operation, HttpStatus.BAD_REQUEST);
     }
-    if (hasPathParameter(operation)) {
+    if (addressesOne) {
       addFailure(operation, HttpStatus.NOT_FOUND);
     }
-    if (changesExisting) {
+    if (!reads && addressesOne) {
       addFailure(operation, HttpStatus.CONFLICT);
     }
     if (operation.getRequestBody() != null) {
       addFailure(operation, HttpStatus.CONTENT_TOO_LARGE);
       addFailure(operation, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
-    addFailure(operation, HttpStatus.NOT_ACCEPTABLE);
     addFailure(operation, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
@@ -135,19 +133,21 @@ class ApiDescriptionConfiguration {
         && parameters.stream().anyMatch(parameter -> "path".equals(parameter.getIn()));
   }
 
+  /** Leaves alone a status an endpoint already states for itself. */
   private static void addFailure(Operation operation, HttpStatus status) {
     Schema<?> problem = new Schema<>().$ref(Components.COMPONENTS_SCHEMAS_REF + PROBLEM_SCHEMA);
     operation
         .getResponses()
-        .addApiResponse(
+        .computeIfAbsent(
             String.valueOf(status.value()),
-            new ApiResponse()
-                .description(status.getReasonPhrase())
-                .content(
-                    new Content()
-                        .addMediaType(
-                            MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                            new io.swagger.v3.oas.models.media.MediaType().schema(problem))));
+            code ->
+                new ApiResponse()
+                    .description(status.getReasonPhrase())
+                    .content(
+                        new Content()
+                            .addMediaType(
+                                MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                                new io.swagger.v3.oas.models.media.MediaType().schema(problem))));
   }
 
   private static void addHeaders(Operation operation) {

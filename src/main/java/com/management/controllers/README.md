@@ -138,23 +138,28 @@ every success. So:
 
 | Applies to | Status |
 |---|---|
-| Every operation | 406, 500 |
-| `POST`, `PUT` | 400 |
+| Every operation | 500 |
+| Anything but `GET` and `DELETE` | 400 |
 | A path parameter | 404 |
-| `PUT`, `DELETE` | 409 |
+| A path parameter, on anything but `GET` | 409 |
 | A request body | 413, 415 |
 
 `ApiDescriptionIT` pins these rules, and compares 400, 404 and the success codes with real answers.
 A 409 on `DELETE` or `update-winner` only comes from a concurrent update, and a 500 needs a fault, so
 those rest on reading `GlobalExceptionHandler`. A 405 belongs to no operation and a CORS refusal is never
-visible to code, so neither is listed.
+visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
+decided while writing the answer, after a write has already happened, and for a malformed `Accept` it
+has no body. It is not a failure a client can treat as refused.
 
 The same class marks every field of a response as required, because a response always carries them,
 and adds `null` to the values of a nullable enum, which the generator leaves out.
 
 **Not in the description:** values that come from configuration, such as the allowed durations; the
-exact fighter count, which `@Size` on a map does not reach; the `X-Correlation-ID` a caller may send.
-A colour lists `RED` and `BLUE`, though lower case is also accepted.
+exact fighter count, which `@Size` on a map does not reach; the `X-Correlation-ID` a caller may send;
+that a text field must not be blank, because `@Size` renders `minLength: 0` and `@Size(min = 1)` would
+add a second message to the `errors` body. A colour lists `RED` and `BLUE`, though lower case is also
+accepted. Required response fields follow direct references, so a list of a response type would need
+that walk extended.
 
 **Documentation annotations stay in `controllers` and `dto`.** `ArchitectureTest` fails on any other
 package using them.

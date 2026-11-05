@@ -1,5 +1,8 @@
 package com.management.kumitegametests;
 
+import static com.management.testsupport.IntegrationTestBase.addressOf;
+import static com.management.testsupport.IntegrationTestBase.request;
+import static com.management.testsupport.IntegrationTestBase.send;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -9,14 +12,10 @@ import ch.qos.logback.core.read.ListAppender;
 import com.management.filters.RequestCorrelationFilter;
 import com.management.repositories.PlayerRepository;
 import com.management.testsupport.IntegrationTestBase;
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublisher;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,9 +30,8 @@ import org.springframework.core.Ordered;
 /**
  * Cross-origin rules, proven over real HTTP against the application under its real profiles.
  *
- * <p>Uses {@link HttpClient} because it sends {@code Origin} as given, where the older JDK client
- * silently drops it. Every test here depends on the header arriving: a preflight is only recognised
- * by it, and a refusal only happens because of it.
+ * <p>Every test here depends on {@code Origin} arriving: a preflight is only recognised by it, and
+ * a refusal only happens because of it.
  */
 class CorsIT {
 
@@ -164,7 +162,7 @@ class CorsIT {
   @Test
   void refusedMethod_fromAllowedOrigin_isReadable() throws Exception {
     HttpResponse<String> response =
-        send(request(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("POST", noBody()));
+        send(fromOrigin(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("POST", noBody()));
 
     assertThat(response.statusCode()).isEqualTo(405);
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
@@ -186,7 +184,7 @@ class CorsIT {
   @Test
   void headRequest_fromAllowedOrigin_isRefused() throws Exception {
     HttpResponse<String> response =
-        send(request(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("HEAD", noBody()));
+        send(fromOrigin(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("HEAD", noBody()));
 
     assertThat(response.statusCode()).isEqualTo(403);
   }
@@ -220,7 +218,7 @@ class CorsIT {
   @Test
   void prod_withAnOriginSet_allowsIt() throws Exception {
     try (ConfigurableApplicationContext context =
-        boot("prod", Map.of("cors.allowed-origins", OTHER_ORIGIN))) {
+        boot("prod", Map.of("CORS_ALLOWED_ORIGINS", OTHER_ORIGIN))) {
       HttpResponse<String> response = send(preflight(context, PLAYERS, OTHER_ORIGIN, "POST"));
 
       assertThat(response.statusCode()).isEqualTo(200);
@@ -257,7 +255,15 @@ class CorsIT {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"*", "https://*.example", "https://scores.example/", "scores.example"})
+  @ValueSource(
+      strings = {
+        "*",
+        "https://*.example",
+        "https://scores.example/",
+        "scores.example",
+        "https://scores.example:443",
+        "http://scores.example:80"
+      })
   void startup_withAnythingButAnExactOrigin_failsNamingTheKey(String origin) {
     assertThatThrownBy(() -> boot("dev", Map.of("cors.allowed-origins", origin)))
         .hasStackTraceContaining("cors")
@@ -270,7 +276,7 @@ class CorsIT {
 
   private static HttpRequest.Builder preflight(
       ConfigurableApplicationContext context, String path, String origin, String method) {
-    return request(context, path, origin)
+    return fromOrigin(context, path, origin)
         .method("OPTIONS", noBody())
         .header("Access-Control-Request-Method", method);
   }
@@ -287,38 +293,23 @@ class CorsIT {
 
   private static HttpRequest.Builder createPlayer(
       ConfigurableApplicationContext context, String origin) {
-    return request(context, PLAYERS, origin)
+    return fromOrigin(context, PLAYERS, origin)
         .header("Content-Type", "application/json")
         .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}"));
   }
 
   private static HttpRequest.Builder get(
       ConfigurableApplicationContext context, String path, String origin) {
-    return request(context, path, origin).GET();
+    return fromOrigin(context, path, origin).GET();
   }
 
-  private static HttpRequest.Builder request(
+  private static HttpRequest.Builder fromOrigin(
       ConfigurableApplicationContext context, String path, String origin) {
     return request(context, path).header("Origin", origin);
   }
 
-  private static HttpRequest.Builder request(ConfigurableApplicationContext context, String path) {
-    return HttpRequest.newBuilder(URI.create(addressOf(context) + path));
-  }
-
   private static BodyPublisher noBody() {
     return BodyPublishers.noBody();
-  }
-
-  private static HttpResponse<String> send(HttpRequest.Builder request)
-      throws IOException, InterruptedException {
-    try (HttpClient client = HttpClient.newHttpClient()) {
-      return client.send(request.build(), BodyHandlers.ofString());
-    }
-  }
-
-  private static String addressOf(ConfigurableApplicationContext context) {
-    return "http://localhost:" + context.getEnvironment().getProperty("local.server.port");
   }
 
   private static String header(HttpResponse<String> response, String name) {

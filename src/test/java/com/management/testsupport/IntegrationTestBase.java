@@ -4,6 +4,11 @@ import static org.awaitility.Awaitility.await;
 
 import com.management.KumiteGameStarter;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -153,6 +158,28 @@ public abstract class IntegrationTestBase {
             .map(setting -> "--" + setting.getKey() + "=" + setting.getValue())
             .toArray(String[]::new);
     return new SpringApplicationBuilder(KumiteGameStarter.class).profiles(profile).run(args);
+  }
+
+  /** Where an application started by hand answers. */
+  public static String addressOf(ConfigurableApplicationContext context) {
+    return "http://localhost:" + context.getEnvironment().getProperty("local.server.port");
+  }
+
+  /**
+   * A request to an application started by hand.
+   *
+   * <p>On {@link HttpClient}, because it sends {@code Origin} as given. The older JDK client
+   * silently drops it.
+   */
+  public static HttpRequest.Builder request(ConfigurableApplicationContext context, String path) {
+    return HttpRequest.newBuilder(URI.create(addressOf(context) + path));
+  }
+
+  public static HttpResponse<String> send(HttpRequest.Builder request)
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      return client.send(request.build(), BodyHandlers.ofString());
+    }
   }
 
   /** A replica set member nobody initiated, for the tests that must be refused. */

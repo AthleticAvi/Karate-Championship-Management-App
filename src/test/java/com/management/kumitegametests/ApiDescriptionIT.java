@@ -1,5 +1,7 @@
 package com.management.kumitegametests;
 
+import static com.management.testsupport.IntegrationTestBase.request;
+import static com.management.testsupport.IntegrationTestBase.send;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.management.enums.PlayerColor;
@@ -8,12 +10,8 @@ import com.management.testsupport.IntegrationTestBase;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -95,7 +93,7 @@ class ApiDescriptionIT {
     assertThat(operations).hasSameSizeAs(realEndpoints());
     assertThat(operations)
         .allSatisfy(operation -> {
-          assertThat(statusesOf(operation)).contains("406", "500");
+          assertThat(statusesOf(operation)).contains("500");
           operation.get("responses").properties().stream()
               .filter(response -> response.getKey().compareTo("400") >= 0)
               .forEach(response -> {
@@ -110,14 +108,13 @@ class ApiDescriptionIT {
   @Test
   void failures_matchWhatEachKindOfOperationCanMeet() {
     assertThat(statusesOf(operation("post", PLAYERS)))
-        .containsExactly("201", "400", "406", "413", "415", "500");
-    assertThat(statusesOf(operation("get", PLAYER))).containsExactly("200", "404", "406", "500");
-    assertThat(statusesOf(operation("delete", PLAYER)))
-        .containsExactly("204", "404", "406", "409", "500");
+        .containsExactly("201", "400", "413", "415", "500");
+    assertThat(statusesOf(operation("get", PLAYER))).containsExactly("200", "404", "500");
+    assertThat(statusesOf(operation("delete", PLAYER))).containsExactly("204", "404", "409", "500");
     assertThat(statusesOf(operation("put", MATCH + "/add-foul")))
-        .containsExactly("200", "400", "404", "406", "409", "500");
+        .containsExactly("200", "400", "404", "409", "500");
     assertThat(statusesOf(operation("put", MATCH + "/add-time")))
-        .containsExactly("200", "400", "404", "406", "409", "413", "415", "500");
+        .containsExactly("200", "400", "404", "409", "413", "415", "500");
   }
 
   @Test
@@ -325,17 +322,5 @@ class ApiDescriptionIT {
         request(dev, PLAYERS)
             .header("Content-Type", "application/json")
             .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}")));
-  }
-
-  private static HttpRequest.Builder request(ConfigurableApplicationContext context, String path) {
-    String port = context.getEnvironment().getProperty("local.server.port");
-    return HttpRequest.newBuilder(URI.create("http://localhost:" + port + path));
-  }
-
-  private static HttpResponse<String> send(HttpRequest.Builder request)
-      throws IOException, InterruptedException {
-    try (HttpClient client = HttpClient.newHttpClient()) {
-      return client.send(request.build(), BodyHandlers.ofString());
-    }
   }
 }
