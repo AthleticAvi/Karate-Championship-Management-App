@@ -3,6 +3,10 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.management.filters.RequestCorrelationFilter;
 import com.management.repositories.PlayerRepository;
 import com.management.testsupport.IntegrationTestBase;
 import java.io.IOException;
@@ -19,6 +23,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.Ordered;
@@ -113,6 +118,27 @@ class CorsIT {
     assertThat(response.headers().firstValue(CORRELATION_ID)).isPresent();
     assertThat(response.headers().firstValue("Content-Type")).isEmpty();
     assertThat(response.body()).isEqualTo("Invalid CORS request");
+  }
+
+  /** The filter answers before a handler is chosen, so the line has no route. */
+  @Test
+  void preflight_logsItsOneLineWithNoRoute() throws Exception {
+    Logger log = (Logger) LoggerFactory.getLogger(RequestCorrelationFilter.class);
+    ListAppender<ILoggingEvent> lines = new ListAppender<>();
+    lines.start();
+    log.addAppender(lines);
+
+    try {
+      send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "POST"));
+    } finally {
+      log.detachAppender(lines);
+    }
+
+    assertThat(lines.list)
+        .singleElement()
+        .satisfies(line ->
+            assertThat(line.getKeyValuePairs().toString())
+                .contains("method=\"OPTIONS\"", "route=\"UNMATCHED\"", "status=\"200\""));
   }
 
   @Test

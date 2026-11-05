@@ -35,7 +35,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `design/logging.md`: [rules] [levels] [correlation] [structured-output] [never-log] [log-lines-are-an] [verify]
 - `design/patterns.md`: [choose] [table] [smells] [verify]
 - `design/principles.md`: [use] [single-responsibility] [open-closed] [liskov] [interface-segregation] [dependency-inversion] [kiss] [reuse] [one-owner] [conflicts] [verify]
-- `design/service-exposure.md`: [boundary-rule] [controllers] [status-codes] [response-shape] [serialisation-format] [urls] [verify] [sources]
+- `design/service-exposure.md`: [boundary-rule] [controllers] [status-codes] [response-shape] [serialisation-format] [urls] [description] [verify] [sources]
 - `design/service-interaction.md`: [circular-dependencies] [where-logic-belongs] [transaction-and-consistency-boundary] [cross-aggregate-reads] [verify]
 - `git/branches.md`: [naming] [flow]
 - `git/commits.md`: [message] [enforcement] [units] [identity] [privacy]
@@ -57,7 +57,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `web-frameworks/spring-boot/design/layers.md`: [mapping] [contract] [stereotypes] [verify]
 - `web-frameworks/spring-boot/design/patterns.md`: [framework-provides] [add-a-rule] [enum-strategy] [verify]
 - `web-frameworks/spring-boot/design/validation.md`: [two-kinds-two-places] [input-validation] [what-constraints-cannot-express] [domain-invariants] [failure-reporting] [trust-boundary] [verify] [sources]
-- `web-frameworks/spring-boot/standards/standards.md`: [framework-first] [rules] [do] [dont] [package-layout] [verify]
+- `web-frameworks/spring-boot/standards/standards.md`: [framework-first] [rules] [do] [dont] [api-description] [package-layout] [verify]
 - `web-frameworks/spring-boot/testing/integration.md`: [purpose] [real-infrastructure-never-a] [rules] [concurrency-scenarios] [what-belongs-at-this] [verify]
 - `web-frameworks/spring-boot/testing/slice.md`: [what-a-slice-is] [web-slice] [rules] [persistence-slice] [dont] [verify]
 

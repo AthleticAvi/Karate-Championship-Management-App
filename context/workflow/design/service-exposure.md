@@ -12,6 +12,7 @@ Framework-first: content negotiation, status mapping, serialisation and binding 
 - [response-shape] Response shape
 - [serialisation-format] Serialisation format
 - [urls] URLs
+- [description] Generated description
 - [verify] Verify
 - [sources] Sources
 
@@ -73,6 +74,13 @@ Omit a field entirely rather than specify a format nobody consumes.
 - Verbs live in the HTTP method, not the path. Where an operation genuinely is not CRUD, express it as a sub-resource that reads as a thing rather than a command.
 - Filtering, sorting and pagination are query parameters, never path segments.
 - Version at the base path from the first public release. Retrofitting a version once clients exist is a migration, not a change.
+
+## [description] Generated description
+
+- Generate the description from the code. A copy kept by hand drifts, and nothing fails when it does.
+- A generator lists what it can see. Read the output: failures and statuses set at runtime are the usual gaps, and the result still looks complete.
+- Compare it with the real routes and real answers in a test, in both directions, so an endpoint added later cannot go missing.
+- Serve it only where it is needed. It is a map of every operation, so it waits for the operations to be protected.
 
 ## [verify] Verify
 

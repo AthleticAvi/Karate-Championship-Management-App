@@ -70,7 +70,8 @@ Scope: every language. Each language adds its own file under `languages/`.
 ## [dependencies] Dependencies
 
 - Prefer the framework, then the standard library, then what is already installed.
-- Check the licence before adding one.
+- Check the licence before adding one, for everything it brings in.
+- A dependency can change behaviour just by being present, such as a data format the framework then accepts on its own. Compare the running application before and after, not only the dependency list.
 - Follow the official docs of a library. No clever workaround without a recorded reason.
 
 ## [verify] Verify

@@ -8,6 +8,7 @@
 - [datastore] Datastore guarantees
 - [profiles] Profiles
 - [server] Server limits
+- [cors] Allowed origins and the API description
 - [logging] Logging
 
 ## [purpose] Purpose
@@ -22,6 +23,8 @@ Typed settings, validated at startup.
 `DatastoreProperties`, `DatastoreConfiguration` and `DatastoreGuaranteeCheck`: see `[datastore]`.
 
 `StartupSettingsCheck`: see `[profiles]`.
+
+`CorsProperties`: see `[cors]`.
 
 `TimeConfiguration`: the one `Clock` bean. It is UTC, and ticks in whole milliseconds because that
 is what a BSON date keeps, so a value in memory equals the value a reload returns.
@@ -111,7 +114,8 @@ here.
 **Tomcat has no limit on a JSON body.** Its size settings cover forms and headers only. The JSON
 parser enforces the limit as it reads, so a body not read as JSON is not covered: the form and
 multipart readers stay off for that reason, and a new `String` or `byte[]` `@RequestBody` would
-need its own limit.
+need its own limit. For the same reason the YAML converter is removed: see `[description]` in the
+controllers README.
 
 On shutdown, a request in flight finishes and a stalled one ends with the connection timeout. Both
 were seen on the packaged jar, by sending SIGTERM to it in a container.
@@ -132,6 +136,19 @@ What the hosting proxy sends is unknown until the hosting check, so the values s
 
 `Location` is a relative path, so it is right behind a proxy that keeps the path, whatever these
 settings are. Absolute URLs built from the request depend on them.
+
+## [cors] Allowed origins and the API description
+
+| Setting | Default | Key | Differs |
+|---|---|---|---|
+| Origins that may call the API | none | `cors.allowed-origins`, or `CORS_ALLOWED_ORIGINS` | `dev` allows `http://localhost:5173` |
+| Serve the API description | off | `springdoc.api-docs.enabled` | `dev` turns it on |
+
+`prod` allows no origin until a real one exists: set it on the deployment, comma separated. Each
+value is one exact origin. A wildcard, a path or a trailing slash stops startup.
+
+The rest of the CORS rules and the reasons for the description settings are in `[cors]` and
+`[description]` in the controllers README.
 
 ## [logging] Logging
 

@@ -9,6 +9,8 @@
 - [wire-formats] Wire formats, and why
 - [mutations] Mutations return the new state
 - [validation] Validation at the boundary
+- [cors] Cross-origin calls
+- [description] API description
 
 ## [purpose] Purpose
 
@@ -21,11 +23,19 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 - `PlayerController` at `/api/v1/players`: player CRUD.
 - `ApiVersionConfiguration`: `PREFIX`, the one place the version is named. It adds the prefix to
   every controller in this package through the framework's path matching, so a controller maps only
-  its own resource. Nothing else moves: the actuator and the error path stay where they are.
+  its own resource. Nothing else moves: the actuator, the error path and the API description stay
+  where they are.
+- `ApiCorsConfiguration`: which browsers may call the API. See `[cors]`.
+- `ApiDescriptionConfiguration`: what the generated description cannot find. See `[description]`.
+- `ApiMediaTypeConfiguration`: keeps the API on JSON. See `[description]`.
 
 ## [may-call] May call
 
 `services`, `mappers`, `dto`. Never `repositories` or `rules`.
+
+Three narrow additions: `config` for `CorsProperties`, the header name in `filters`, and `enums` for
+the values a documented parameter takes. `config` never depends back on this package, because
+services depend on `config`, so that would be a cycle. That is why the CORS wiring sits here.
 
 ## [contract] Response contract
 
@@ -74,3 +84,83 @@ Request DTOs are records with Jakarta Bean Validation constraints, triggered by 
 binding as a 400. The one-RED-one-BLUE rule is domain validation: see `services/README.md`.
 
 Failures map to the table in `exceptions/README.md`.
+
+## [cors] Cross-origin calls
+
+`cors.allowed-origins` decides who may call: see `[cors]` in the config README. Everything else is
+fixed here, because it follows from what the API is, and no deployment tunes it.
+
+| Rule | Value | Why |
+|---|---|---|
+| Path | `/api/v1/*` only | The actuator and the description answer as if CORS did not exist |
+| Methods | `GET`, `POST`, `PUT`, `DELETE` | The ones the API uses. A cross-origin `HEAD` is refused too, though the mapping would serve it |
+| Request headers | `Authorization`, `Content-Type`, `X-Correlation-ID` | Credentials, JSON, and the ID a caller may send |
+| Exposed headers | `X-Correlation-ID`, `Location` | A browser hides every other header from code. A create answers with `Location`, so a client needs it to find what it made |
+| Credentials | off | There are no cookies or sessions. `Authorization` is set by the caller, and this flag is not what allows it |
+| Max age | not set | A browser repeats a preflight after about 5 seconds |
+
+An origin not on the list gets a 403 before anything runs, on a preflight and on a real request. The
+body is the framework's `Invalid CORS request`, with no content type: not a problem detail, and no
+browser code can read it. An error answered to an allowed origin carries the CORS headers, so a
+client can read the problem detail.
+
+**The server compares `Origin` with its own address,** so a request from that address is not
+cross-origin and passes whatever the list says. Behind a TLS proxy with forwarded headers off, the
+address it sees is not the public one, so a page on the same public origin counts as cross-origin
+and needs listing.
+
+**Why a filter and not the MVC mapping.** It answers ahead of Spring Security, covers answers given
+before a handler is chosen such as a 405, and sits inside the correlation filter, so a refusal has
+an ID. The filter ends every preflight it sees, even with no configuration for the path, which is
+why its servlet mapping is narrower than `/*`.
+
+**For Spring Security:** `http.cors()` configures itself only from a
+`UrlBasedCorsConfigurationSource`, and this is the one bean of that kind. A second
+`CorsConfigurationSource` turns that off. Spring Security also looks up a bean named `corsFilter`
+and expects a plain `CorsFilter`, so the registration here is `apiCorsFilter`. Its order is pinned
+ahead of the security chain's -100, so a preflight never reaches authentication.
+
+## [description] API description
+
+Generated from the code by springdoc, at `/v3/api-docs` and `/v3/api-docs.yaml`, under `dev` only:
+see `[cors]` in the config README for where settings live. There is no copy in the repo. No UI is
+included: the description is what a client needs, and any viewer can open it.
+
+**Off in `prod`.** With no authentication yet, it would hand anyone a map of every write, and a
+client team can read it from `dev`. Turn it on when the writes are protected, if a client then
+needs it there. It is a property, so no beans are created while it is off.
+
+**The generator cannot see runtime statuses.** On its own it lists no failure at all, and a 200 for
+every success. So:
+
+- `@ApiResponse` states the 201 and 204 on the methods that answer them. A new one needs the same.
+- `ApiDescriptionConfiguration` adds failures to every operation by rule, as problem details:
+
+| Applies to | Status |
+|---|---|
+| Every operation | 406, 500 |
+| `POST`, `PUT` | 400 |
+| A path parameter | 404 |
+| `PUT`, `DELETE` | 409 |
+| A request body | 413, 415 |
+
+`ApiDescriptionIT` pins these rules, and compares 400, 404 and the success codes with real answers.
+A 409 on `DELETE` or `update-winner` only comes from a concurrent update, and a 500 needs a fault, so
+those rest on reading `GlobalExceptionHandler`. A 405 belongs to no operation and a CORS refusal is never
+visible to code, so neither is listed.
+
+The same class marks every field of a response as required, because a response always carries them,
+and adds `null` to the values of a nullable enum, which the generator leaves out.
+
+**Not in the description:** values that come from configuration, such as the allowed durations; the
+exact fighter count, which `@Size` on a map does not reach; the `X-Correlation-ID` a caller may send.
+A colour lists `RED` and `BLUE`, though lower case is also accepted.
+
+**Documentation annotations stay in `controllers` and `dto`.** `ArchitectureTest` fails on any other
+package using them.
+
+**Jackson 2 is here for this.** springdoc reads types through swagger-core, which needs Jackson 2 and
+its YAML format. Spring MVC still uses Jackson 3 for every request and response. The framework adds
+a YAML converter on its own once the format is present, in every profile, so `ApiMediaTypeConfiguration`
+removes it: left in, a YAML body gets past the JSON size limit. The jar cannot simply be excluded,
+because springdoc will not start without it.

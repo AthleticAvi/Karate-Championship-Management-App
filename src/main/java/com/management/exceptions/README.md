@@ -20,7 +20,8 @@ The failure types business code throws, and the one place they become HTTP respo
 
 ## [contract] Error contract
 
-Errors are RFC 9457 problem details: `application/problem+json`, with `status`, `title`, `detail`.
+Errors are RFC 9457 problem details: `application/problem+json`, with `status`, `title`, `detail`
+and `instance`. `type` is not sent, because no problem has a page to point at.
 
 | Failure | Status | Exception | Detail |
 |---|---|---|---|
@@ -43,6 +44,8 @@ Errors are RFC 9457 problem details: `application/problem+json`, with `status`, 
 - **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
   the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
   application sees them, so they carry no correlation ID and leave no request line.
+- **A CORS refusal is not a problem detail.** It is the framework's 403, answered before Spring MVC:
+  see `[cors]` in the controllers README.
 - The two colour failures differ on purpose: *not a colour* is the caller's mistake (400), *a colour
   this match does not have* is a missing resource (404).
 - **Only messages this project wrote are returned.** `InvalidGameRequestException` marks wording

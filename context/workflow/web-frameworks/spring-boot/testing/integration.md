@@ -73,6 +73,8 @@ class WidgetFlowIT {
 - **Assert through the public interface**, over HTTP, the way a client would. Reaching into a repository to assert is acceptable for setup and for confirming persistence, but the primary assertion should be the response.
 - **Name them distinctly** from unit tests so the build can run the fast suite alone.
 
+**Sending `Origin` from a test:** the older JDK HTTP client silently drops restricted headers, `Origin` among them, so a CORS test on it passes or fails for the wrong reason. `java.net.http.HttpClient` sends it, and a request refused for its origin proves it arrived.
+
 **Starting the application by hand:** `SpringApplicationBuilder.properties()` sets defaults, the lowest precedence, so `application.properties` silently beats them and the test runs with other values than it states. Pass overrides as arguments to `run()`.
 
 ## [concurrency-scenarios] Concurrency scenarios
