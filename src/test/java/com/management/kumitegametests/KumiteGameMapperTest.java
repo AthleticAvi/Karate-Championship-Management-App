@@ -16,12 +16,27 @@ class KumiteGameMapperTest {
   void toNewMatch_carriesEveryFighterRefereeAndDuration() {
     KumiteGameRequest request =
         new KumiteGameRequest(
-            Map.of("any label", new FighterRequest("Kenji", "RED")), List.of("Referee One"), 180);
+            Map.of(
+                "first", new FighterRequest("Kenji", "RED"),
+                "second", new FighterRequest("Sato", "BLUE")),
+            List.of("Referee One"),
+            180);
 
     NewMatch newMatch = KumiteGameMapper.toNewMatch(request);
 
-    assertThat(newMatch.fighters()).containsExactly(new NewMatch.Fighter("Kenji", "RED"));
+    assertThat(newMatch.fighters())
+        .containsExactlyInAnyOrder(
+            new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE"));
     assertThat(newMatch.referees()).containsExactly("Referee One");
     assertThat(newMatch.gameDuration()).isEqualTo(180);
+  }
+
+  @Test
+  void toNewMatch_withNoDuration_leavesItEmptyForTheDefault() {
+    KumiteGameRequest request =
+        new KumiteGameRequest(
+            Map.of("first", new FighterRequest("Kenji", "RED")), List.of("Referee One"), null);
+
+    assertThat(KumiteGameMapper.toNewMatch(request).gameDuration()).isNull();
   }
 }
