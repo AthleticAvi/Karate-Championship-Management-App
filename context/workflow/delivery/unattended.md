@@ -21,7 +21,7 @@ stop.
 ## [plan] Plan
 
 Write the plan and go ahead. Challenge it when `delivery/planning.md` calls for it. Put the plan
-in the PR.
+in the evidence comment: see `[pr-body]` in `git/github/issues-and-prs.md`.
 
 ## [stop] Stop rules
 
@@ -44,8 +44,8 @@ blocks it.
 
 ## [findings] Review findings
 
-Fix the review findings on this change, and list each in the PR with what was done about it.
-Findings outside the task are listed in the PR for the owner: see `[findings]` in
+Fix the review findings on this change, and list each in the evidence comment with what was done
+about it. Findings outside the task are listed in the PR body for the owner: see `[findings]` in
 `delivery/flow.md`.
 
 ## [finish] Finish
