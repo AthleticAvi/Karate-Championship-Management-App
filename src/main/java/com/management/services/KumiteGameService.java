@@ -307,8 +307,8 @@ public class KumiteGameService {
         new RefereeOverride(
             declared,
             override.reason(),
-            override.operator(),
             override.referee(),
+            override.operator(),
             clock.instant(),
             engineOutcome),
         clock);

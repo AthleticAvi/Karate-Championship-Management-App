@@ -14,10 +14,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param winner the colour the referee declared, or {@code null} for a declared draw
  * @param reason why the referee overrode the result; never blank
- * @param operator the signed-in account that recorded it. {@code null} only on an override stored
- *     before accounts existed: see {@code [versioning]} in the models README
- * @param referee the referee who made the call, who may hold no account. {@code null} on the same
- *     old overrides
+ * @param referee the referee who made the call, who may hold no account. {@code null} only on an
+ *     override stored before accounts existed: see {@code [versioning]} in the models README
+ * @param operator the signed-in account that recorded it. {@code null} on the same old overrides
  * @param decidedAt when the override was applied
  * @param supersededOutcome what the rules engine had determined, or {@code null} if it had not
  *     decided anything yet
@@ -25,7 +24,7 @@ import org.jspecify.annotations.Nullable;
 public record RefereeOverride(
     @Nullable PlayerColor winner,
     String reason,
-    @Nullable String operator,
     @Nullable String referee,
+    @Nullable String operator,
     Instant decidedAt,
     @Nullable MatchOutcome supersededOutcome) {}

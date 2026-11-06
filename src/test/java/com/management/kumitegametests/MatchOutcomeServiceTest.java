@@ -119,7 +119,7 @@ class MatchOutcomeServiceTest {
   void overrideWinner_recordsTheOperatorAndTheRefereeApart() {
     String gameId =
         storedMatch(
-            match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
+            match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofMinutes(2)));
 
     GameWithFighters overridden =
         service.overrideWinner(

@@ -66,7 +66,7 @@ class MatchTimePersistenceIT extends IntegrationTestBase {
   void overrideTime_survivesSaveAndLoadExactly() {
     KumiteGame game = runningMatch();
     game.applyOverride(
-        new RefereeOverride(PlayerColor.RED, "Reason", "operator-1", "Referee", DECIDED, null),
+        new RefereeOverride(PlayerColor.RED, "Reason", "Referee", "operator-1", DECIDED, null),
         Clock.fixed(DECIDED, ZoneOffset.UTC));
 
     KumiteGame saved = kumiteGameRepository.save(game);

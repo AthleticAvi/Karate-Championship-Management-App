@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.management.dto.KumiteGameResponse;
 import com.management.enums.PlayerColor;
 import com.management.models.GameWithFighters;
+import com.management.models.MatchOutcome;
 import com.management.models.RefereeOverride;
 import com.management.repositories.KumiteGameRepository;
 import com.management.testsupport.IntegrationTestBase;
@@ -12,6 +13,7 @@ import com.management.testsupport.KumiteGameBuilder;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +44,7 @@ class OverrideAuditIT extends IntegrationTestBase {
   void storeRunningMatch() {
     GameWithFighters match =
         KumiteGameBuilder.newGame()
-            .runningSince(Instant.now().minusSeconds(10), Duration.ofSeconds(120))
+            .runningSince(Instant.now().minusSeconds(10), Duration.ofMinutes(2))
             .buildWithFighters();
     match.fighters().values().forEach(mongoTemplate::save);
     gameId = games.save(match.game()).getId();
@@ -129,12 +131,28 @@ class OverrideAuditIT extends IntegrationTestBase {
         anonymous.getForEntity(ONE_GAME + gameId, KumiteGameResponse.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().overridden()).isTrue();
-    assertThat(response.getBody().winner()).isEqualTo(PlayerColor.BLUE);
+    KumiteGameResponse body = Objects.requireNonNull(response.getBody());
+    assertThat(body.overridden()).isTrue();
+    assertThat(body.winner()).isEqualTo(PlayerColor.BLUE);
     assertThat(storedOverride().reason()).isEqualTo("Stored long ago");
     assertThat(storedOverride().operator()).isNull();
     assertThat(storedOverride().referee()).isNull();
+  }
+
+  /** Stated in the models README: the old name has no field to go back into. */
+  @Test
+  void overrideFromBeforeAccounts_losesItsOldNameOnTheNextSave() {
+    storeOverrideFromBeforeAccounts();
+
+    games.save(games.findById(gameId).orElseThrow());
+
+    Document stored =
+        mongoTemplate
+            .getCollection(GAME_COLLECTION)
+            .find(new Document("_id", new ObjectId(gameId)))
+            .first();
+    assertThat(stored).isNotNull();
+    assertThat(stored.get("refereeOverride", Document.class)).doesNotContainKey("decidedBy");
   }
 
   /** The old record's engine result must survive being overridden by a new one. */
@@ -150,8 +168,8 @@ class OverrideAuditIT extends IntegrationTestBase {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(storedOverride().operator()).isEqualTo(ADMIN);
-    assertThat(storedOverride().supersededOutcome()).isNotNull();
-    assertThat(storedOverride().supersededOutcome().decidedBy())
+    assertThat(storedOverride().supersededOutcome())
+        .extracting(MatchOutcome::decidedBy)
         .isEqualTo("HighestScoreWinnerRule");
   }
 }
