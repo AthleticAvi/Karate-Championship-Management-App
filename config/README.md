@@ -58,7 +58,8 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 - **Null marking:** every main package has `@NullMarked` in `package-info.java`, except
   `repositories`, which is `@NullUnmarked`: see its README. `util` marks its class instead, because
   the frozen `noUtilityPackage` rule would count a new `package-info` as a violation.
-- **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason.
+- **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason. One entry today: the
+  framework's retry interface names `shouldRetry`, which the boolean accessor rule cannot allow.
 - **Layer rules:** `ArchitectureTest`. To change the store, see `[boundaries]` in
   `src/main/java/com/management/README.md`.
 

@@ -30,7 +30,7 @@ must be running for `mvn verify`: integration tests start their own MongoDB thro
 | Package | Holds |
 |---|---|
 | `kumitegametests` | Behaviour, controller slice and integration tests. `SecurityRulesSliceTest` holds the role table as decided, `SecurityIT` proves credentials over HTTP, `FirstAdminIT` starts the application with and without an Admin |
-| `models`, `rules`, `enums`, `filters` | Unit tests for those packages |
+| `models`, `rules`, `enums`, `filters`, `config` | Unit tests for those packages |
 | `testsupport` | Base classes, builders and fakes: `IntegrationTestBase`, which also supplies the weak MongoDB containers `DatastoreRefusalIT` needs and starts and calls an application by hand, `WebSliceTestBase`, `TestClock`, `KumiteGameBuilder`, `PlayerBuilder`, `FakeRepositories`, `InMemoryMongo` |
 | `architecture` | `ArchitectureTest`, the layer rules |
 | `docs` | Index generator, commit message check, and the tests that hold the docs to the scaffold |

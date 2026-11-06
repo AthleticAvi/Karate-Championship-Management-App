@@ -18,7 +18,8 @@ accounts in the datastore and applies the role table. It holds no rule of the sp
 - `SecurityConfiguration`: the filter chain, the password encoder, and the `UserDetailsService` bean.
 - `SecurityFailureResponder`: hands a 401 or 403 to `GlobalExceptionHandler`.
 - `AccountUserDetailsService`: the adapter between the framework and `AccountService`.
-- `FirstAdminSetup`: creates the first Admin from the environment.
+- `FirstAdminSetup`: creates the first Admin from the environment. Every later account comes through
+  `POST /api/v1/accounts`. There is no way to change a password: delete and create again.
 
 The role table itself is `ApiAccess` in `controllers`: see `[access]` in the controllers README.
 

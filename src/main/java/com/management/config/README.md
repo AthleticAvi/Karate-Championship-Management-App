@@ -54,6 +54,9 @@ Never hardcode these. All come from configuration.
 | Longest an operation may wait for a usable server | 5s | `datastore.server-selection-timeout` |
 | How long startup waits for an answer | 5s | `datastore.startup-wait` |
 
+`CommitRetryingTransactionManager` and `TransientTransactionRetry` serve the one transaction: see
+`[last-admin]` in the services README.
+
 `w=majority`, primary reads and retryable writes are fixed in code: they are guarantees, not
 tunables. The driver API for the timeout is
 marked alpha, and `wtimeoutMS`, the alternative, is deprecated.

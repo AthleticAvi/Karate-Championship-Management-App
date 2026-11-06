@@ -19,7 +19,6 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -110,7 +109,10 @@ class ApiDescriptionConfiguration {
       return;
     }
     String name = reference.get$ref().substring(Components.COMPONENTS_SCHEMAS_REF.length());
-    Schema<?> schema = (Schema<?>) Objects.requireNonNull(schemas.get(name));
+    // An annotation can name a schema this class adds afterwards, and that one states its own.
+    if (!(schemas.get(name) instanceof Schema<?> schema)) {
+      return;
+    }
     schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
     schema.getProperties().values().forEach(field -> requireEveryField(field, schemas));
   }

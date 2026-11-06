@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
 
 /**
  * The connection guarantees every environment gets, whatever its connection details say.
@@ -36,5 +38,11 @@ class DatastoreConfiguration {
                 cluster.serverSelectionTimeout(
                     properties.serverSelectionTimeout().toMillis(), TimeUnit.MILLISECONDS))
             .applyToServerSettings(server -> server.addServerListener(check));
+  }
+
+  /** Without this bean, a transactional method runs with no transaction and gives no warning. */
+  @Bean
+  MongoTransactionManager transactionManager(MongoDatabaseFactory databaseFactory) {
+    return new CommitRetryingTransactionManager(databaseFactory);
   }
 }

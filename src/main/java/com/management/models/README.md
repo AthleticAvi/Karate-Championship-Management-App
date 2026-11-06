@@ -19,8 +19,8 @@ bypassed. `KumiteGame` and `Player` mixing domain and storage is a frozen layer 
 - Aggregates: `KumiteGame`, `Player`, `Account`.
 - Values: `Points`, `Foul`, `Referee`, `RefereeOverride`, `ClockAdjustment`, `MatchOutcome`.
 - `GameWithFighters`: the composed read of both aggregates, which `KumiteGameMapper` consumes.
-- `NewMatch`, `NewOverride`, `NewClockAdjustment`: business inputs, mapped from requests by the
-  gateway.
+- `NewMatch`, `NewOverride`, `NewClockAdjustment`, `NewAccount`: business inputs, mapped from
+  requests by the gateway.
 - `GameTimer`: the match clock.
 - `strategies/`: the `PointStrategy` family. `addPoint(Points)` and `removePoint(Points)` mutate the
   score in place. No method returns a value.

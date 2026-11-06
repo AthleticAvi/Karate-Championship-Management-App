@@ -27,6 +27,7 @@ public final class ApiAccess {
   private static final String ONE_GAME = GAME + "/{gameId}";
   private static final String PLAYERS = ApiVersionConfiguration.PREFIX + PlayerController.PATH;
   private static final String ONE_PLAYER = PLAYERS + "/{playerId}";
+  private static final String ACCOUNTS = ApiVersionConfiguration.PREFIX + AccountController.PATH;
 
   public static final List<Rule> RULES =
       List.of(
@@ -43,7 +44,9 @@ public final class ApiAccess {
           new Rule(HttpMethod.PUT, ONE_GAME + "/override-winner", Level.ADMIN),
           new Rule(HttpMethod.PUT, ONE_GAME + "/update-winner/{color}", Level.ADMIN),
           new Rule(HttpMethod.POST, PLAYERS, Level.ADMIN),
-          new Rule(HttpMethod.DELETE, ONE_PLAYER, Level.ADMIN));
+          new Rule(HttpMethod.DELETE, ONE_PLAYER, Level.ADMIN),
+          new Rule(HttpMethod.POST, ACCOUNTS, Level.ADMIN),
+          new Rule(HttpMethod.DELETE, ACCOUNTS + "/{username}", Level.ADMIN));
 
   private ApiAccess() {
     throw new IllegalStateException("Utility class cannot be instantiated");

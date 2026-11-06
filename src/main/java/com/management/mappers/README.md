@@ -17,6 +17,7 @@ document becomes a response.
 - `KumiteGameMapper`: consumes `GameWithFighters`, produces `KumiteGameResponse`. Also turns
   requests into `NewMatch`, `NewOverride` and `NewClockAdjustment`.
 - `PlayerMapper`: `Player` to `PlayerResponse`.
+- `AccountMapper`: `AccountRequest` and a hash to `NewAccount`, `Account` to `AccountResponse`.
 
 ## [may-call] May call
 

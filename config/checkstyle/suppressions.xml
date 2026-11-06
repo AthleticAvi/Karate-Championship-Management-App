@@ -24,4 +24,7 @@
     Deliberately empty. Do not add a blanket suppression for it.
   -->
 
+  <!-- The framework's retry interface names this method, so it cannot be isX or hasX. -->
+  <suppress id="BooleanAccessorName" files="TransientTransactionRetry\.java"/>
+
 </suppressions>

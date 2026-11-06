@@ -60,6 +60,8 @@ class ApiDescriptionIT {
       }
       """;
 
+  private static final String ACCOUNTS = "/api/v1/accounts";
+
   private static ConfigurableApplicationContext dev;
   private static ConfigurableApplicationContext prod;
   private static JsonNode description;
@@ -180,6 +182,25 @@ class ApiDescriptionIT {
     assertThat(response("delete", PLAYER, "204").has("content")).isFalse();
     assertThat(response("get", PLAYER, "200").get("content").propertyNames())
         .containsExactly("application/json");
+  }
+
+  @Test
+  void accountOperations_listWhatTheyCanMeet() {
+    assertThat(statusesOf(operation("post", ACCOUNTS)))
+        .containsExactly("201", "400", "401", "403", "409", "413", "415", "500");
+    assertThat(statusesOf(operation("delete", ACCOUNTS + "/{username}")))
+        .containsExactly("204", "401", "403", "404", "409", "500");
+    assertThat(response("post", ACCOUNTS, "201").get("headers").propertyNames())
+        .contains("Location");
+  }
+
+  /** The request has a password, and the response must never have room for one. */
+  @Test
+  void accountResponse_describesNoPassword() {
+    assertThat(schema("AccountResponse").get("properties").propertyNames())
+        .containsExactlyInAnyOrder("username", "role");
+    assertThat(schema("AccountRequest").get("properties").get("password").get("format").asString())
+        .isEqualTo("password");
   }
 
   @Test
