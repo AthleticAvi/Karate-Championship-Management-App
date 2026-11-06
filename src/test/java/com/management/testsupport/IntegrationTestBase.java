@@ -113,6 +113,11 @@ public abstract class IntegrationTestBase {
         "accounts.first-admin.username", ADMIN, "accounts.first-admin.password", PASSWORD);
   }
 
+  /** The Scorekeeper, for an application started by hand, which only creates the Admin. */
+  public static Account scorekeeperAccount() {
+    return new Account(SCOREKEEPER, STORED_HASH, AccountRole.SCOREKEEPER);
+  }
+
   /** The value of an {@code Authorization} header. */
   public static String basic(String username, String password) {
     String pair = username + ":" + password;
@@ -255,6 +260,6 @@ public abstract class IntegrationTestBase {
   void dropEveryCollection() {
     mongoTemplate.getCollectionNames().forEach(mongoTemplate::dropCollection);
     mongoTemplate.insert(new Account(ADMIN, STORED_HASH, AccountRole.ADMIN));
-    mongoTemplate.insert(new Account(SCOREKEEPER, STORED_HASH, AccountRole.SCOREKEEPER));
+    mongoTemplate.insert(scorekeeperAccount());
   }
 }

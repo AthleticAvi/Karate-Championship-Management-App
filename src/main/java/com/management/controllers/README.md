@@ -130,7 +130,7 @@ address it sees is not the public one, so a page on the same public origin count
 and needs listing.
 
 **Why a filter and not the MVC mapping.** It answers ahead of Spring Security, covers answers given
-before a handler is chosen such as a 405, and sits inside the correlation filter, so a refusal has
+before a handler is chosen such as a 401, and sits inside the correlation filter, so a refusal has
 an ID. The filter ends every preflight it sees, even with no configuration for the path, which is
 why its servlet mapping is narrower than `/*`.
 

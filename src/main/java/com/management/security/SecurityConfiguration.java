@@ -54,8 +54,7 @@ public class SecurityConfiguration {
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .httpBasic(basic -> basic.authenticationEntryPoint(failures))
-        .exceptionHandling(
-            handling -> handling.authenticationEntryPoint(failures).accessDeniedHandler(failures))
+        .exceptionHandling(handling -> handling.accessDeniedHandler(failures))
         .authorizeHttpRequests(SecurityConfiguration::authorize)
         .build();
   }

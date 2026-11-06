@@ -44,8 +44,10 @@ Nothing in this application. Never `services`, `repositories` or `rules`.
 
 - **The route is logged, never the path.** A path holds what the client typed, so it could carry a
   line break or a credential into the logs. The pattern also groups cleanly in a query.
-- An unknown path reaches the static resource handler, so its route is `/**`. `UNMATCHED` is what is
-  left: a request no handler took, such as a verb the path does not allow.
+- `UNMATCHED` is a request no handler took. That is every refusal by the security chain, and so any
+  unknown path or unlisted verb, because neither has a rule. The one exception is a path the chain
+  lets through with nothing there, under the description's paths in `prod`: it reaches the static
+  resource handler, so its route is `/**`.
 - **Tomcat refuses some requests before any filter runs,** such as headers past the size limit. They
   get no ID and no line: see `[facts]` in the exceptions README.
 - **An exception that escapes the chain outlives the ID.** The container logs it after this filter

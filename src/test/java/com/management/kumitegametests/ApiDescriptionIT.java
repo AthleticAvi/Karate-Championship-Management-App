@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -136,17 +137,32 @@ class ApiDescriptionIT {
         .contains("basicAuth");
   }
 
-  /** Both answers come from the real chain, so the description cannot claim what it never does. */
+  /** All three come from the real chain, so the description cannot claim what it never does. */
   @Test
   void authenticationFailures_matchTheRealAnswers() throws Exception {
+    dev.getBean(MongoTemplate.class).save(IntegrationTestBase.scorekeeperAccount());
     String wrong = IntegrationTestBase.basic(IntegrationTestBase.ADMIN, "wrong");
+    String scorekeeper =
+        IntegrationTestBase.basic(IntegrationTestBase.SCOREKEEPER, IntegrationTestBase.PASSWORD);
     HttpResponse<String> publicRead =
         send(request(dev, PLAYERS + "/none").header("Authorization", wrong).GET());
     HttpResponse<String> write = send(request(dev, PLAYERS).POST(BodyPublishers.ofString("{}")));
+    HttpResponse<String> refused =
+        send(
+            request(dev, PLAYERS)
+                .header("Authorization", scorekeeper)
+                .POST(BodyPublishers.ofString("{}")));
 
+    assertThat(statusesOf(operation("get", PLAYER)))
+        .contains(String.valueOf(publicRead.statusCode()));
+    assertThat(statusesOf(operation("post", PLAYERS)))
+        .contains(String.valueOf(write.statusCode()), String.valueOf(refused.statusCode()));
     assertThat(publicRead.statusCode()).isEqualTo(401);
     assertThat(write.statusCode()).isEqualTo(401);
+    assertThat(refused.statusCode()).isEqualTo(403);
     assertThat(fieldsOf(write.body()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("ProblemDetail").get("required")));
+    assertThat(fieldsOf(refused.body()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("ProblemDetail").get("required")));
   }
 

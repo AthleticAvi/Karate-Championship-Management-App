@@ -3,7 +3,6 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.management.KumiteGameStarter;
-import com.management.testsupport.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -77,7 +76,7 @@ class ActuatorHealthDownIT {
   @Test
   void credentials_whenMongoIsUnreachable_failAsServerFault() {
     HttpHeaders headers = new HttpHeaders();
-    headers.set(HttpHeaders.AUTHORIZATION, IntegrationTestBase.adminCredentials());
+    headers.setBasicAuth("someone", "anything");
 
     ResponseEntity<String> response =
         rest.exchange(

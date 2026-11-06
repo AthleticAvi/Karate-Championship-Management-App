@@ -146,13 +146,16 @@ class RequestCorrelationIT extends IntegrationTestBase {
   @Test
   void credentialsQueryAndBody_areNeverLogged() {
     HttpHeaders headers = jsonHeaders();
-    headers.setBearerAuth(SECRET);
+    headers.set("X-Api-Key", SECRET);
 
-    rest.postForEntity(
-        "/api/v1/players?token=" + SECRET,
-        new HttpEntity<>("{\"name\": \"" + SECRET + "\"}", headers),
-        String.class);
+    ResponseEntity<String> response =
+        asAdmin()
+            .postForEntity(
+                "/api/v1/players?token=" + SECRET,
+                new HttpEntity<>("{\"name\": \"" + SECRET + "\"}", headers),
+                String.class);
 
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     assertThat(lines.list).isNotEmpty();
     assertThat(everythingLogged()).doesNotContain(SECRET);
   }

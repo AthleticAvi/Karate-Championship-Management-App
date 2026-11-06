@@ -50,7 +50,7 @@ Several chains may coexist, each scoped by a matcher: the first matching chain w
 - **Authorize on the smallest meaningful unit.** Path rules for coarse boundaries, method-level annotations where the rule depends on the operation or the record. Never scatter the same rule across both.
 - **Ownership checks belong where the record is loaded.** A path rule cannot express "only the owner may modify this": that needs the record, so it is a domain check.
 - **Never log or return a token, a credential, or a hash.** See `design/logging.md`.
-- **For Basic credentials, set the entry point on the Basic configurer and on exception handling.** The first answers wrong credentials and the second answers none. Set on one, the other answers in its own form.
+- **For Basic credentials, set the entry point on the Basic configurer.** It answers wrong credentials itself, and exception handling takes it as the default for no credentials. Set on exception handling alone, wrong credentials still answer in the framework's form. Test both paths.
 - **A challenge on a 401 makes a browser resend credentials by itself.** With CSRF off, an API whose client sends `Authorization` itself sends no `WWW-Authenticate: Basic`, and records why.
 - **Turn logout off on a stateless API.** The builder adds it by default, and a `POST /logout` then answers a redirect to a login page that is not there.
 - **A failed credential lookup is not a wrong password.** An outage in the account store arrives as an authentication exception, so an entry point answers 401 and sends the client to check a good password. Tell the service exception apart and answer it as a server fault.

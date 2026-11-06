@@ -63,8 +63,9 @@ package, so it cannot form a cycle. Spring Security types stay in this package, 
   resend the credentials by itself on every request, which is what would make CSRF off unsafe. The
   frontend sends `Authorization` itself. A client that waits for a challenge before sending
   credentials gets none, so it must send them first.
-- **Both the Basic filter and exception handling need the entry point.** The first answers wrong
-  credentials and the second answers none. Set on only one, the other sends the challenge.
+- **The entry point is set on the Basic configurer, and that covers both paths.** It answers wrong
+  credentials itself, and it becomes the default for exception handling, which answers none. Set on
+  exception handling alone, wrong credentials would still get the challenge.
 - **The password hash is made in a gateway,** because `PasswordEncoder` is a Spring Security type.
   Business code gets a plain string, and no hasher interface exists, because it would have one
   implementation.

@@ -19,8 +19,8 @@ import org.springframework.web.filter.CorsFilter;
  * <p><strong>A filter and not the framework's MVC mapping.</strong> A preflight carries no
  * credentials, so CORS has to run before any authentication, and this filter sits ahead of Spring
  * Security's chain, which has its own CORS filter turned off. It also answers inside the
- * correlation filter, so a refusal carries an ID and a request line, and it covers answers the
- * dispatcher gives before a handler is chosen, such as a 405.
+ * correlation filter, so a refusal carries an ID and a request line, and it covers answers given
+ * before a handler is chosen, such as a 401.
  *
  * <p><strong>Scoped twice on purpose.</strong> The servlet mapping keeps the filter off every other
  * path, because it ends any preflight it sees, even one with no configuration. The source states

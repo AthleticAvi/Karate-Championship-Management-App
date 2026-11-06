@@ -182,6 +182,10 @@ the record as its own text, which would become a password.
 | A username with anything but letters, digits, `.`, `_` or `-` | Refuses, naming the key. A colon could never sign in through Basic |
 | A password too long to hash | Refuses, naming `ADMIN_PASSWORD`. The hash takes 72 bytes |
 
+**Keep `${` out of `ADMIN_PASSWORD`.** The framework resolves placeholders inside a value, so
+`${x:y}` in a password becomes `y` with no error, and that is what gets hashed. Environment values
+are read this way however they are bound.
+
 The test profile has no file, so it gets `required` true and its values from the tests, which make up
 a password per run. `FirstAdminProperties.toString` leaves the password out, and the password carries
 no constraint, because a failed constraint prints its value.
