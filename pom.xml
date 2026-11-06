@@ -296,10 +296,10 @@
                 Ratchets down only. 19 -> 17 across Epic #32: the vendored ruleset counts the DTO
                 suffix as an abbreviation, and the two response types shed it when they were
                 redesigned (#34) and wired (#33). 17 -> 10 by #115: the count had already fallen and
-                the limit had not followed. 10 -> 3: star imports, DTO in
-                local names and a test method name went. The 3 left are the DTO type names.
+                the limit had not followed. 10 -> 0: star imports, the DTO
+                suffix and a test method name went.
               -->
-              <maxAllowedViolations>3</maxAllowedViolations>
+              <maxAllowedViolations>0</maxAllowedViolations>
             </configuration>
           </execution>
           <execution>

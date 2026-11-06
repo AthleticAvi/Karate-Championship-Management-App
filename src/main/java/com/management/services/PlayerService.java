@@ -1,6 +1,6 @@
 package com.management.services;
 
-import com.management.dto.PlayerRequestDTO;
+import com.management.dto.PlayerRequest;
 import com.management.enums.PointsType;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.models.Player;
@@ -41,7 +41,7 @@ public class PlayerService {
     this.playerRepository = playerRepository;
   }
 
-  public Player createPlayer(PlayerRequestDTO playerRequest) {
+  public Player createPlayer(PlayerRequest playerRequest) {
     Player newPlayer = new Player(playerRequest.name());
     return playerRepository.save(newPlayer);
   }

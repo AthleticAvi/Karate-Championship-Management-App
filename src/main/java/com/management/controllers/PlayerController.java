@@ -1,6 +1,6 @@
 package com.management.controllers;
 
-import com.management.dto.PlayerRequestDTO;
+import com.management.dto.PlayerRequest;
 import com.management.dto.PlayerResponse;
 import com.management.mappers.PlayerMapper;
 import com.management.services.PlayerService;
@@ -30,8 +30,7 @@ public class PlayerController {
 
   @ApiResponse(responseCode = "201", description = "Created")
   @PostMapping
-  public ResponseEntity<PlayerResponse> createPlayer(
-      @Valid @RequestBody PlayerRequestDTO newPlayer) {
+  public ResponseEntity<PlayerResponse> createPlayer(@Valid @RequestBody PlayerRequest newPlayer) {
     PlayerResponse created = PlayerMapper.toResponse(playerService.createPlayer(newPlayer));
     return ResponseEntity.status(HttpStatus.CREATED)
         .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.id())

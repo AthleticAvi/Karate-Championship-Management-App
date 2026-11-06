@@ -23,10 +23,11 @@ import org.jspecify.annotations.Nullable;
  * @param gameDuration seconds, optional; must be positive, and a positive value outside the
  *     configured set falls back to the configured default
  */
-public record KumiteGameRequestDTO(
+public record KumiteGameRequest(
     @NotNull(message = "a match needs fighters")
         @Size(min = 2, max = 2, message = "a match fields exactly two fighters")
-        Map<String, @NotNull(message = "a fighter must not be null") @Valid PlayerDTO> playersMap,
+        Map<String, @NotNull(message = "a fighter must not be null") @Valid FighterRequest>
+            playersMap,
     @NotEmpty(message = "a match needs at least one referee")
         List<@NotBlank(message = "a referee name must not be blank") String> refereeList,
     @Positive(message = "must be a positive number of seconds") @Nullable Integer gameDuration) {}

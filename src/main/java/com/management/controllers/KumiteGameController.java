@@ -1,7 +1,7 @@
 package com.management.controllers;
 
 import com.management.dto.ClockAdjustmentRequest;
-import com.management.dto.KumiteGameRequestDTO;
+import com.management.dto.KumiteGameRequest;
 import com.management.dto.KumiteGameResponse;
 import com.management.dto.WinnerOverrideRequest;
 import com.management.enums.PlayerColor;
@@ -38,7 +38,7 @@ public class KumiteGameController {
   @ApiResponse(responseCode = "201", description = "Created")
   @PostMapping
   public ResponseEntity<KumiteGameResponse> createKumiteGame(
-      @Valid @RequestBody KumiteGameRequestDTO gameDetails) {
+      @Valid @RequestBody KumiteGameRequest gameDetails) {
     KumiteGameResponse created =
         KumiteGameMapper.toResponse(kumiteGameService.createKumiteGame(gameDetails));
     return ResponseEntity.status(HttpStatus.CREATED)
