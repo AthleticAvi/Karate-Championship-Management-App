@@ -7,14 +7,14 @@ Closes #
 ## Changes
 
 <!-- One list per topic, up to 5 one-line bullets. Add topics such as Decisions for the owner,
-Findings or Not proven. Delete any with nothing to say. Say each thing once. Evidence goes in one
-PR comment, not here. -->
+Findings or Not proven. Delete any with nothing to say. Say each thing once. -->
 
 -
 
 ## Checks
 
-State the command you ran and what happened. "Tests attempted" is not a result.
+State the command you ran and what happened, in one line. "Tests attempted" is not a result. Link
+one PR comment for any further evidence.
 
 - [ ] `mvn verify` passes
 - [ ] Each new test was proven to fail when its behaviour breaks

@@ -48,7 +48,8 @@ and what they must do.
 3. **Say each thing once.** A point appears in one place. Never restate the summary in a list.
 4. **Keep only what the reader needs.** That is what changes their review or needs their decision.
    Leave out what the diff, the commits or CI already show.
-5. **Evidence stays out of the body.** Proof, measurements and plan detail that must be kept go in
-   one PR comment, linked from the body. No long tables in the body.
+5. **Evidence stays out of the body.** The body gets one line: the command run and what happened.
+   Further proof and measurements go in one PR comment, linked from that line. No long tables in
+   the body. Anything that must outlive the PR is an issue.
 6. **Read it as the owner before posting.** Cut any line they would skip. No filler, no padding,
    no claims without a result behind them.
