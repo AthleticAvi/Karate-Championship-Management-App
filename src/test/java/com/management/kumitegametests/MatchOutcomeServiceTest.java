@@ -268,7 +268,7 @@ class MatchOutcomeServiceTest {
   }
 
   @Test
-  void overrideWinner_onAQueuedMatch_isRejected() {
+  void overrideWinner_onQueuedMatch_isRejected() {
     String gameId = storage.save(KumiteGameBuilder.newGame().build()).getId();
 
     assertThatThrownBy(() ->

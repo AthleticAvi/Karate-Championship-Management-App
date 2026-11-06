@@ -94,13 +94,13 @@ public class KumiteGameService {
    * read. Re-reading would put a fallible round trip between "the match exists" and "the caller was
    * told its id" — exactly the unrecoverable shape #51 exists to remove.
    */
-  public GameWithFighters createKumiteGame(KumiteGameRequestDTO gameRequestDTO) {
+  public GameWithFighters createKumiteGame(KumiteGameRequestDTO gameRequest) {
     Map<PlayerColor, PlayerDTO> byColour = new EnumMap<>(PlayerColor.class);
-    gameRequestDTO
+    gameRequest
         .playersMap()
-        .forEach((key, playerDTO) -> {
-          PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(playerDTO.color());
-          PlayerDTO clash = byColour.put(playerColor, playerDTO);
+        .forEach((key, requested) -> {
+          PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(requested.color());
+          PlayerDTO clash = byColour.put(playerColor, requested);
           if (clash != null) {
             throw new InvalidGameRequestException(
                 "A match fields exactly one fighter per colour, but two were given as "
@@ -110,8 +110,8 @@ public class KumiteGameService {
         });
     validateColours(byColour.keySet());
 
-    List<Referee> refereesList = gameRequestDTO.refereeList().stream().map(Referee::new).toList();
-    Duration gameDuration = determineGameDuration(gameRequestDTO);
+    List<Referee> refereesList = gameRequest.refereeList().stream().map(Referee::new).toList();
+    Duration gameDuration = determineGameDuration(gameRequest);
 
     Map<PlayerColor, Player> createdFighters = new EnumMap<>(PlayerColor.class);
     try {
@@ -601,9 +601,9 @@ public class KumiteGameService {
     }
   }
 
-  private Duration determineGameDuration(KumiteGameRequestDTO gameRequestDTO) {
-    if (gameRequestDTO.gameDuration() != null) {
-      Duration requestedDuration = Duration.ofSeconds(gameRequestDTO.gameDuration());
+  private Duration determineGameDuration(KumiteGameRequestDTO gameRequest) {
+    if (gameRequest.gameDuration() != null) {
+      Duration requestedDuration = Duration.ofSeconds(gameRequest.gameDuration());
       if (gameProperties.optionalDurations().contains(requestedDuration)) {
         return requestedDuration;
       }

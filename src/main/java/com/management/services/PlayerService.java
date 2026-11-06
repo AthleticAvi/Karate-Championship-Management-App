@@ -41,8 +41,8 @@ public class PlayerService {
     this.playerRepository = playerRepository;
   }
 
-  public Player createPlayer(PlayerRequestDTO playerDTO) {
-    Player newPlayer = new Player(playerDTO.name());
+  public Player createPlayer(PlayerRequestDTO playerRequest) {
+    Player newPlayer = new Player(playerRequest.name());
     return playerRepository.save(newPlayer);
   }
 
