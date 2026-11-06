@@ -33,8 +33,12 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Missing or wrong credentials | 401 | `AuthenticationException` (framework) | fixed, the same for every cause |
 | Valid credentials without the role | 403 | `AccessDeniedException` (framework) | fixed |
 | Body past the JSON size limit | 413 | `HttpMessageNotReadableException` (framework) | generic |
+| A username already taken | 409 | `AccountAlreadyExistsException` | the message |
+| Removing the last Admin | 409 | `LastAdminException` | the message |
+| A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
 | A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
 | No such match | 404 | `GameNotFoundException` | the message |
+| No such account | 404 | `AccountNotFoundException` | the message |
 | No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
 | Accounts could not be read while checking credentials | 500 | `AuthenticationServiceException` (framework) | **generic**, message logged |
 | Anything else | 500 | catch-all | **generic**, message logged |
@@ -47,6 +51,8 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 - **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
   the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
   application sees them, so they carry no correlation ID and leave no request line.
+- **A lost write conflict arrives as a data integrity violation,** because the mapping layer sorts
+  that code with the duplicate keys. A duplicate key on a create is caught in `AccountService`.
 - **A 401 and a 403 start in the security filter chain, outside Spring MVC.** `SecurityFailureResponder`
   hands them to this handler through the framework's exception resolver, so they get the same form,
   `instance` and content type as every other failure. A 401 sends no challenge: see the security

@@ -22,6 +22,8 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 - `KumiteGameController` at `/api/v1/kumitegame`: match creation, retrieval, points, fouls, winner
   assignment, disqualification, KIKEN, referee override and clock extension.
 - `PlayerController` at `/api/v1/players`: player CRUD.
+- `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
+  because the encoder is a Spring Security type.
 - `ApiAccess`: the role table. See `[access]`.
 - `ApiVersionConfiguration`: `PREFIX`, the one place the version is named. It adds the prefix to
   every controller in this package through the framework's path matching, so a controller maps only
@@ -56,6 +58,7 @@ Persistence types do not cross the HTTP boundary in either direction. `KumiteGam
 | `KumiteGameResponse` | everything under `/api/v1/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
 | `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
 | `PlayerResponse` | `/api/v1/players` | `id`, `name`, `points`, `fouls` |
+| `AccountResponse` | `POST /api/v1/accounts` | `username`, `role`. Never a password or a hash |
 
 ## [access] Who may call what
 
@@ -67,7 +70,7 @@ live in this package and `security` already depends on it, so the reverse would 
 |---|---|
 | Public | `GET /kumitegame/{gameId}`, `GET /players/{playerId}` |
 | Scorekeeper and Admin | `POST /kumitegame`, `add-point`, `remove-point`, `add-foul`, `remove-foul`, `kiken`, `add-time` |
-| Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}` |
+| Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
 Any Scorekeeper may act on any bout: there is no assignment model. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
@@ -95,7 +98,9 @@ thing between this contract and a silent shift under a dependency upgrade.
 
 Scoring, disqualification, KIKEN, override and add-time endpoints answer with the updated
 `KumiteGameResponse`, so a scoreboard never needs a follow-up read, including when the mutation
-finished the match. `DELETE /api/v1/players/{id}` answers 204 with no body.
+finished the match. `DELETE /api/v1/players/{id}` and `DELETE /api/v1/accounts/{username}` answer 204
+with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET` serves it:
+nothing reads an account back, and the path is what `DELETE` takes.
 
 ## [validation] Validation at the boundary
 
@@ -167,6 +172,9 @@ every success. So:
 | A row at Admin level | 403 |
 | A path parameter, on anything but `GET` | 409 |
 | A request body | 413, 415 |
+
+`POST /api/v1/accounts` states its own 409, because a body of its own can collide: the rules give a
+409 only to a path parameter.
 
 `ApiDescriptionIT` pins these rules, and compares 400, 401, 404 and the success codes with real
 answers. A 401 is on public reads too, because wrong credentials are refused there. A 403 is on Admin
