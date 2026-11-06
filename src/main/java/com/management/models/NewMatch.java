@@ -15,6 +15,11 @@ import org.jspecify.annotations.Nullable;
 public record NewMatch(
     List<Fighter> fighters, List<String> referees, @Nullable Integer gameDuration) {
 
+  public NewMatch {
+    fighters = List.copyOf(fighters);
+    referees = List.copyOf(referees);
+  }
+
   /** A fighter to create for the match. */
   public record Fighter(String name, String color) {}
 }

@@ -1,18 +1,22 @@
 package com.management.mappers;
 
+import com.management.dto.ClockAdjustmentRequest;
 import com.management.dto.KumiteGameRequest;
 import com.management.dto.KumiteGameResponse;
 import com.management.dto.PlayerSummary;
+import com.management.dto.WinnerOverrideRequest;
 import com.management.enums.PlayerColor;
 import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
+import com.management.models.NewClockAdjustment;
 import com.management.models.NewMatch;
+import com.management.models.NewOverride;
 import com.management.models.Player;
 import com.management.models.Referee;
 import java.util.List;
 
 /**
- * Turns a stored match into the match the API reports, and a create request into domain input.
+ * Turns a stored match into the match the API reports, and a request into domain input.
  *
  * <p>This is the boundary the epic exists to create. Nothing on the far side of it is a persistence
  * type, so a field added to {@link KumiteGame} — orchestrator state, audit columns, scheduling data
@@ -42,6 +46,14 @@ public final class KumiteGameMapper {
             .toList(),
         request.refereeList(),
         request.gameDuration());
+  }
+
+  public static NewOverride toNewOverride(WinnerOverrideRequest request) {
+    return new NewOverride(request.winner(), request.reason(), request.decidedBy());
+  }
+
+  public static NewClockAdjustment toNewClockAdjustment(ClockAdjustmentRequest request) {
+    return new NewClockAdjustment(request.seconds(), request.addedBy());
   }
 
   public static KumiteGameResponse toResponse(GameWithFighters gameWithFighters) {

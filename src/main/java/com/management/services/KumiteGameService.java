@@ -15,7 +15,9 @@ import com.management.models.GameTimer;
 import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
 import com.management.models.MatchOutcome;
+import com.management.models.NewClockAdjustment;
 import com.management.models.NewMatch;
+import com.management.models.NewOverride;
 import com.management.models.Player;
 import com.management.models.Referee;
 import com.management.models.RefereeOverride;
@@ -24,6 +26,7 @@ import com.management.rules.MatchOutcomeEvaluator;
 import com.management.util.KumiteGameManagementUtils;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -285,13 +288,13 @@ public class KumiteGameService {
    * record exists to preserve, what the system itself concluded, would be lost on the second
    * correction.
    */
-  public GameWithFighters overrideWinner(
-      String gameId, @Nullable String winner, String reason, String decidedBy) {
+  public GameWithFighters overrideWinner(String gameId, NewOverride override) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     if (kumiteGame.getGameState() == GameState.QUEUED) {
       throw new IllegalStateTransitionException(
           "Match " + gameId + " has not started, so there is no result to override.");
     }
+    String winner = override.winner();
     PlayerColor declared = winner == null ? null : KumiteGameManagementUtils.mapPlayerColor(winner);
 
     MatchOutcome engineOutcome =
@@ -301,7 +304,9 @@ public class KumiteGameService {
             .orElseGet(() -> kumiteGame.outcome().orElse(null));
 
     kumiteGame.applyOverride(
-        new RefereeOverride(declared, reason, decidedBy, clock.instant(), engineOutcome), clock);
+        new RefereeOverride(
+            declared, override.reason(), override.decidedBy(), clock.instant(), engineOutcome),
+        clock);
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -311,13 +316,13 @@ public class KumiteGameService {
    * <p>Refused on a finished match: its clock is history. Allowed while running and while paused —
    * the timer handles the elapsed-time arithmetic that makes the running case correct.
    */
-  public GameWithFighters addTime(String gameId, int seconds, String addedBy) {
+  public GameWithFighters addTime(String gameId, NewClockAdjustment adjustment) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     if (kumiteGame.getGameState() == GameState.FINISHED) {
       throw new IllegalStateTransitionException(
           "Match " + gameId + " has finished; its clock cannot be extended.");
     }
-    Duration extra = Duration.ofSeconds(seconds);
+    Duration extra = Duration.ofSeconds(adjustment.seconds());
     if (!gameProperties.clockIncrements().contains(extra)) {
       throw new InvalidGameRequestException(
           "Time may be added in increments of "
@@ -327,7 +332,7 @@ public class KumiteGameService {
               + " was requested.");
     }
 
-    kumiteGame.addTime(new ClockAdjustment(extra, clock.instant(), addedBy), clock);
+    kumiteGame.addTime(new ClockAdjustment(extra, clock.instant(), adjustment.addedBy()), clock);
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -558,18 +563,27 @@ public class KumiteGameService {
 
   private void deleteOrphanedFighters(
       Map<PlayerColor, Player> createdFighters, RuntimeException cause) {
-    createdFighters.forEach((color, fighter) -> {
+    if (createdFighters.isEmpty()) {
+      log.error("Match creation failed with no fighter save confirmed", cause);
+      return;
+    }
+    List<String> stranded = new ArrayList<>();
+    for (Player fighter : createdFighters.values()) {
       try {
         playerService.deletePlayer(fighter.getId());
       } catch (RuntimeException compensationFailure) {
+        stranded.add(fighter.getId());
         log.error(
-            "Match creation failed after fighters were saved, and deleting orphaned fighter {}"
-                + " failed too — the document is stranded and must be removed by hand",
+            "Deleting orphaned fighter {} failed: the document must be removed by hand",
             fighter.getId(),
             compensationFailure);
       }
-    });
-    log.error("Match creation failed after fighters were saved; compensated by deletion", cause);
+    }
+    if (stranded.isEmpty()) {
+      log.error("Match creation failed after fighters were saved; compensated by deletion", cause);
+    } else {
+      log.error("Match creation failed after fighters were saved; stranded: {}", stranded, cause);
+    }
   }
 
   /**

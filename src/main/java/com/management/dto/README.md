@@ -13,7 +13,7 @@ The shapes of the API: request and response records. They carry values and no lo
 
 ## [owns] Owns
 
-- Requests: `KumiteGameRequest`, `FighterRequest`, `PlayerRequest`, `ClockAdjustmentRequest`,
+- Requests: `KumiteGameRequest`, `MatchFighterRequest`, `PlayerRequest`, `ClockAdjustmentRequest`,
   `WinnerOverrideRequest`.
 - Responses: `KumiteGameResponse`, `PlayerSummary`, `PlayerResponse`.
 

@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 public record KumiteGameRequest(
     @NotNull(message = "a match needs fighters")
         @Size(min = 2, max = 2, message = "a match fields exactly two fighters")
-        Map<String, @NotNull(message = "a fighter must not be null") @Valid FighterRequest>
+        Map<String, @NotNull(message = "a fighter must not be null") @Valid MatchFighterRequest>
             playersMap,
     @NotEmpty(message = "a match needs at least one referee")
         List<@NotBlank(message = "a referee name must not be blank") String> refereeList,

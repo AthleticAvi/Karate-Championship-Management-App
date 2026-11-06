@@ -49,7 +49,7 @@ and what they must do.
 4. **Keep only what the reader needs.** That is what changes their review or needs their decision.
    Leave out what the diff, the commits or CI already show.
 5. **Evidence stays out of the body.** The body gets one line: the command run and what happened.
-   Further proof and measurements go in one PR comment, linked from that line. No long tables in
-   the body. Anything that must outlive the PR is an issue.
+   Further proof, the plan and full findings go in one PR comment, linked from that line. No long
+   tables in the body. Anything that must outlive the PR is an issue.
 6. **Read it as the owner before posting.** Cut any line they would skip. No filler, no padding,
    no claims without a result behind them.
