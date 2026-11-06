@@ -8,6 +8,7 @@ import com.management.enums.PointsType;
 import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PointTypeNotFoundException;
 import com.management.util.KumiteGameManagementUtils;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,6 +37,19 @@ class KumiteGameManagementUtilsTest {
   @Test
   void mapPointToPointType_whenTheValueIsRecognised_parsesItCaseInsensitively() {
     assertThat(KumiteGameManagementUtils.mapPointToPointType("ippon")).isEqualTo(PointsType.IPPON);
+  }
+
+  @Test
+  void mapPointToPointType_underTurkishLocale_stillParsesLowerCase() {
+    Locale original = Locale.getDefault();
+    Locale.setDefault(Locale.forLanguageTag("tr"));
+    try {
+      assertThat(KumiteGameManagementUtils.mapPointToPointType("ippon"))
+          .as("a Turkish upper case i is dotted, so a default locale would refuse this")
+          .isEqualTo(PointsType.IPPON);
+    } finally {
+      Locale.setDefault(original);
+    }
   }
 
   @Test
