@@ -1,16 +1,18 @@
 package com.management.mappers;
 
+import com.management.dto.KumiteGameRequest;
 import com.management.dto.KumiteGameResponse;
 import com.management.dto.PlayerSummary;
 import com.management.enums.PlayerColor;
 import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
+import com.management.models.NewMatch;
 import com.management.models.Player;
 import com.management.models.Referee;
 import java.util.List;
 
 /**
- * Turns a stored match into the match the API reports.
+ * Turns a stored match into the match the API reports, and a create request into domain input.
  *
  * <p>This is the boundary the epic exists to create. Nothing on the far side of it is a persistence
  * type, so a field added to {@link KumiteGame} — orchestrator state, audit columns, scheduling data
@@ -31,6 +33,15 @@ public final class KumiteGameMapper {
 
   private KumiteGameMapper() {
     throw new IllegalStateException("Utility class cannot be instantiated");
+  }
+
+  public static NewMatch toNewMatch(KumiteGameRequest request) {
+    return new NewMatch(
+        request.playersMap().values().stream()
+            .map(fighter -> new NewMatch.Fighter(fighter.name(), fighter.color()))
+            .toList(),
+        request.refereeList(),
+        request.gameDuration());
   }
 
   public static KumiteGameResponse toResponse(GameWithFighters gameWithFighters) {

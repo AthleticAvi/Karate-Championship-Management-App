@@ -30,7 +30,7 @@ twice is a bug in this setup, not thoroughness.
 | **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **56** across main and test (39 NullAway) |
 | **javac** | Compiler warnings | `pom.xml`, `-Xlint:all,-serial` | Report only | 0 |
 | **JaCoCo** | Coverage, merged across both suites | `pom.xml`, `jacoco-maven-plugin` | **Enforced floor** | LINE **90%**, BRANCH **80%** |
-| **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 3 frozen rules |
+| **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 2 frozen rules |
 | **Docs tests** | Indexes, scaffold, generic workflow, em dashes, Java version in step | `RepositoryDocsTest` | **Enforced** | 0 |
 | **Enforcer** | The JDK running the build | `pom.xml`, `maven-enforcer-plugin` | **Enforced**, exact major | n/a |
 

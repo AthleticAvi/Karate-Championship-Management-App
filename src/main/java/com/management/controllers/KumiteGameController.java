@@ -40,7 +40,8 @@ public class KumiteGameController {
   public ResponseEntity<KumiteGameResponse> createKumiteGame(
       @Valid @RequestBody KumiteGameRequest gameDetails) {
     KumiteGameResponse created =
-        KumiteGameMapper.toResponse(kumiteGameService.createKumiteGame(gameDetails));
+        KumiteGameMapper.toResponse(
+            kumiteGameService.createKumiteGame(KumiteGameMapper.toNewMatch(gameDetails)));
     return ResponseEntity.status(HttpStatus.CREATED)
         .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.id())
         .body(created);
@@ -117,7 +118,9 @@ public class KumiteGameController {
   public ResponseEntity<KumiteGameResponse> overrideWinner(
       @PathVariable String gameId, @Valid @RequestBody WinnerOverrideRequest request) {
     return ResponseEntity.ok(
-        KumiteGameMapper.toResponse(kumiteGameService.overrideWinner(gameId, request)));
+        KumiteGameMapper.toResponse(
+            kumiteGameService.overrideWinner(
+                gameId, request.winner(), request.reason(), request.decidedBy())));
   }
 
   /** Puts time back on the clock after a stop that came late. */
@@ -125,6 +128,7 @@ public class KumiteGameController {
   public ResponseEntity<KumiteGameResponse> addTime(
       @PathVariable String gameId, @Valid @RequestBody ClockAdjustmentRequest request) {
     return ResponseEntity.ok(
-        KumiteGameMapper.toResponse(kumiteGameService.addTime(gameId, request)));
+        KumiteGameMapper.toResponse(
+            kumiteGameService.addTime(gameId, request.seconds(), request.addedBy())));
   }
 }

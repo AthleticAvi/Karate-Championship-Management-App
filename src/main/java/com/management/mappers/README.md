@@ -9,11 +9,13 @@
 
 ## [purpose] Purpose
 
-Turns domain types into API responses. The only place a document becomes a response.
+Turns domain types into API responses, and a create request into domain input. The only place a
+document becomes a response.
 
 ## [owns] Owns
 
-- `KumiteGameMapper`: consumes `GameWithFighters`, produces `KumiteGameResponse`.
+- `KumiteGameMapper`: consumes `GameWithFighters`, produces `KumiteGameResponse`. Also turns
+  `KumiteGameRequest` into `NewMatch`.
 - `PlayerMapper`: `Player` to `PlayerResponse`.
 
 ## [may-call] May call

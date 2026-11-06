@@ -3,8 +3,6 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.management.dto.ClockAdjustmentRequest;
-import com.management.dto.WinnerOverrideRequest;
 import com.management.enums.GameState;
 import com.management.enums.MatchEndReason;
 import com.management.enums.PlayerColor;
@@ -107,8 +105,7 @@ class MatchOutcomeServiceTest {
             match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
 
     GameWithFighters overridden =
-        service.overrideWinner(
-            gameId, new WinnerOverrideRequest("RED", "Stopped on the mat", "Head Referee"));
+        service.overrideWinner(gameId, "RED", "Stopped on the mat", "Head Referee");
 
     assertThat(overridden.game().getRemainingTime())
         .isBetween(Duration.ofSeconds(85), Duration.ofSeconds(92));
@@ -168,10 +165,9 @@ class MatchOutcomeServiceTest {
     String gameId = runningMatch();
     service.disqualify(gameId, "RED");
 
-    service.overrideWinner(gameId, new WinnerOverrideRequest("RED", "First call", "Referee One"));
+    service.overrideWinner(gameId, "RED", "First call", "Referee One");
     GameWithFighters second =
-        service.overrideWinner(
-            gameId, new WinnerOverrideRequest("BLUE", "Corrected again", "Head Referee"));
+        service.overrideWinner(gameId, "BLUE", "Corrected again", "Head Referee");
 
     assertThat(second.game().getRefereeOverride().orElseThrow().supersededOutcome())
         .as("the engine's original result survives a second correction")
@@ -254,9 +250,7 @@ class MatchOutcomeServiceTest {
     service.addPoint(gameId, "RED", PointsType.IPPON.name());
 
     GameWithFighters overridden =
-        service.overrideWinner(
-            gameId,
-            new WinnerOverrideRequest("BLUE", "Scoring error on the third IPPON", "Head Referee"));
+        service.overrideWinner(gameId, "BLUE", "Scoring error on the third IPPON", "Head Referee");
 
     assertThat(overridden.game().getWinner()).isEqualTo(PlayerColor.BLUE);
     assertThat(overridden.game().getEndReason()).contains(MatchEndReason.REFEREE_OVERRIDE);
@@ -271,17 +265,14 @@ class MatchOutcomeServiceTest {
   void overrideWinner_onQueuedMatch_isRejected() {
     String gameId = storage.save(KumiteGameBuilder.newGame().build()).getId();
 
-    assertThatThrownBy(() ->
-            service.overrideWinner(
-                gameId, new WinnerOverrideRequest("RED", "any reason", "Head Referee")))
+    assertThatThrownBy(() -> service.overrideWinner(gameId, "RED", "any reason", "Head Referee"))
         .isInstanceOf(IllegalStateTransitionException.class);
   }
 
   @Test
   void addPoint_afterAnOverride_doesNotLetTheEngineTakeTheResultBack() {
     String gameId = runningMatch();
-    service.overrideWinner(
-        gameId, new WinnerOverrideRequest("BLUE", "Called on the mat", "Head Referee"));
+    service.overrideWinner(gameId, "BLUE", "Called on the mat", "Head Referee");
 
     assertThatThrownBy(() -> service.addPoint(gameId, "RED", PointsType.IPPON.name()))
         .as("the match is finished, so scoring against it is refused")
@@ -298,8 +289,7 @@ class MatchOutcomeServiceTest {
         storedMatch(
             match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
 
-    GameWithFighters extended =
-        service.addTime(gameId, new ClockAdjustmentRequest(30, "Timekeeper"));
+    GameWithFighters extended = service.addTime(gameId, 30, "Timekeeper");
 
     assertThat(extended.game().getRemainingTime())
         .as("about 90s were left, and 30s were added")
@@ -312,8 +302,7 @@ class MatchOutcomeServiceTest {
   void addTime_whilePaused_extendsTheClockWithoutRestartingIt() {
     String gameId = storedMatch(match -> match.pausedWithRemaining(Duration.ofSeconds(45)));
 
-    GameWithFighters extended =
-        service.addTime(gameId, new ClockAdjustmentRequest(10, "Timekeeper"));
+    GameWithFighters extended = service.addTime(gameId, 10, "Timekeeper");
 
     assertThat(extended.game().getRemainingTime()).isEqualTo(Duration.ofSeconds(55));
     assertThat(extended.game().getStartTime()).as("a paused clock stays paused").isNull();
@@ -324,7 +313,7 @@ class MatchOutcomeServiceTest {
   void addTime_onFinishedMatch_isRejected() {
     String gameId = storedMatch(KumiteGameBuilder::finished);
 
-    assertThatThrownBy(() -> service.addTime(gameId, new ClockAdjustmentRequest(10, "Timekeeper")))
+    assertThatThrownBy(() -> service.addTime(gameId, 10, "Timekeeper"))
         .isInstanceOf(IllegalStateTransitionException.class);
   }
 
@@ -332,7 +321,7 @@ class MatchOutcomeServiceTest {
   void addTime_withIncrementThatIsNotOffered_isRejected() {
     String gameId = runningMatch();
 
-    assertThatThrownBy(() -> service.addTime(gameId, new ClockAdjustmentRequest(7, "Timekeeper")))
+    assertThatThrownBy(() -> service.addTime(gameId, 7, "Timekeeper"))
         .isInstanceOf(InvalidGameRequestException.class)
         .hasMessageContaining("increments");
   }

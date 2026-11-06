@@ -9,12 +9,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.management.config.GameProperties;
-import com.management.dto.FighterRequest;
-import com.management.dto.KumiteGameRequest;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.InvalidGameRequestException;
 import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
+import com.management.models.NewMatch;
 import com.management.models.Player;
 import com.management.repositories.KumiteGameRepository;
 import com.management.repositories.PlayerRepository;
@@ -27,9 +26,7 @@ import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +62,7 @@ class KumiteGameCreationTest {
   void createKumiteGame_withOneRedAndOneBlue_savesTheMatchAndBothFighters() {
     GameWithFighters created =
         service.createKumiteGame(
-            request(new FighterRequest("Kenji", "RED"), new FighterRequest("Sato", "BLUE")));
+            request(new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE")));
 
     assertThat(created.game().getId()).isNotNull();
     assertThat(storage.count(KumiteGame.class)).isEqualTo(1);
@@ -110,7 +107,8 @@ class KumiteGameCreationTest {
 
     assertThatThrownBy(() ->
             flakyService.createKumiteGame(
-                request(new FighterRequest("Kenji", "RED"), new FighterRequest("Sato", "BLUE"))))
+                request(
+                    new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE"))))
         .isInstanceOf(IllegalStateException.class);
 
     assertThat(storage.count(Player.class))
@@ -145,18 +143,16 @@ class KumiteGameCreationTest {
 
     GameWithFighters created =
         customised.createKumiteGame(
-            request(new FighterRequest("Kenji", "RED"), new FighterRequest("Sato", "BLUE")));
+            request(new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE")));
 
     assertThat(created.game().getGameDuration()).isEqualTo(Duration.ofMinutes(5));
   }
 
   @Test
   void createKumiteGame_withDurationOutsideTheConfiguredSet_fallsBackToTheDefault() {
-    KumiteGameRequest oddDuration =
-        new KumiteGameRequest(
-            Map.of(
-                "red", new FighterRequest("Kenji", "RED"),
-                "blue", new FighterRequest("Sato", "BLUE")),
+    NewMatch oddDuration =
+        new NewMatch(
+            List.of(new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE")),
             List.of("Referee One"),
             100);
 
@@ -168,7 +164,7 @@ class KumiteGameCreationTest {
 
   @Test
   void createKumiteGame_withSingleFighter_isRejectedAndWritesNothing() {
-    KumiteGameRequest onlyRed = request(new FighterRequest("Kenji", "RED"));
+    NewMatch onlyRed = request(new NewMatch.Fighter("Kenji", "RED"));
 
     assertThatThrownBy(() -> service.createKumiteGame(onlyRed))
         .isInstanceOf(InvalidGameRequestException.class)
@@ -180,11 +176,11 @@ class KumiteGameCreationTest {
 
   @Test
   void createKumiteGame_withThreeFighters_isRejectedNamingTheDuplicatedColour() {
-    KumiteGameRequest threeFighters =
+    NewMatch threeFighters =
         request(
-            new FighterRequest("Kenji", "RED"),
-            new FighterRequest("Sato", "BLUE"),
-            new FighterRequest("Hiro", "RED"));
+            new NewMatch.Fighter("Kenji", "RED"),
+            new NewMatch.Fighter("Sato", "BLUE"),
+            new NewMatch.Fighter("Hiro", "RED"));
 
     assertThatThrownBy(() -> service.createKumiteGame(threeFighters))
         .isInstanceOf(InvalidGameRequestException.class)
@@ -215,7 +211,8 @@ class KumiteGameCreationTest {
 
     assertThatThrownBy(() ->
             failingService.createKumiteGame(
-                request(new FighterRequest("Kenji", "RED"), new FighterRequest("Sato", "BLUE"))))
+                request(
+                    new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE"))))
         .isInstanceOf(IllegalStateException.class);
 
     assertThat(storage.count(Player.class))
@@ -223,11 +220,7 @@ class KumiteGameCreationTest {
         .isZero();
   }
 
-  private static KumiteGameRequest request(FighterRequest... fighters) {
-    Map<String, FighterRequest> byKey = new LinkedHashMap<>();
-    for (int i = 0; i < fighters.length; i++) {
-      byKey.put("fighter" + i, fighters[i]);
-    }
-    return new KumiteGameRequest(byKey, List.of("Referee One"), null);
+  private static NewMatch request(NewMatch.Fighter... fighters) {
+    return new NewMatch(List.of(fighters), List.of("Referee One"), null);
   }
 }

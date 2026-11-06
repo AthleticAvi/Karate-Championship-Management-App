@@ -82,6 +82,44 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   }
 
   @Test
+  void overrideWinner_passesEachFieldToTheService() throws Exception {
+    given(kumiteGameService.overrideWinner("game-1", "RED", "Stopped on the mat", "Chief Referee"))
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
+
+    mockMvc
+        .perform(
+            put("/api/v1/kumitegame/{gameId}/override-winner", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "winner": "RED",
+                      "reason": "Stopped on the mat",
+                      "decidedBy": "Chief Referee"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value("game-1"));
+  }
+
+  @Test
+  void addTime_passesEachFieldToTheService() throws Exception {
+    given(kumiteGameService.addTime("game-1", 30, "Timekeeper"))
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
+
+    mockMvc
+        .perform(
+            put("/api/v1/kumitegame/{gameId}/add-time", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    { "seconds": 30, "addedBy": "Timekeeper" }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value("game-1"));
+  }
+
+  @Test
   void getKumiteGame_whenTheGameExists_returns200AndTheGameAsJson() throws Exception {
     GameWithFighters game =
         KumiteGameBuilder.newGame()

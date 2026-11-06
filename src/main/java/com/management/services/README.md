@@ -24,7 +24,7 @@ Orchestration. Owns every operation that spans the two aggregates, and decides w
 ## [may-call] May call
 
 `repositories`, `rules`, `models`, `enums`, `config`, `exceptions`. Never `controllers` or `mappers`.
-Imports request types from `dto` today, which is a frozen layer violation.
+Never `dto`: the gateway maps a request first, and a strict rule enforces it.
 
 ## [cross-aggregate] How scoring works across aggregates
 

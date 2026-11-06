@@ -27,5 +27,4 @@ The shapes of the API: request and response records. They carry values and no lo
 - Name records `*Request` and `*Response`. A `DTO` suffix fails Checkstyle, as an abbreviation.
 - `@Schema` here feeds the API description and nothing else: see `[description]` in
   `controllers/README.md`.
-- `services` imports the request types. This is a frozen layer violation: see `[boundaries]` in
-  `README.md` at the package root.
+- Requests stop at the gateway. `services` never imports this package.
