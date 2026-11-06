@@ -5,6 +5,7 @@ import com.management.enums.PointsType;
 import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PointTypeNotFoundException;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
@@ -33,17 +34,17 @@ public class KumiteGameManagementUtils {
    * consulted.
    */
   public static PlayerColor mapPlayerColor(String color) {
-    if (!(isInPlayerColor(color))) {
+    if (!isInPlayerColor(color)) {
       log.debug("KumiteGameManagementUtils - mapPlayerColor - could not map color: {}", color);
       throw new InvalidPlayerColorException(
           "Unknown player colour: " + color + ". Expected one of " + names(PlayerColor.values()));
     }
-    return PlayerColor.valueOf(color.toUpperCase());
+    return PlayerColor.valueOf(color.toUpperCase(Locale.ROOT));
   }
 
   public static boolean isInPlayerColor(String color) {
     try {
-      PlayerColor.valueOf(color.toUpperCase());
+      PlayerColor.valueOf(color.toUpperCase(Locale.ROOT));
       return true;
     } catch (IllegalArgumentException e) {
       return false;
@@ -51,13 +52,13 @@ public class KumiteGameManagementUtils {
   }
 
   public static PointsType mapPointToPointType(String pointType) {
-    if (!(isInPointsType(pointType))) {
+    if (!isInPointsType(pointType)) {
       log.debug(
           "KumiteGameManagementUtils - mapPointToPointType - could not map point: {}", pointType);
       throw new PointTypeNotFoundException(
           "Unknown point type: " + pointType + ". Expected one of " + names(PointsType.values()));
     }
-    return PointsType.valueOf(pointType.toUpperCase());
+    return PointsType.valueOf(pointType.toUpperCase(Locale.ROOT));
   }
 
   /**
@@ -73,7 +74,7 @@ public class KumiteGameManagementUtils {
 
   public static boolean isInPointsType(String pointType) {
     try {
-      PointsType.valueOf(pointType.toUpperCase());
+      PointsType.valueOf(pointType.toUpperCase(Locale.ROOT));
       return true;
     } catch (IllegalArgumentException e) {
       return false;

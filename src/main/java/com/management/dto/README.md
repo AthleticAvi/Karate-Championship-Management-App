@@ -13,7 +13,7 @@ The shapes of the API: request and response records. They carry values and no lo
 
 ## [owns] Owns
 
-- Requests: `KumiteGameRequestDTO`, `PlayerDTO`, `PlayerRequestDTO`, `ClockAdjustmentRequest`,
+- Requests: `KumiteGameRequest`, `FighterRequest`, `PlayerRequest`, `ClockAdjustmentRequest`,
   `WinnerOverrideRequest`.
 - Responses: `KumiteGameResponse`, `PlayerSummary`, `PlayerResponse`.
 
@@ -24,8 +24,7 @@ The shapes of the API: request and response records. They carry values and no lo
 ## [facts] Project facts
 
 - The response contract and wire formats are in `controllers/README.md`.
-- The `DTO` suffix counts as an abbreviation under the vendored Checkstyle ruleset. The remaining
-  request types are part of the published ratchet baseline.
+- Name records `*Request` and `*Response`. A `DTO` suffix fails Checkstyle, as an abbreviation.
 - `@Schema` here feeds the API description and nothing else: see `[description]` in
   `controllers/README.md`.
 - `services` imports the request types. This is a frozen layer violation: see `[boundaries]` in

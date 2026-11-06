@@ -80,7 +80,7 @@ Commit the review fixes and recorded knowledge, then re-run the tests and static
 
 ## [pr] Push and open the PR
 
-Push, then open the PR assigned to its author with the template filled in: see
+Push, then open the PR assigned to its author with the template filled in: see `[pr-body]` in
 `git/github/issues-and-prs.md`. Only the owner merges, or an agent the owner told to merge
 that PR.
 

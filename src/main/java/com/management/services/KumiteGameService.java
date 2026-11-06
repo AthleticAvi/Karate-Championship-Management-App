@@ -2,9 +2,9 @@ package com.management.services;
 
 import com.management.config.GameProperties;
 import com.management.dto.ClockAdjustmentRequest;
-import com.management.dto.KumiteGameRequestDTO;
-import com.management.dto.PlayerDTO;
-import com.management.dto.PlayerRequestDTO;
+import com.management.dto.FighterRequest;
+import com.management.dto.KumiteGameRequest;
+import com.management.dto.PlayerRequest;
 import com.management.dto.WinnerOverrideRequest;
 import com.management.enums.FoulTypes;
 import com.management.enums.GameState;
@@ -94,13 +94,13 @@ public class KumiteGameService {
    * read. Re-reading would put a fallible round trip between "the match exists" and "the caller was
    * told its id" — exactly the unrecoverable shape #51 exists to remove.
    */
-  public GameWithFighters createKumiteGame(KumiteGameRequestDTO gameRequestDTO) {
-    Map<PlayerColor, PlayerDTO> byColour = new EnumMap<>(PlayerColor.class);
-    gameRequestDTO
+  public GameWithFighters createKumiteGame(KumiteGameRequest gameRequest) {
+    Map<PlayerColor, FighterRequest> byColour = new EnumMap<>(PlayerColor.class);
+    gameRequest
         .playersMap()
-        .forEach((key, playerDTO) -> {
-          PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(playerDTO.color());
-          PlayerDTO clash = byColour.put(playerColor, playerDTO);
+        .forEach((key, requested) -> {
+          PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(requested.color());
+          FighterRequest clash = byColour.put(playerColor, requested);
           if (clash != null) {
             throw new InvalidGameRequestException(
                 "A match fields exactly one fighter per colour, but two were given as "
@@ -110,14 +110,14 @@ public class KumiteGameService {
         });
     validateColours(byColour.keySet());
 
-    List<Referee> refereesList = gameRequestDTO.refereeList().stream().map(Referee::new).toList();
-    Duration gameDuration = determineGameDuration(gameRequestDTO);
+    List<Referee> refereesList = gameRequest.refereeList().stream().map(Referee::new).toList();
+    Duration gameDuration = determineGameDuration(gameRequest);
 
     Map<PlayerColor, Player> createdFighters = new EnumMap<>(PlayerColor.class);
     try {
       byColour.forEach((playerColor, requested) ->
           createdFighters.put(
-              playerColor, playerService.createPlayer(new PlayerRequestDTO(requested.name()))));
+              playerColor, playerService.createPlayer(new PlayerRequest(requested.name()))));
 
       Map<PlayerColor, String> playerIds = new EnumMap<>(PlayerColor.class);
       createdFighters.forEach(
@@ -601,9 +601,9 @@ public class KumiteGameService {
     }
   }
 
-  private Duration determineGameDuration(KumiteGameRequestDTO gameRequestDTO) {
-    if (gameRequestDTO.gameDuration() != null) {
-      Duration requestedDuration = Duration.ofSeconds(gameRequestDTO.gameDuration());
+  private Duration determineGameDuration(KumiteGameRequest gameRequest) {
+    if (gameRequest.gameDuration() != null) {
+      Duration requestedDuration = Duration.ofSeconds(gameRequest.gameDuration());
       if (gameProperties.optionalDurations().contains(requestedDuration)) {
         return requestedDuration;
       }

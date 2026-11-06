@@ -169,7 +169,7 @@ class ApiDescriptionIT {
                 .filter(name -> !"package-info".equals(name))
                 .collect(Collectors.toSet());
 
-    assertThat(shapes).contains("PlayerRequestDTO", "KumiteGameResponse");
+    assertThat(shapes).contains("PlayerRequest", "KumiteGameResponse");
     assertThat(description.get("components").get("schemas").propertyNames())
         .containsExactlyInAnyOrderElementsOf(
             Stream.concat(shapes.stream(), Stream.of("ProblemDetail")).toList());
@@ -214,7 +214,7 @@ class ApiDescriptionIT {
         .allSatisfy(type ->
             assertThat(namesOf(type.get("schema").get("enum")))
                 .containsExactlyElementsOf(pointTypes));
-    assertThat(namesOf(schema("PlayerDTO").get("properties").get("color").get("enum")))
+    assertThat(namesOf(schema("FighterRequest").get("properties").get("color").get("enum")))
         .containsExactlyElementsOf(colours);
     assertThat(namesOf(schema("WinnerOverrideRequest").get("properties").get("winner").get("enum")))
         .containsAll(colours)

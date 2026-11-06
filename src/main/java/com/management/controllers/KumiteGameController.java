@@ -1,7 +1,7 @@
 package com.management.controllers;
 
 import com.management.dto.ClockAdjustmentRequest;
-import com.management.dto.KumiteGameRequestDTO;
+import com.management.dto.KumiteGameRequest;
 import com.management.dto.KumiteGameResponse;
 import com.management.dto.WinnerOverrideRequest;
 import com.management.enums.PlayerColor;
@@ -14,7 +14,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(KumiteGameController.PATH)
@@ -31,7 +38,7 @@ public class KumiteGameController {
   @ApiResponse(responseCode = "201", description = "Created")
   @PostMapping
   public ResponseEntity<KumiteGameResponse> createKumiteGame(
-      @Valid @RequestBody KumiteGameRequestDTO gameDetails) {
+      @Valid @RequestBody KumiteGameRequest gameDetails) {
     KumiteGameResponse created =
         KumiteGameMapper.toResponse(kumiteGameService.createKumiteGame(gameDetails));
     return ResponseEntity.status(HttpStatus.CREATED)
