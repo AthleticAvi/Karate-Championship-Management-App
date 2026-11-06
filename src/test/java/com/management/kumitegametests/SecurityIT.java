@@ -213,6 +213,16 @@ class SecurityIT extends IntegrationTestBase {
     assertThat(response.headers().firstValue("Set-Cookie")).isEmpty();
   }
 
+  /** With sessions allowed, the framework saves a refused page request in one, to replay it. */
+  @Test
+  void refusal_createsNoSession() throws Exception {
+    HttpResponse<String> response =
+        send(to("/actuator/health").header("Accept", "text/html").GET());
+
+    assertThat(response.statusCode()).isEqualTo(401);
+    assertThat(response.headers().firstValue("Set-Cookie")).isEmpty();
+  }
+
   /** Left on, the framework would answer this with a redirect to a login page that is not here. */
   @Test
   void logoutAndLoginPages_doNotExist() throws Exception {
