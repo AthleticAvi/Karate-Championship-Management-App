@@ -564,7 +564,7 @@ public class KumiteGameService {
   private void deleteOrphanedFighters(
       Map<PlayerColor, Player> createdFighters, RuntimeException cause) {
     if (createdFighters.isEmpty()) {
-      log.error("Match creation failed before any fighter was saved", cause);
+      log.error("Match creation failed with no fighter save confirmed", cause);
       return;
     }
     List<String> stranded = new ArrayList<>();

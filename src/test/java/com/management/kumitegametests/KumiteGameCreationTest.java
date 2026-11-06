@@ -31,6 +31,7 @@ import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGameProperties;
 import com.management.testsupport.TestRulesEngine;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,14 +55,7 @@ class KumiteGameCreationTest {
   void setUp() {
     storage = new InMemoryMongo();
     playerService = new PlayerService(FakeRepositories.players(storage));
-    service =
-        new KumiteGameService(
-            FakeRepositories.kumiteGames(storage),
-            TestGameProperties.standard(),
-            playerService,
-            TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
-            TestClock.FIXED);
+    service = serviceWith(FakeRepositories.kumiteGames(storage), playerService);
   }
 
   @Test
@@ -103,13 +97,7 @@ class KumiteGameCreationTest {
         .delete(any(Player.class));
 
     KumiteGameService flakyService =
-        new KumiteGameService(
-            FakeRepositories.kumiteGames(storage),
-            TestGameProperties.standard(),
-            new PlayerService(flakyFighters),
-            TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
-            TestClock.FIXED);
+        serviceWith(FakeRepositories.kumiteGames(storage), new PlayerService(flakyFighters));
 
     assertThatThrownBy(() ->
             flakyService.createKumiteGame(
@@ -206,14 +194,7 @@ class KumiteGameCreationTest {
     KumiteGameRepository failingRepository = mock(KumiteGameRepository.class);
     when(failingRepository.save(any(KumiteGame.class)))
         .thenThrow(new IllegalStateException("simulated write failure"));
-    KumiteGameService failingService =
-        new KumiteGameService(
-            failingRepository,
-            TestGameProperties.standard(),
-            playerService,
-            TestRulesEngine.standard(),
-            new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
-            TestClock.FIXED);
+    KumiteGameService failingService = serviceWith(failingRepository, playerService);
 
     assertThatThrownBy(() ->
             failingService.createKumiteGame(
@@ -235,7 +216,7 @@ class KumiteGameCreationTest {
         serviceWith(FakeRepositories.kumiteGames(storage), new PlayerService(failingFighters));
 
     assertThat(errorsLoggedBy(failing))
-        .containsExactly("Match creation failed before any fighter was saved");
+        .containsExactly("Match creation failed with no fighter save confirmed");
   }
 
   @Test
@@ -268,6 +249,36 @@ class KumiteGameCreationTest {
 
     assertThat(errors).hasSize(3).noneMatch(line -> line.contains("compensated"));
     assertThat(errors.getLast()).contains("stranded");
+  }
+
+  @Test
+  void createKumiteGame_whenOnlyOneFighterIsDeleted_namesOnlyTheStrandedOne() {
+    KumiteGameRepository failingMatches = mock(KumiteGameRepository.class);
+    when(failingMatches.save(any(KumiteGame.class)))
+        .thenThrow(new IllegalStateException("simulated write failure"));
+    PlayerRepository halfDeletingFighters = mock(PlayerRepository.class);
+    when(halfDeletingFighters.save(any(Player.class)))
+        .thenAnswer(call -> storage.save((Player) call.getArgument(0)));
+    when(halfDeletingFighters.findById(anyString()))
+        .thenAnswer(call -> storage.findById(Player.class, call.getArgument(0)));
+    List<String> deleted = new ArrayList<>();
+    doAnswer(
+            call -> {
+              Player fighter = call.getArgument(0);
+              deleted.add(fighter.getId());
+              storage.delete(fighter);
+              return null;
+            })
+        .doThrow(new IllegalStateException("simulated delete failure"))
+        .when(halfDeletingFighters)
+        .delete(any(Player.class));
+
+    List<String> errors =
+        errorsLoggedBy(serviceWith(failingMatches, new PlayerService(halfDeletingFighters)));
+
+    assertThat(deleted).hasSize(1);
+    assertThat(storage.count(Player.class)).isEqualTo(1);
+    assertThat(errors.getLast()).contains("stranded").doesNotContain(deleted.getFirst());
   }
 
   private KumiteGameService serviceWith(KumiteGameRepository matches, PlayerService players) {
