@@ -16,7 +16,7 @@ bypassed. `KumiteGame` and `Player` mixing domain and storage is a frozen layer 
 
 ## [owns] Owns
 
-- Aggregates: `KumiteGame`, `Player`.
+- Aggregates: `KumiteGame`, `Player`, `Account`.
 - Values: `Points`, `Foul`, `Referee`, `RefereeOverride`, `ClockAdjustment`, `MatchOutcome`.
 - `GameWithFighters`: the composed read of both aggregates, which `KumiteGameMapper` consumes.
 - `NewMatch`, `NewOverride`, `NewClockAdjustment`: business inputs, mapped from requests by the
@@ -51,10 +51,14 @@ the writer counts nothing until it catches up, because elapsed time is never neg
 
 ## [versioning] Versioned documents
 
-Both documents carry `@Version private long`, so a stale save raises
+`KumiteGame` and `Player` carry `@Version private long`, so a stale save raises
 `OptimisticLockingFailureException` instead of silently losing an update.
 
 **Documents written before the version field existed cannot be re-saved.** Spring Data reads an
 absent version as 0, treats the entity as new, and the next `save` fails with a duplicate key on the
 existing `_id`. No backfill is provided, and pre-#49 documents (embedded fighters, no `playerIds`)
 are not migrated, because there is no production data. **Drop the dev database** instead.
+
+`Account` has no version field, because an account is only ever inserted or deleted, never updated.
+Its username is the document id, in a field named `id`, which the mapping stores as the id with no
+annotation. That keeps `Account` free of persistence annotations, and so out of the frozen rule.

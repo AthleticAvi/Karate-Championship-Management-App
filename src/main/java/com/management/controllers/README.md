@@ -6,6 +6,7 @@
 - [owns] Owns
 - [may-call] May call
 - [contract] Response contract
+- [access] Who may call what
 - [wire-formats] Wire formats, and why
 - [mutations] Mutations return the new state
 - [validation] Validation at the boundary
@@ -21,6 +22,7 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 - `KumiteGameController` at `/api/v1/kumitegame`: match creation, retrieval, points, fouls, winner
   assignment, disqualification, KIKEN, referee override and clock extension.
 - `PlayerController` at `/api/v1/players`: player CRUD.
+- `ApiAccess`: the role table. See `[access]`.
 - `ApiVersionConfiguration`: `PREFIX`, the one place the version is named. It adds the prefix to
   every controller in this package through the framework's path matching, so a controller maps only
   its own resource. Nothing else moves: the actuator, the error path and the API description stay
@@ -34,7 +36,7 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 `services`, `mappers`, `dto`. Never `repositories` or `rules`.
 
 Three narrow additions: `config` for `CorsProperties`, the header name in `filters`, and `enums` for
-the values a documented parameter takes. `config` never depends back on this package, because
+the values a documented parameter takes. `security` depends on this package, never the reverse. `config` never depends back on this package, because
 services depend on `config`, so that would be a cycle. That is why the CORS wiring sits here.
 
 ## [contract] Response contract
@@ -43,7 +45,8 @@ services depend on `config`, so that would be a cycle. That is why the CORS wiri
 It lives here and not in `config` because it is a fact about HTTP routes, which the controllers need
 for `Location`.
 
-A request on an old path, or on any other version, answers 404 before a controller runs.
+A request on an old path, or on any other version, is refused before a controller runs: it has no
+row in the role table, so it answers 401, or 403 with credentials.
 
 Persistence types do not cross the HTTP boundary in either direction. `KumiteGameMapper` and
 `PlayerMapper` are the only places a document becomes a response.
@@ -53,6 +56,23 @@ Persistence types do not cross the HTTP boundary in either direction. `KumiteGam
 | `KumiteGameResponse` | everything under `/api/v1/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
 | `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
 | `PlayerResponse` | `/api/v1/players` | `id`, `name`, `points`, `fouls` |
+
+## [access] Who may call what
+
+`ApiAccess` is the one statement of the role table. The filter chain builds its rules from it, and
+the description reads it, so the two cannot disagree. It sits here because the description may only
+live in this package and `security` already depends on it, so the reverse would be a cycle.
+
+| Level | Endpoints under `/api/v1` |
+|---|---|
+| Public | `GET /kumitegame/{gameId}`, `GET /players/{playerId}` |
+| Scorekeeper and Admin | `POST /kumitegame`, `add-point`, `remove-point`, `add-foul`, `remove-foul`, `kiken`, `add-time` |
+| Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}` |
+
+Any Scorekeeper may act on any bout: there is no assignment model. A new endpoint needs a row here,
+and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
+compares it with the real mappings, so a new endpoint fails the build until someone decides. What
+each answer means is in the security README.
 
 ## [wire-formats] Wire formats, and why
 
@@ -114,11 +134,13 @@ before a handler is chosen such as a 405, and sits inside the correlation filter
 an ID. The filter ends every preflight it sees, even with no configuration for the path, which is
 why its servlet mapping is narrower than `/*`.
 
-**For Spring Security:** `http.cors()` configures itself only from a
-`UrlBasedCorsConfigurationSource`, and this is the one bean of that kind. A second
-`CorsConfigurationSource` turns that off. Spring Security also looks up a bean named `corsFilter`
-and expects a plain `CorsFilter`, so the registration here is `apiCorsFilter`. Its order is pinned
-ahead of the security chain's -100, so a preflight never reaches authentication.
+**For Spring Security:** this filter runs ahead of the chain, so a preflight never reaches
+authentication, and an answer from the chain to an allowed origin still carries the CORS headers.
+The chain's own CORS filter is turned off: Spring Security adds it by itself on finding exactly one
+`UrlBasedCorsConfigurationSource`, and it would refuse a preflight on any path outside the source,
+such as the actuator. Keep this the one such bean all the same, and keep the registration named
+`apiCorsFilter`: Spring Security looks up a bean named `corsFilter` and expects a plain `CorsFilter`.
+A preflight on the actuator is plain `OPTIONS` there, so it gets the 401 of any unlisted method.
 
 ## [description] API description
 
@@ -126,9 +148,9 @@ Generated from the code by springdoc, at `/v3/api-docs` and `/v3/api-docs.yaml`,
 see `[cors]` in the config README for where settings live. There is no copy in the repo. No UI is
 included: the description is what a client needs, and any viewer can open it.
 
-**Off in `prod`.** With no authentication yet, it would hand anyone a map of every write, and a
-client team can read it from `dev`. Turn it on when the writes are protected, if a client then
-needs it there. It is a property, so no beans are created while it is off.
+**Off in `prod`.** It would hand anyone a map of every write, and a client team can read it from
+`dev`, where it needs no login. It is a property, so no beans are created while it is off. The chain
+leaves its paths open in every profile, so turning it on in `prod` makes it public there too.
 
 **The generator cannot see runtime statuses.** On its own it lists no failure at all, and a 200 for
 every success. So:
@@ -141,13 +163,19 @@ every success. So:
 | Every operation | 500 |
 | Anything but `GET` and `DELETE` | 400 |
 | A path parameter | 404 |
+| Every operation | 401 |
+| A row at Admin level | 403 |
 | A path parameter, on anything but `GET` | 409 |
 | A request body | 413, 415 |
 
-`ApiDescriptionIT` pins these rules, and compares 400, 404 and the success codes with real answers.
+`ApiDescriptionIT` pins these rules, and compares 400, 401, 404 and the success codes with real
+answers. A 401 is on public reads too, because wrong credentials are refused there. A 403 is on Admin
+rows only, because a Scorekeeper row admits both roles an account can hold. Every row but a public
+one states the `basicAuth` scheme. The access rows come from `ApiAccess`.
+
 A 409 on `DELETE` or `update-winner` only comes from a concurrent update, and a 500 needs a fault, so
-those rest on reading `GlobalExceptionHandler`. A 405 belongs to no operation and a CORS refusal is never
-visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
+those rest on reading `GlobalExceptionHandler`. A 405 belongs to no operation, and the chain answers
+an unlisted method first anyway, and a CORS refusal is never visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
 decided while writing the answer, after a write has already happened, and for a malformed `Accept` it
 has no body. It is not a failure a client can treat as refused.
 

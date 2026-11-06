@@ -9,6 +9,8 @@
 - [profiles] Profiles
 - [server] Server limits
 - [cors] Allowed origins and the API description
+- [accounts] The first Admin
+- [actuator] Actuator
 - [logging] Logging
 
 ## [purpose] Purpose
@@ -20,11 +22,14 @@ Typed settings, validated at startup.
 `GameProperties`: a `@ConfigurationProperties("game")` record that binds every rule value from
 `game.*` in `application.properties`.
 
-`DatastoreProperties`, `DatastoreConfiguration` and `DatastoreGuaranteeCheck`: see `[datastore]`.
+`DatastoreProperties`, `DatastoreConfiguration`, `DatastoreGuaranteeCheck` and `DatastoreAccepted`:
+see `[datastore]`.
 
 `StartupSettingsCheck`: see `[profiles]`.
 
 `CorsProperties`: see `[cors]`.
+
+`FirstAdminProperties`: see `[accounts]`.
 
 `TimeConfiguration`: the one `Clock` bean. It is UTC, and ticks in whole milliseconds because that
 is what a BSON date keeps, so a value in memory equals the value a reload returns.
@@ -66,6 +71,10 @@ makes a slow hosted member look lost.
 | Was never initiated | Refuses, exit 1, no port opened | Runs, and the driver refuses writes |
 | Does not answer | Starts after the wait, health DOWN | Checked on the first answer |
 
+A datastore that passes is announced with `DatastoreAccepted`, at startup or at its first answer, so
+what needs it runs after the check. A listener that throws `IllegalStateException` stops the
+application the same way a refusal does.
+
 A context closed after startup ends the process with exit code 0, not 1. Only the first answer is
 checked, so a datastore swapped for a weaker one later goes unnoticed. With `replicaSet` set, the
 driver will not use a standalone at all. On a direct connection, a write already waiting for a
@@ -88,6 +97,7 @@ pass through it.
 | `prod`, no `MONGO_URI` | Refuses, exit 1, names `MONGO_URI` |
 | `prod` or `dev`, empty `MONGO_URI` | Refuses, exit 1, names `MONGO_URI` |
 | A profile with no file, such as a typo | Refuses, exit 1, names the profile |
+| `prod`, no Admin stored, no `ADMIN_USERNAME` or `ADMIN_PASSWORD` | Refuses, exit 1, names both: see `[accounts]` |
 
 The check exists because Boot stops neither of the first two: with no profile it activates one named
 `default`, and the binder leaves an unresolved `${MONGO_URI}` as text. Reading the key through the
@@ -150,6 +160,50 @@ or a scheme's default port stops startup.
 
 The rest of the CORS rules and the reasons for the description settings are in `[cors]` and
 `[description]` in the controllers README.
+
+## [accounts] The first Admin
+
+| Environment variable | Default | Key |
+|---|---|---|
+| `ADMIN_USERNAME` | none | `accounts.first-admin.username` |
+| `ADMIN_PASSWORD` | none | `accounts.first-admin.password` |
+| None | `true`, and `false` in `dev` | `accounts.first-admin.required` |
+
+Both are used only when no Admin exists, and neither has a default in any profile. Blank means not
+set: the placeholders give an empty value on purpose, because a placeholder with no default reaches
+the record as its own text, which would become a password.
+
+| No Admin stored, and | Result |
+|---|---|
+| Both set | Creates the Admin and starts |
+| Either missing, `required` true | Refuses, exit 1, names both |
+| Either missing, `required` false | Starts with a warning. Nobody can sign in |
+| The username held by a Scorekeeper | Refuses, exit 1, names `ADMIN_USERNAME` |
+| A username with anything but letters, digits, `.`, `_` or `-` | Refuses, naming the key. A colon could never sign in through Basic |
+| A password too long to hash | Refuses, naming `ADMIN_PASSWORD`. The hash takes 72 bytes |
+
+The test profile has no file, so it gets `required` true and its values from the tests, which make up
+a password per run. `FirstAdminProperties.toString` leaves the password out, and the password carries
+no constraint, because a failed constraint prints its value.
+
+## [actuator] Actuator
+
+| Setting | Value | Key |
+|---|---|---|
+| Exposed over HTTP | `health`, `info`. Confirmed: nothing else is needed | `management.endpoints.web.exposure.include` |
+| Health detail | Admin only | `management.endpoint.health.show-details`, `management.endpoint.health.roles` |
+| Readiness | Also needs MongoDB | `management.endpoint.health.group.readiness.include` |
+
+Who may read what is in the security README. Boot already serves the liveness and readiness groups,
+so only the readiness contents are set here. Readiness includes MongoDB because every request needs
+it, and liveness does not, because an outage must not get the process restarted.
+
+**Actuator stays on the main port.** Decided on purpose: the two public probes need no second port,
+everything else needs an Admin, and a platform that polls one port needs nothing extra.
+
+**In an outage, detail is out of reach.** Reading `/actuator/health` needs an Admin login and a login
+needs the datastore, so it answers 500 then. A public readiness probe still answers 503, with the
+status alone.
 
 ## [logging] Logging
 

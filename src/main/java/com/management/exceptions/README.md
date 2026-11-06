@@ -30,10 +30,13 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Not a point type | 400 | `PointTypeNotFoundException` | the message |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
+| Missing or wrong credentials | 401 | `AuthenticationException` (framework) | fixed, the same for every cause |
+| Valid credentials without the role | 403 | `AccessDeniedException` (framework) | fixed |
 | Body past the JSON size limit | 413 | `HttpMessageNotReadableException` (framework) | generic |
 | A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
 | No such match | 404 | `GameNotFoundException` | the message |
 | No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
+| Accounts could not be read while checking credentials | 500 | `AuthenticationServiceException` (framework) | **generic**, message logged |
 | Anything else | 500 | catch-all | **generic**, message logged |
 
 ## [facts] Project facts
@@ -44,6 +47,12 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 - **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
   the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
   application sees them, so they carry no correlation ID and leave no request line.
+- **A 401 and a 403 start in the security filter chain, outside Spring MVC.** `SecurityFailureResponder`
+  hands them to this handler through the framework's exception resolver, so they get the same form,
+  `instance` and content type as every other failure. A 401 sends no challenge: see the security
+  README.
+- **Spring Security's firewall refuses some requests before the chain,** such as a path with a `;`.
+  They answer 400 through the error dispatch, with a correlation ID, and are not problem details.
 - **A CORS refusal is not a problem detail.** It is the framework's 403, answered before Spring MVC:
   see `[cors]` in the controllers README.
 - The two colour failures differ on purpose: *not a colour* is the caller's mistake (400), *a colour
