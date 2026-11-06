@@ -1,7 +1,11 @@
 package com.management.testsupport;
 
+import com.management.security.SecurityConfiguration;
+import com.management.services.AccountService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * The one web-slice configuration, stated once so every controller slice shares a cached context.
@@ -26,7 +30,20 @@ import org.springframework.test.context.ActiveProfiles;
  * still resolves to one cached context. It matches {@code IntegrationTestBase}: every test in the
  * suite runs under {@code test}, and none under the {@code dev} profile meant for a developer's
  * machine.
+ *
+ * <p><strong>The real security rules.</strong> Left alone, the slice applies the framework's
+ * default security instead, because a configuration class is not part of it. Importing the real one
+ * means every slice test goes through the real chain, and a test that writes names who is asking.
  */
 @WebMvcTest
+@Import(SecurityConfiguration.class)
 @ActiveProfiles("test")
-public abstract class WebSliceTestBase {}
+public abstract class WebSliceTestBase {
+
+  /** The chain reads accounts through this, so a slice decides who exists. */
+  @MockitoBean private AccountService accountService;
+
+  protected AccountService accountService() {
+    return accountService;
+  }
+}

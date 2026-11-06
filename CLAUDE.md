@@ -17,6 +17,7 @@ READMEs below.
 | API, response contract, wire formats | `src/main/java/com/management/controllers/README.md` |
 | Correlation IDs, request logging | `src/main/java/com/management/filters/README.md` |
 | Errors and status codes | `src/main/java/com/management/exceptions/README.md` |
+| Authentication, roles, the first Admin | `src/main/java/com/management/security/README.md` |
 | Rules engine, how a match ends | `src/main/java/com/management/rules/README.md` |
 | Scoring across aggregates, concurrency | `src/main/java/com/management/services/README.md` |
 | Domain types, timer, versioned documents | `src/main/java/com/management/models/README.md` |
@@ -35,17 +36,18 @@ Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and
 
 | Responsibility | Packages |
 |-----------|----------|
-| Gateways | `controllers`, `filters`, `dto`, `mappers`, `exceptions` handler |
+| Gateways | `controllers`, `filters`, `security`, `dto`, `mappers`, `exceptions` handler |
 | Business | `services`, `rules`, `models`, `enums`, `exceptions` types |
 | Data | `repositories`, `models/converters` |
 | Wiring | `config`, `KumiteGameStarter` |
 
-`Controller -> Service -> Repository -> MongoDB`. Two aggregates, **KumiteGame** and **Player**.
+`Controller -> Service -> Repository -> MongoDB`. Three aggregates, **KumiteGame**, **Player** and
+**Account**.
 Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest` enforces this.
 
 ## Stack
 
-Java **25** everywhere (`pom.xml`, `.java-version`, local JDK, CI). Enforcer fails any other JDK. Spring Boot **4.1.2**, Maven, embedded Tomcat.
+Java **25** everywhere (`pom.xml`, `.java-version`, local JDK, CI). Enforcer fails any other JDK. Spring Boot **4.1.2**, Spring Security 7, Maven, embedded Tomcat.
 Jackson 3, JUnit 6, Testcontainers 2, MongoDB driver 5.8. MongoDB 8.0 in Docker, a one-member replica set. springdoc
 3.2 for the API description, which brings Jackson 2 beside Jackson 3. Frontend not started.
 

@@ -38,6 +38,9 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(OutputCaptureExtension.class)
 class ProfileStartupIT {
 
+  private static final String ADMIN_NAME = "--ADMIN_USERNAME=" + IntegrationTestBase.ADMIN;
+  private static final String ADMIN_PASSWORD = "--ADMIN_PASSWORD=" + IntegrationTestBase.PASSWORD;
+
   @Test
   void main_withNoProfile_refusesAndSaysWhatToSet() {
     assumeThat(System.getenv("SPRING_PROFILES_ACTIVE")).isNull();
@@ -72,7 +75,7 @@ class ProfileStartupIT {
     String uri = IntegrationTestBase.replicaSetUri();
 
     try (ConfigurableApplicationContext context =
-        start("prod", "--server.port=0", "--MONGO_URI=" + uri)) {
+        start("prod", "--server.port=0", "--MONGO_URI=" + uri, ADMIN_NAME, ADMIN_PASSWORD)) {
       assertThat(context.getBean(MongoConnectionDetails.class).getConnectionString())
           .hasToString(uri);
     }
@@ -84,7 +87,7 @@ class ProfileStartupIT {
     String uri = IntegrationTestBase.replicaSetUri();
 
     try (ConfigurableApplicationContext context =
-        start("prod", "--server.port=0", "--MONGO_URI=" + uri)) {
+        start("prod", "--server.port=0", "--MONGO_URI=" + uri, ADMIN_NAME, ADMIN_PASSWORD)) {
       String port = context.getEnvironment().getProperty("local.server.port");
       HttpRequest request =
           HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/players/none"))
@@ -107,6 +110,17 @@ class ProfileStartupIT {
     assertThat(line.get("correlationId").asString()).isEqualTo("prod-log-check");
     assertThat(line.get("route").asString()).isEqualTo("/api/v1/players/{playerId}");
     assertThat(line.get("status").asInt()).isEqualTo(404);
+  }
+
+  /** The first Admin needs the datastore, so the refusal comes from a real one. */
+  @Test
+  void startup_underProdWithNoAdminAndNoValues_failsNamingThem() {
+    String uri = IntegrationTestBase.replicaSetUri();
+
+    assertThatThrownBy(() ->
+            start("prod", "--server.port=0", "--MONGO_URI=" + uri, "--MONGO_DB=profile-no-admin"))
+        .hasStackTraceContaining("ADMIN_USERNAME")
+        .hasStackTraceContaining("ADMIN_PASSWORD");
   }
 
   /** No beans, so nothing connects: a database on this machine cannot change the result. */

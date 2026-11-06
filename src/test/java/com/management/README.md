@@ -5,6 +5,7 @@
 - [purpose] Purpose
 - [suites] Suffixes decide the suite
 - [layout] Layout
+- [accounts] Accounts in tests
 - [docs-tools] Docs tools
 
 ## [purpose] Purpose
@@ -28,11 +29,22 @@ must be running for `mvn verify`: integration tests start their own MongoDB thro
 
 | Package | Holds |
 |---|---|
-| `kumitegametests` | Behaviour, controller slice and integration tests |
+| `kumitegametests` | Behaviour, controller slice and integration tests. `SecurityRulesSliceTest` holds the role table as decided, `SecurityIT` proves credentials over HTTP, `FirstAdminIT` starts the application with and without an Admin |
 | `models`, `rules`, `enums`, `filters` | Unit tests for those packages |
 | `testsupport` | Base classes, builders and fakes: `IntegrationTestBase`, which also supplies the weak MongoDB containers `DatastoreRefusalIT` needs and starts and calls an application by hand, `WebSliceTestBase`, `TestClock`, `KumiteGameBuilder`, `PlayerBuilder`, `FakeRepositories`, `InMemoryMongo` |
 | `architecture` | `ArchitectureTest`, the layer rules |
 | `docs` | Index generator, commit message check, and the tests that hold the docs to the scaffold |
+
+## [accounts] Accounts in tests
+
+Security is never off. A slice goes through the real chain, and a test that writes names who is
+asking with `@WithMockUser`. An integration test signs in with `asAdmin()`, `asScorekeeper()` or
+`adminCredentials()`. The password is made up per run, and `IntegrationTestBase` writes both accounts
+back after each drop, with a low cost hash, so hundreds of requests stay cheap. An application
+started by hand gets the same Admin through `startApplication`.
+
+Logging restarts with each application started by hand, which removes any appender a test added
+before the start. Such a test reads `CapturedOutput` instead, or it passes with nothing to check.
 
 ## [docs-tools] Docs tools
 

@@ -17,12 +17,13 @@ This README maps the packages. Each package has its own README.
 
 | Responsibility | Packages | Job |
 |---|---|---|
-| Gateways | `controllers`, `filters`, `dto`, `mappers`, `exceptions` handler | HTTP in and out. Translate, then delegate |
+| Gateways | `controllers`, `filters`, `security`, `dto`, `mappers`, `exceptions` handler | HTTP in and out. Translate, then delegate |
 | Business | `services`, `rules`, `models`, `enums`, `exceptions` types | Orchestration, rules, domain types |
 | Data | `repositories`, `models/converters` | MongoDB access and stored-form conversion |
 | Wiring | `config`, `KumiteGameStarter` | Typed settings and application start |
 
-Flow: `Filter -> Controller -> Service -> Repository -> MongoDB`. There are no outbound gateways yet.
+Flow: `Filter -> Security -> Controller -> Service -> Repository -> MongoDB`. There are no outbound
+gateways yet.
 
 `KumiteGameStarter` sits at the root of the package tree. Component scanning, repository discovery
 and test slice configuration all derive from its location, so no `scanBasePackages` or
@@ -30,7 +31,9 @@ and test slice configuration all derive from its location, so no `scanBasePackag
 
 ## [aggregates] Aggregates
 
-Two aggregate roots, each with a controller, service and repository: **KumiteGame** and **Player**.
+Three aggregate roots: **KumiteGame** and **Player**, each with a controller, service and
+repository, and **Account**, with a service and repository. Nothing ties an account to a match or a
+fighter.
 
 `KumiteGame` stores fighter **ids** keyed by colour (`playerIds`). Names, points and fouls live
 only on `Player` documents: one fact, one owner, no embedded snapshot to re-sync.
@@ -53,7 +56,8 @@ The store only changes on purpose. A fixed violation fails the build until you r
 the store.
 
 Documentation types from the API description library stay in `controllers` and `dto`. A strict rule
-fails on any other package using them.
+fails on any other package using them. Spring Security types stay in `security`, `controllers` and
+`GlobalExceptionHandler` the same way.
 
 One cycle is accepted by name, not frozen: `enums.PointsType` attaches strategies from
 `models.strategies`, and `models` uses `enums`. Any other cycle fails the build.
@@ -69,5 +73,4 @@ One cycle is accepted by name, not frozen: `enums.PointsType` attaches strategie
   `KumiteGameService` with no controller mappings, withheld pending the timer work.
 - **Clock-driven expiry:** expiry is observed on the next scoring event, not pushed. A match left
   untouched past its duration stays open until something asks.
-- **Spring Security and JWT:** not started.
 - **Frontend:** not started.

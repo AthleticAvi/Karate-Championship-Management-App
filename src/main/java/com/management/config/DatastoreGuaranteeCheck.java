@@ -29,6 +29,9 @@ import org.springframework.stereotype.Component;
  * #afterSingletonsInstantiated()} is called before the web server starts listening, so a refused
  * datastore never serves a request. An {@code ApplicationRunner} would run too late.
  *
+ * <p><strong>A datastore that passes is announced.</strong> {@link DatastoreAccepted} lets what
+ * needs the datastore run after this check, at whichever moment it first answers.
+ *
  * <p><strong>A member that is not initiated refuses only at startup.</strong> A replica set member
  * can also report this state for a moment as it restarts, so it cannot stop a running application.
  * The driver will not write to it either way.
@@ -63,6 +66,7 @@ class DatastoreGuaranteeCheck implements ServerListener, SmartInitializingSingle
           firstAnswer.get(properties.startupWait().toMillis(), TimeUnit.MILLISECONDS))) {
         throw new IllegalStateException(standaloneMessage());
       }
+      context.publishEvent(new DatastoreAccepted());
     } catch (TimeoutException e) {
       if (latest == ServerType.REPLICA_SET_GHOST) {
         throw new IllegalStateException(
@@ -70,7 +74,7 @@ class DatastoreGuaranteeCheck implements ServerListener, SmartInitializingSingle
       }
       log.warn("The datastore did not answer at startup; checking it when it does");
       firstAnswer
-          .thenAcceptAsync(this::stopIfStandalone)
+          .thenAcceptAsync(this::acceptOrStop)
           .exceptionally(failure -> {
             log.error("Stopping on a refused datastore failed", failure);
             return null;
@@ -84,9 +88,14 @@ class DatastoreGuaranteeCheck implements ServerListener, SmartInitializingSingle
   }
 
   /** Runs off the driver's monitor thread, because closing the context closes the client. */
-  private void stopIfStandalone(ServerType type) {
-    if (isStandalone(type)) {
-      log.error("{} Stopping.", standaloneMessage());
+  private void acceptOrStop(ServerType type) {
+    try {
+      if (isStandalone(type)) {
+        throw new IllegalStateException(standaloneMessage());
+      }
+      context.publishEvent(new DatastoreAccepted());
+    } catch (IllegalStateException e) {
+      log.error("{} Stopping.", e.getMessage());
       context.close();
     }
   }

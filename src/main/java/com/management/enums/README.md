@@ -20,6 +20,7 @@ The domain vocabulary. WKF Kumite terms are authoritative.
 | Game states | QUEUED, RUNNING, PAUSED, FINISHED |
 | Foul stages | CHUI1, CHUI2, CHUI3, HANSOKU_CHUI, HANSOKU, SHIKKAKU, derived from the count |
 | Match end reasons | POINTS_THRESHOLD, FOUL_LIMIT, TIME_EXPIRED, DISQUALIFICATION, KIKEN, REFEREE_OVERRIDE |
+| Account roles | SCOREKEEPER, ADMIN |
 
 `PointsType` carries its `PointStrategy` instance.
 

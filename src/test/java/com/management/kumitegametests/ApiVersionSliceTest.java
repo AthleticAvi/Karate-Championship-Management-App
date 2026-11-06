@@ -58,32 +58,32 @@ class ApiVersionSliceTest extends WebSliceTestBase {
   }
 
   @Test
-  void oldPaths_forReads_areNotFound() throws Exception {
-    mockMvc.perform(get("/api/kumitegame/game-1")).andExpect(status().isNotFound());
-    mockMvc.perform(get("/api/players/player-1")).andExpect(status().isNotFound());
+  void oldPaths_forReads_areRefused() throws Exception {
+    mockMvc.perform(get("/api/kumitegame/game-1")).andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/api/players/player-1")).andExpect(status().isUnauthorized());
 
     verifyNoInteractions(kumiteGameService, playerService);
   }
 
   @Test
-  void oldPaths_forWrites_areNotFound() throws Exception {
+  void oldPaths_forWrites_areRefused() throws Exception {
     mockMvc
         .perform(
             post("/api/players")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\": \"Kenji\"}"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isUnauthorized());
     mockMvc
         .perform(put("/api/kumitegame/game-1/add-foul").param("color", "RED"))
-        .andExpect(status().isNotFound());
-    mockMvc.perform(delete("/api/players/player-1")).andExpect(status().isNotFound());
+        .andExpect(status().isUnauthorized());
+    mockMvc.perform(delete("/api/players/player-1")).andExpect(status().isUnauthorized());
 
     verifyNoInteractions(kumiteGameService, playerService);
   }
 
   @Test
-  void anotherVersion_isNotFound() throws Exception {
-    mockMvc.perform(get("/api/v2/players/player-1")).andExpect(status().isNotFound());
+  void anotherVersion_isRefused() throws Exception {
+    mockMvc.perform(get("/api/v2/players/player-1")).andExpect(status().isUnauthorized());
 
     verifyNoInteractions(kumiteGameService, playerService);
   }

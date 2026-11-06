@@ -75,6 +75,12 @@
       <version>${springdoc.version}</version>
     </dependency>
 
+    <!-- HTTP Basic against accounts in MongoDB: see src/main/java/com/management/security/README.md. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+
     <!-- Declared because the sources import it. Version managed by Spring Boot. -->
     <dependency>
       <groupId>org.jspecify</groupId>
@@ -93,6 +99,7 @@
       nothing is added speculatively:
         webmvc-test     -> @WebMvcTest and MockMvc, for the controller slice
         restclient-test -> TestRestTemplate, for the actuator integration tests
+        security-test   -> the real filter chain in a slice, and a request as a given user
       spring-boot-starter-test-classic exists as a compatibility aggregate that restores the old
       behaviour in one line. Not used: it would hide which slices this project depends on, which is
       the thing the modularisation makes visible.
@@ -106,6 +113,12 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-restclient-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-test</artifactId>
       <scope>test</scope>
     </dependency>
 

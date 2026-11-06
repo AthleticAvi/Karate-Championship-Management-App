@@ -50,6 +50,12 @@ Several chains may coexist, each scoped by a matcher: the first matching chain w
 - **Authorize on the smallest meaningful unit.** Path rules for coarse boundaries, method-level annotations where the rule depends on the operation or the record. Never scatter the same rule across both.
 - **Ownership checks belong where the record is loaded.** A path rule cannot express "only the owner may modify this": that needs the record, so it is a domain check.
 - **Never log or return a token, a credential, or a hash.** See `design/logging.md`.
+- **For Basic credentials, set the entry point on the Basic configurer.** It answers wrong credentials itself, and exception handling takes it as the default for no credentials. Set on exception handling alone, wrong credentials still answer in the framework's form. Test both paths.
+- **A challenge on a 401 makes a browser resend credentials by itself.** With CSRF off, an API whose client sends `Authorization` itself sends no `WWW-Authenticate: Basic`, and records why.
+- **Turn logout off on a stateless API.** The builder adds it by default, and a `POST /logout` then answers a redirect to a login page that is not there.
+- **A failed credential lookup is not a wrong password.** An outage in the account store arrives as an authentication exception, so an entry point answers 401 and sends the client to check a good password. Tell the service exception apart and answer it as a server fault.
+- **The firewall answers before the chain.** A `;` in a path or a non-standard method is refused through the error dispatch, so permit that dispatch or it turns into a 401.
+- **A deny-by-default catch-all also answers unknown paths and unlisted methods.** A 404 or a 405 becomes a 401, and `HEAD` is not `GET` to a method matcher.
 - **Passwords, if ever stored, use the framework's adaptive hashing.** Never a general-purpose digest, never a hand-rolled salt scheme.
 
 ## [401-versus-403] 401 versus 403
@@ -72,7 +78,8 @@ Browsers block cross-origin calls unless the API permits them. This is invisible
 - Allowed origins come from configuration and differ per environment. Never a wildcard where credentials are permitted: browsers reject the combination, and it is unsafe regardless.
 - Allow only the methods and headers actually used.
 - Expose what a browser client must read. It hides every response header outside a short list, including `Location` and any correlation header.
-- CORS runs before authentication, because a preflight carries no credentials. A `UrlBasedCorsConfigurationSource` bean is what Spring Security configures itself from, and a second source turns that off. A bean named `corsFilter` must be a plain `CorsFilter`.
+- CORS runs before authentication, because a preflight carries no credentials. Exactly one `UrlBasedCorsConfigurationSource` bean makes Spring Security add its own CORS filter, with no call in the chain, and a second source turns that off. A bean named `corsFilter` must be a plain `CorsFilter`.
+- A CORS filter registered ahead of the chain already covers it, so turn the chain's off: it sees every path and refuses a preflight on any path outside the source.
 - `CorsFilter` ends every preflight it sees, even for a path with no configuration. Limit it in its servlet mapping, or it changes the answer on paths meant to stay out of CORS.
 - The server enforces the rules too: a refused origin gets a 403 before anything runs. Prove that with HTTP tests that send `Origin`. A browser adds what the server cannot show, so a browser check is a one-off, not the proof.
 - Same-origin is decided from the address the server sees, so a TLS proxy with forwarded headers off makes a same-origin page look cross-origin.
@@ -80,6 +87,10 @@ Browsers block cross-origin calls unless the API permits them. This is invisible
 ## [testing] Testing
 
 The security module provides test support for authenticating a request in a slice test. Use it rather than disabling security in tests: a suite that runs with security off proves nothing about the secured application, and the first test written against the real chain will fail for reasons nobody has seen.
+
+A web slice applies the framework's default chain unless the real configuration class is imported, because a configuration class is not part of the slice. The default looks like security working, so nothing fails to say so. Actuator matchers match nothing in a slice, which has no actuator, so those rules need an integration test.
+
+Keep the role table in the test as a literal, and compare it with the real mappings. A test that reads the rules from the code under test only proves the code agrees with itself.
 
 Cover: an unauthenticated request is rejected; an authenticated request without the required authority is rejected; the permitted case succeeds.
 

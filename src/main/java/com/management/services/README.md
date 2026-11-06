@@ -12,7 +12,8 @@
 
 ## [purpose] Purpose
 
-Orchestration. Owns every operation that spans the two aggregates, and decides what happens next.
+Orchestration. Owns every operation that spans the match and fighter aggregates, and decides what
+happens next.
 
 ## [owns] Owns
 
@@ -20,6 +21,7 @@ Orchestration. Owns every operation that spans the two aggregates, and decides w
   and clock extension. Resolves colour to fighter id and calls down into `PlayerService`.
 - `PlayerService`: a leaf that mutates and saves a `Player`.
 - `MatchStateWriter`: applies a write-once change to a match, retrying a losing write.
+- `AccountService`: a leaf that reads and creates accounts. A password reaches it already hashed.
 
 ## [may-call] May call
 
@@ -28,7 +30,7 @@ Never `dto`: the gateway maps a request first, and a strict rule enforces it.
 
 ## [cross-aggregate] How scoring works across aggregates
 
-Recording a point is exactly one document write. Reads compose the two aggregates into
+Recording a point is exactly one document write. Reads compose the match and the fighters into
 `GameWithFighters`, which `KumiteGameMapper` consumes. After every point, foul and disqualification
 `KumiteGameService` calls the rules engine, then applies and persists the answer: see
 `rules/README.md`.

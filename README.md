@@ -30,6 +30,7 @@ This project is the system of record for that bout. It holds the competitors, th
 | Framework | Spring Boot 4.1.2 |
 | Database | MongoDB 8.0, in Docker |
 | Build | Maven |
+| Security | Spring Security, HTTP Basic, accounts in MongoDB |
 | API description | springdoc-openapi, generated, `dev` only |
 | Testing | JUnit, Mockito, AssertJ, Testcontainers |
 
@@ -51,13 +52,18 @@ mvn spring-boot:run   # run
 The defaults reach this database. To use another, set `MONGO_URI` and, if needed, `MONGO_DB`: see
 `src/main/java/com/management/repositories/README.md`.
 
+Reads are public. Everything else needs an account, and the first Admin comes from `ADMIN_USERNAME`
+and `ADMIN_PASSWORD`, used only when no Admin exists. Neither has a default in any profile. Under
+`dev` the application starts without them and warns, and nobody can sign in. See
+`src/main/java/com/management/security/README.md`.
+
 ## Profiles
 
 The application refuses to start without a profile. A deployment must choose one, so it can never
 fall back to local settings.
 
 - **dev**: local development. `mvn spring-boot:run` sets it through `spring-boot.run.profiles` in `pom.xml`, so a clean clone needs no extra steps. Holds the default `MONGO_URI`, which reaches the database above. Allows calls from a local development server, and serves the API description at `/v3/api-docs`.
-- **prod**: a deployment. Set `SPRING_PROFILES_ACTIVE=prod` and `MONGO_URI`, which has no default here: without it, startup stops and names it. No browser origin may call it until `CORS_ALLOWED_ORIGINS` names one.
+- **prod**: a deployment. Set `SPRING_PROFILES_ACTIVE=prod` and `MONGO_URI`, which has no default here: without it, startup stops and names it. With no Admin stored, `ADMIN_USERNAME` and `ADMIN_PASSWORD` are required too, and startup stops and names them. No browser origin may call it until `CORS_ALLOWED_ORIGINS` names one.
 - **test**: activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes. It has no file, because nothing differs. `test` is not a profile the application should ever be started under.
 
 A profile with no file of its own, such as a mistyped one, is refused too.
@@ -68,7 +74,7 @@ run configuration, or set the environment variable `SPRING_PROFILES_ACTIVE=dev`.
 To run the packaged application:
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod MONGO_URI=<connection string> java -jar target/karate-championship-0.0.1-SNAPSHOT.jar
+SPRING_PROFILES_ACTIVE=prod MONGO_URI=<connection string> ADMIN_USERNAME=<username> ADMIN_PASSWORD=<password> java -jar target/karate-championship-0.0.1-SNAPSHOT.jar
 ```
 
 To run Maven under another profile:

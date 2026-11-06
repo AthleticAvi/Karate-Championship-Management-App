@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class ArchitectureTest {
 
   private static final String[] GATEWAYS = {
-    "..controllers..", "..filters..", "..dto..", "..mappers..", "..exceptions.."
+    "..controllers..", "..filters..", "..dto..", "..mappers..", "..exceptions..", "..security.."
   };
   private static final String[] BUSINESS = {"..services..", "..rules.."};
   private static final String[] DOMAIN_AND_BUSINESS = {
@@ -63,7 +63,7 @@ class ArchitectureTest {
         .resideInAnyPackage(DOMAIN_AND_BUSINESS)
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("..controllers..", "..filters..", "..mappers..")
+        .resideInAnyPackage("..controllers..", "..filters..", "..mappers..", "..security..")
         .check(CLASSES);
   }
 
@@ -86,7 +86,13 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage(
-            "..services..", "..rules..", "..controllers..", "..filters..", "..dto..", "..mappers..")
+            "..services..",
+            "..rules..",
+            "..controllers..",
+            "..filters..",
+            "..dto..",
+            "..mappers..",
+            "..security..")
         .check(CLASSES);
   }
 
@@ -122,6 +128,20 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage("io.swagger..", "org.springdoc..")
+        .check(CLASSES);
+  }
+
+  /** The handler turns a security failure into an answer, so it is the one class outside. */
+  @Test
+  void securityTypes_stayInTheGateways() {
+    noClasses()
+        .that()
+        .resideOutsideOfPackages("..security..", "..controllers..")
+        .and()
+        .doNotHaveSimpleName("GlobalExceptionHandler")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.springframework.security..")
         .check(CLASSES);
   }
 

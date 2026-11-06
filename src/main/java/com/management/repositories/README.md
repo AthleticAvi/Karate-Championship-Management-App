@@ -16,7 +16,7 @@ The data layer. One Spring Data repository per aggregate root.
 
 ## [owns] Owns
 
-`KumiteGameRepository`, `PlayerRepository`.
+`KumiteGameRepository`, `PlayerRepository`, `AccountRepository`.
 
 ## [may-call] May call
 
@@ -50,13 +50,13 @@ The data layer. One Spring Data repository per aggregate root.
 - **The username stays out of the logs until a login fails.** The driver's start line is off, through
   `logging.level.org.mongodb.driver.client`. A rejected login still logs it, with the password
   hidden, in the health check's warning. Hosts appear in the driver's cluster logs.
-- `/actuator/health` shows the overall status only. Its detail would name the username, hosts and
-  disk paths, so `show-details` is `when-authorized`, which is nobody until security lands.
+- `/actuator/health` needs an Admin. Its detail names the username, hosts and disk paths, so the
+  public probes show the status alone: see `[actuator]` in the config README.
 - The hosts in `MONGO_URI` only pick the first server to ask. The driver then uses the member
   addresses stored in the replica set, so they must be reachable from the application: publishing
   the container on another port needs a matching member address in `rs.initiate`.
-- A wrong password starts the application with health DOWN (503), and every request that needs the
-  datastore fails with a 500.
+- A wrong password starts the application with readiness DOWN (503), and every request that needs
+  the datastore fails with a 500, including one with credentials, because they cannot be checked.
 - This package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring Data adds a runtime
   null check to every repository. Today that only adds an interceptor, because both interfaces are
   empty and `findById` returns `Optional`. It matters once a custom finder exists: one that finds
