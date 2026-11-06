@@ -1,11 +1,6 @@
 package com.management.services;
 
 import com.management.config.GameProperties;
-import com.management.dto.ClockAdjustmentRequest;
-import com.management.dto.FighterRequest;
-import com.management.dto.KumiteGameRequest;
-import com.management.dto.PlayerRequest;
-import com.management.dto.WinnerOverrideRequest;
 import com.management.enums.FoulTypes;
 import com.management.enums.GameState;
 import com.management.enums.MatchEndReason;
@@ -20,6 +15,7 @@ import com.management.models.GameTimer;
 import com.management.models.GameWithFighters;
 import com.management.models.KumiteGame;
 import com.management.models.MatchOutcome;
+import com.management.models.NewMatch;
 import com.management.models.Player;
 import com.management.models.Referee;
 import com.management.models.RefereeOverride;
@@ -94,13 +90,13 @@ public class KumiteGameService {
    * read. Re-reading would put a fallible round trip between "the match exists" and "the caller was
    * told its id" — exactly the unrecoverable shape #51 exists to remove.
    */
-  public GameWithFighters createKumiteGame(KumiteGameRequest gameRequest) {
-    Map<PlayerColor, FighterRequest> byColour = new EnumMap<>(PlayerColor.class);
-    gameRequest
-        .playersMap()
-        .forEach((key, requested) -> {
+  public GameWithFighters createKumiteGame(NewMatch newMatch) {
+    Map<PlayerColor, NewMatch.Fighter> byColour = new EnumMap<>(PlayerColor.class);
+    newMatch
+        .fighters()
+        .forEach(requested -> {
           PlayerColor playerColor = KumiteGameManagementUtils.mapPlayerColor(requested.color());
-          FighterRequest clash = byColour.put(playerColor, requested);
+          NewMatch.Fighter clash = byColour.put(playerColor, requested);
           if (clash != null) {
             throw new InvalidGameRequestException(
                 "A match fields exactly one fighter per colour, but two were given as "
@@ -110,14 +106,13 @@ public class KumiteGameService {
         });
     validateColours(byColour.keySet());
 
-    List<Referee> refereesList = gameRequest.refereeList().stream().map(Referee::new).toList();
-    Duration gameDuration = determineGameDuration(gameRequest);
+    List<Referee> refereesList = newMatch.referees().stream().map(Referee::new).toList();
+    Duration gameDuration = determineGameDuration(newMatch);
 
     Map<PlayerColor, Player> createdFighters = new EnumMap<>(PlayerColor.class);
     try {
       byColour.forEach((playerColor, requested) ->
-          createdFighters.put(
-              playerColor, playerService.createPlayer(new PlayerRequest(requested.name()))));
+          createdFighters.put(playerColor, playerService.createPlayer(requested.name())));
 
       Map<PlayerColor, String> playerIds = new EnumMap<>(PlayerColor.class);
       createdFighters.forEach(
@@ -290,16 +285,14 @@ public class KumiteGameService {
    * record exists to preserve, what the system itself concluded, would be lost on the second
    * correction.
    */
-  public GameWithFighters overrideWinner(String gameId, WinnerOverrideRequest request) {
+  public GameWithFighters overrideWinner(
+      String gameId, @Nullable String winner, String reason, String decidedBy) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     if (kumiteGame.getGameState() == GameState.QUEUED) {
       throw new IllegalStateTransitionException(
           "Match " + gameId + " has not started, so there is no result to override.");
     }
-    PlayerColor declared =
-        request.winner() == null
-            ? null
-            : KumiteGameManagementUtils.mapPlayerColor(request.winner());
+    PlayerColor declared = winner == null ? null : KumiteGameManagementUtils.mapPlayerColor(winner);
 
     MatchOutcome engineOutcome =
         kumiteGame
@@ -308,9 +301,7 @@ public class KumiteGameService {
             .orElseGet(() -> kumiteGame.outcome().orElse(null));
 
     kumiteGame.applyOverride(
-        new RefereeOverride(
-            declared, request.reason(), request.decidedBy(), clock.instant(), engineOutcome),
-        clock);
+        new RefereeOverride(declared, reason, decidedBy, clock.instant(), engineOutcome), clock);
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -320,13 +311,13 @@ public class KumiteGameService {
    * <p>Refused on a finished match: its clock is history. Allowed while running and while paused —
    * the timer handles the elapsed-time arithmetic that makes the running case correct.
    */
-  public GameWithFighters addTime(String gameId, ClockAdjustmentRequest request) {
+  public GameWithFighters addTime(String gameId, int seconds, String addedBy) {
     KumiteGame kumiteGame = getKumiteGame(gameId);
     if (kumiteGame.getGameState() == GameState.FINISHED) {
       throw new IllegalStateTransitionException(
           "Match " + gameId + " has finished; its clock cannot be extended.");
     }
-    Duration extra = Duration.ofSeconds(request.seconds());
+    Duration extra = Duration.ofSeconds(seconds);
     if (!gameProperties.clockIncrements().contains(extra)) {
       throw new InvalidGameRequestException(
           "Time may be added in increments of "
@@ -336,7 +327,7 @@ public class KumiteGameService {
               + " was requested.");
     }
 
-    kumiteGame.addTime(new ClockAdjustment(extra, clock.instant(), request.addedBy()), clock);
+    kumiteGame.addTime(new ClockAdjustment(extra, clock.instant(), addedBy), clock);
     return withFighters(saveGame(kumiteGame));
   }
 
@@ -601,9 +592,9 @@ public class KumiteGameService {
     }
   }
 
-  private Duration determineGameDuration(KumiteGameRequest gameRequest) {
-    if (gameRequest.gameDuration() != null) {
-      Duration requestedDuration = Duration.ofSeconds(gameRequest.gameDuration());
+  private Duration determineGameDuration(NewMatch newMatch) {
+    if (newMatch.gameDuration() != null) {
+      Duration requestedDuration = Duration.ofSeconds(newMatch.gameDuration());
       if (gameProperties.optionalDurations().contains(requestedDuration)) {
         return requestedDuration;
       }

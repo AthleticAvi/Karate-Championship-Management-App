@@ -165,13 +165,12 @@ class ArchitectureTest {
 
   @Test
   void business_doesNotKnowTheApiShapes() {
-    freeze(
-            noClasses()
-                .that()
-                .resideInAnyPackage(BUSINESS)
-                .should()
-                .dependOnClassesThat()
-                .resideInAPackage("..dto.."))
+    noClasses()
+        .that()
+        .resideInAnyPackage(BUSINESS)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..dto..")
         .check(CLASSES);
   }
 

@@ -43,7 +43,6 @@ only on `Player` documents: one fact, one owner, no embedded snapshot to re-sync
 
 | Frozen rule | Today |
 |---|---|
-| Business does not know API shapes | `KumiteGameService` and `PlayerService` import request types from `dto` |
 | Domain types carry no persistence mapping | `KumiteGame` and `Player` are also Spring Data documents |
 | No utility package | `util.KumiteGameManagementUtils` |
 

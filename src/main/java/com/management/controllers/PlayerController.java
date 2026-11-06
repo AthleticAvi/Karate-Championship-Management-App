@@ -31,7 +31,7 @@ public class PlayerController {
   @ApiResponse(responseCode = "201", description = "Created")
   @PostMapping
   public ResponseEntity<PlayerResponse> createPlayer(@Valid @RequestBody PlayerRequest newPlayer) {
-    PlayerResponse created = PlayerMapper.toResponse(playerService.createPlayer(newPlayer));
+    PlayerResponse created = PlayerMapper.toResponse(playerService.createPlayer(newPlayer.name()));
     return ResponseEntity.status(HttpStatus.CREATED)
         .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.id())
         .body(created);
