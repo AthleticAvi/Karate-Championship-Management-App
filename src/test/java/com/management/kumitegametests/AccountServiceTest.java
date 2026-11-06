@@ -11,6 +11,7 @@ import com.management.config.FirstAdminProperties;
 import com.management.enums.AccountRole;
 import com.management.models.Account;
 import com.management.repositories.AccountRepository;
+import com.management.services.AccountRemoval;
 import com.management.services.AccountService;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
@@ -18,7 +19,7 @@ import org.springframework.dao.DuplicateKeyException;
 class AccountServiceTest {
 
   private final AccountRepository repository = mock(AccountRepository.class);
-  private final AccountService service = new AccountService(repository);
+  private final AccountService service = new AccountService(repository, mock(AccountRemoval.class));
 
   /**
    * Two instances starting together: the loser's insert fails, and an Admin exists all the same.

@@ -110,6 +110,9 @@ class ApiDescriptionConfiguration {
       return;
     }
     String name = reference.get$ref().substring(Components.COMPONENTS_SCHEMAS_REF.length());
+    if (PROBLEM_SCHEMA.equals(name)) {
+      return;
+    }
     Schema<?> schema = (Schema<?>) Objects.requireNonNull(schemas.get(name));
     schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
     schema.getProperties().values().forEach(field -> requireEveryField(field, schemas));

@@ -68,7 +68,9 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
           Map.entry("PUT " + ONE_GAME + "/override-winner", ADMIN),
           Map.entry("PUT " + ONE_GAME + "/update-winner/{color}", ADMIN),
           Map.entry("POST " + PLAYERS, ADMIN),
-          Map.entry("DELETE " + ONE_PLAYER, ADMIN));
+          Map.entry("DELETE " + ONE_PLAYER, ADMIN),
+          Map.entry("POST /api/v1/accounts", ADMIN),
+          Map.entry("DELETE /api/v1/accounts/{username}", ADMIN));
 
   @Autowired private MockMvc mockMvc;
 

@@ -97,6 +97,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return problem;
   }
 
+  @ExceptionHandler(AccountNotFoundException.class)
+  public ProblemDetail handleAccountNotFound(AccountNotFoundException ex) {
+    return notFound("Account not found", ex);
+  }
+
+  @ExceptionHandler(AccountAlreadyExistsException.class)
+  public ProblemDetail handleAccountAlreadyExists(AccountAlreadyExistsException ex) {
+    return clientError(HttpStatus.CONFLICT, "Account already exists", ex);
+  }
+
+  @ExceptionHandler(LastAdminException.class)
+  public ProblemDetail handleLastAdmin(LastAdminException ex) {
+    return clientError(HttpStatus.CONFLICT, "Last Admin", ex);
+  }
+
   @ExceptionHandler(GameNotFoundException.class)
   public ProblemDetail handleGameNotFound(GameNotFoundException ex) {
     return notFound("Match not found", ex);
@@ -198,11 +213,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    * retry — updating or deleting a fighter, for instance. The detail names neither a match nor a
    * fighter, because it covers both, and the framework's own message can carry document identifiers
    * and query fragments, which is internal text.
+   *
+   * <p>A transaction that lost a write conflict through every attempt arrives as a data integrity
+   * violation, because that is what the mapping layer makes of one. A duplicate key on a create is
+   * caught in the service, so nothing else raises it here.
    */
-  @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
-  public ProblemDetail handleOptimisticLockConflict(
-      org.springframework.dao.OptimisticLockingFailureException ex) {
-    log.warn("Optimistic lock conflict reached the handler", ex);
+  @ExceptionHandler({
+    org.springframework.dao.OptimisticLockingFailureException.class,
+    org.springframework.dao.DataIntegrityViolationException.class
+  })
+  public ProblemDetail handleConcurrentWrite(org.springframework.dao.DataAccessException ex) {
+    log.warn("A concurrent write reached the handler", ex);
     ProblemDetail problem =
         ProblemDetail.forStatusAndDetail(
             HttpStatus.CONFLICT,
