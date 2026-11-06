@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -159,7 +160,8 @@ class AccountControllerSliceTest extends WebSliceTestBase {
   void create_ofExistingUsername_isConflict() throws Exception {
     given(accountService().create(any(NewAccount.class)))
         .willThrow(
-            new AccountAlreadyExistsException("An account already has that username.", null));
+            new AccountAlreadyExistsException(
+                "An account already has that username.", new DuplicateKeyException("taken")));
 
     create(body("mat1", PASSWORD, "ADMIN"))
         .andExpect(status().isConflict())

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.mongodb.MongoException;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -64,18 +65,23 @@ class TransactionRetryTest {
 
   /** The label is on the cause: the mapping layer wraps a write conflict. */
   @Test
-  void transientFailure_isRetried() {
+  void transientFailure_isRetried() throws Exception {
     Throwable wrapped =
         new DataIntegrityViolationException(
             "conflict", labelled(MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL));
 
-    assertThat(retry.shouldRetry(null, wrapped)).isTrue();
+    assertThat(retry.shouldRetry(anyMethod(), wrapped)).isTrue();
   }
 
   @Test
-  void anythingElse_isNotRetried() {
-    assertThat(retry.shouldRetry(null, new DuplicateKeyException("taken"))).isFalse();
-    assertThat(retry.shouldRetry(null, new MongoException("failed"))).isFalse();
+  void anythingElse_isNotRetried() throws Exception {
+    assertThat(retry.shouldRetry(anyMethod(), new DuplicateKeyException("taken"))).isFalse();
+    assertThat(retry.shouldRetry(anyMethod(), new MongoException("failed"))).isFalse();
+  }
+
+  /** The decision reads only the failure. */
+  private static Method anyMethod() throws NoSuchMethodException {
+    return Object.class.getMethod("toString");
   }
 
   /** The transaction type is only visible to a subclass of the manager. */
