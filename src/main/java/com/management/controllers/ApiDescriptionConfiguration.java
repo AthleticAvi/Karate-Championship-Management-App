@@ -14,6 +14,8 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,7 @@ class ApiDescriptionConfiguration {
 
   private static final String PROBLEM_SCHEMA = "ProblemDetail";
   private static final String NULL_TYPE = "null";
+  private static final String BASIC_SCHEME = "basicAuth";
 
   @Bean
   OpenApiCustomizer apiDescriptionCustomizer() {
@@ -54,18 +57,22 @@ class ApiDescriptionConfiguration {
     schemas.values().forEach(ApiDescriptionConfiguration::allowNullInEnums);
     description
         .getPaths()
-        .values()
-        .forEach(path ->
-            path.readOperationsMap()
+        .forEach((path, item) ->
+            item.readOperationsMap()
                 .forEach((method, operation) -> {
                   operation
                       .getResponses()
                       .values()
                       .forEach(response -> requireEveryField(response, schemas));
                   addFailures(method, operation);
+                  addAccess(ApiAccess.levelOf(method.name(), path), operation);
                   addHeaders(operation);
                 }));
     schemas.put(PROBLEM_SCHEMA, problemSchema());
+    description
+        .getComponents()
+        .addSecuritySchemes(
+            BASIC_SCHEME, new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("basic"));
   }
 
   /**
@@ -125,6 +132,20 @@ class ApiDescriptionConfiguration {
       addFailure(operation, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
     addFailure(operation, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  /**
+   * Wrong credentials answer 401 on any operation, a public read included. Only an Admin rule can
+   * answer 403: a Scorekeeper rule admits both roles an account can hold.
+   */
+  private static void addAccess(ApiAccess.Level level, Operation operation) {
+    addFailure(operation, HttpStatus.UNAUTHORIZED);
+    if (level != ApiAccess.Level.PUBLIC) {
+      operation.addSecurityItem(new SecurityRequirement().addList(BASIC_SCHEME));
+    }
+    if (level == ApiAccess.Level.ADMIN) {
+      addFailure(operation, HttpStatus.FORBIDDEN);
+    }
   }
 
   private static boolean hasPathParameter(Operation operation) {

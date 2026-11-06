@@ -84,11 +84,12 @@ class KumiteGameFlowIT extends IntegrationTestBase {
     String gameId = createMatch().id();
 
     ResponseEntity<String> response =
-        rest.exchange(
-            "/api/v1/kumitegame/" + gameId + "/add-point?color=purple&pointType=IPPON",
-            HttpMethod.PUT,
-            null,
-            String.class);
+        asAdmin()
+            .exchange(
+                "/api/v1/kumitegame/" + gameId + "/add-point?color=purple&pointType=IPPON",
+                HttpMethod.PUT,
+                null,
+                String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getHeaders().getContentType())
@@ -126,7 +127,8 @@ class KumiteGameFlowIT extends IntegrationTestBase {
         """;
 
     ResponseEntity<String> response =
-        rest.postForEntity("/api/v1/kumitegame", new HttpEntity<>(bothRed, headers), String.class);
+        asAdmin()
+            .postForEntity("/api/v1/kumitegame", new HttpEntity<>(bothRed, headers), String.class);
 
     assertThat(response.getStatusCode())
         .as("a request that cannot produce a valid match is the caller's mistake, not a 500")
@@ -155,8 +157,9 @@ class KumiteGameFlowIT extends IntegrationTestBase {
         """;
 
     ResponseEntity<KumiteGameResponse> response =
-        rest.postForEntity(
-            "/api/v1/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
+        asAdmin()
+            .postForEntity(
+                "/api/v1/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     KumiteGameResponse created = response.getBody();
@@ -167,7 +170,7 @@ class KumiteGameFlowIT extends IntegrationTestBase {
 
   private KumiteGameResponse put(String path) {
     ResponseEntity<KumiteGameResponse> response =
-        rest.exchange(path, HttpMethod.PUT, null, KumiteGameResponse.class);
+        asAdmin().exchange(path, HttpMethod.PUT, null, KumiteGameResponse.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     KumiteGameResponse body = response.getBody();

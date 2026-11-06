@@ -35,6 +35,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,6 +50,7 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>Configuration comes from {@link WebSliceTestBase} — see there for why it is shared.
  */
+@WithMockUser(roles = "ADMIN")
 class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Autowired private MockMvc mockMvc;

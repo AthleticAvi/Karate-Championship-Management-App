@@ -64,7 +64,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
   @Test
   void request_returnsItsIdAndLogsItOnItsOneRequestLine() {
     ResponseEntity<String> response =
-        rest.postForEntity("/api/v1/players", player("Kenji"), String.class);
+        asAdmin().postForEntity("/api/v1/players", player("Kenji"), String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     String id = idOf(response);
@@ -118,12 +118,13 @@ class RequestCorrelationIT extends IntegrationTestBase {
   void unknownPath_stillReturnsAnId() {
     ResponseEntity<String> response = rest.getForEntity("/no/such/path", String.class);
 
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     assertThat(linesFor(idOf(response))).hasSize(1);
   }
 
   /**
    * The framework's own line for a refused method would repeat the client's word and add a line.
+   * Spring Security's firewall answers this one, because the word is not a standard method.
    */
   @Test
   void unknownMethod_logsOneLineThatDoesNotRepeatIt() throws Exception {
@@ -137,7 +138,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
       response = client.send(request, BodyHandlers.discarding());
     }
 
-    assertThat(response.statusCode()).isEqualTo(405);
+    assertThat(response.statusCode()).isEqualTo(400);
     assertThat(linesFor(response.headers().firstValue(HEADER).orElseThrow())).hasSize(1);
     assertThat(everythingLogged()).doesNotContain("CLIENTWORD");
   }

@@ -93,7 +93,7 @@ class RequestLimitsIT extends IntegrationTestBase {
   private ResponseEntity<String> post(String body) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    return rest.postForEntity(PLAYERS, new HttpEntity<>(body, headers), String.class);
+    return asAdmin().postForEntity(PLAYERS, new HttpEntity<>(body, headers), String.class);
   }
 
   private static String padded(int length) {

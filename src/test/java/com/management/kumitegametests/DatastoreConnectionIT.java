@@ -100,7 +100,7 @@ class DatastoreConnectionIT {
     String port = context.getEnvironment().getProperty("local.server.port");
     return RestClient.create()
         .get()
-        .uri("http://localhost:" + port + "/actuator/health")
+        .uri("http://localhost:" + port + "/actuator/health/readiness")
         .retrieve()
         .onStatus(status -> true, (request, response) -> {})
         .toEntity(String.class);

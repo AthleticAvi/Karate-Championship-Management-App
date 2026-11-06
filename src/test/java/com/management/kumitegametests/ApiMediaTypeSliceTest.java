@@ -15,6 +15,7 @@ import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>The mocked beans match the controller slices, so all of them share one cached context.
  */
+@WithMockUser(roles = "ADMIN")
 class ApiMediaTypeSliceTest extends WebSliceTestBase {
 
   @Autowired private MockMvc mockMvc;

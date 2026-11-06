@@ -54,11 +54,12 @@ class ConcurrentScoringIT extends IntegrationTestBase {
     Callable<ResponseEntity<String>> scoreOneYuko =
         () -> {
           start.await();
-          return rest.exchange(
-              "/api/v1/kumitegame/" + gameId + "/add-point?color=RED&pointType=YUKO",
-              HttpMethod.PUT,
-              null,
-              String.class);
+          return asAdmin()
+              .exchange(
+                  "/api/v1/kumitegame/" + gameId + "/add-point?color=RED&pointType=YUKO",
+                  HttpMethod.PUT,
+                  null,
+                  String.class);
         };
 
     ExecutorService pool = Executors.newFixedThreadPool(CONCURRENT_SCORES);
@@ -124,8 +125,9 @@ class ConcurrentScoringIT extends IntegrationTestBase {
         """;
 
     ResponseEntity<KumiteGameResponse> response =
-        rest.postForEntity(
-            "/api/v1/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
+        asAdmin()
+            .postForEntity(
+                "/api/v1/kumitegame", new HttpEntity<>(body, headers), KumiteGameResponse.class);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     return response.getBody().id();
   }

@@ -3,12 +3,16 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.management.KumiteGameStarter;
+import com.management.testsupport.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -54,10 +58,33 @@ class ActuatorHealthDownIT {
   @Autowired private TestRestTemplate rest;
 
   @Test
-  void health_whenMongoIsUnreachable_reportsDownWith503() {
-    ResponseEntity<String> response = rest.getForEntity("/actuator/health", String.class);
+  void readiness_whenMongoIsUnreachable_reportsDownWith503() {
+    ResponseEntity<String> response = rest.getForEntity("/actuator/health/readiness", String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     assertThat(response.getBody()).contains("\"status\":\"DOWN\"");
+  }
+
+  /** Liveness says the process runs: an outage must not get it restarted. */
+  @Test
+  void liveness_whenMongoIsUnreachable_staysUp() {
+    ResponseEntity<String> response = rest.getForEntity("/actuator/health/liveness", String.class);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+  }
+
+  /** Nobody knows if these credentials are right, so a 401 would send the caller the wrong way. */
+  @Test
+  void credentials_whenMongoIsUnreachable_failAsServerFault() {
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, IntegrationTestBase.adminCredentials());
+
+    ResponseEntity<String> response =
+        rest.exchange(
+            "/api/v1/players", HttpMethod.POST, new HttpEntity<>("{}", headers), String.class);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    assertThat(response.getHeaders().getFirst("Content-Type"))
+        .isEqualTo("application/problem+json");
   }
 }

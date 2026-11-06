@@ -11,6 +11,9 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationServiceException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -62,6 +65,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail.forStatusAndDetail(
             HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.");
     problem.setTitle("Internal server error");
+    return problem;
+  }
+
+  /**
+   * Missing or wrong credentials. One fixed detail, so nothing says which of the two it was or
+   * whether the account exists.
+   */
+  @ExceptionHandler(AuthenticationException.class)
+  public ProblemDetail handleUnauthenticated(AuthenticationException ex) {
+    log.debug("Authentication failed: {}", ex.getClass().getSimpleName());
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.UNAUTHORIZED, "Valid credentials are required.");
+    problem.setTitle("Authentication required");
+    return problem;
+  }
+
+  /** Accounts could not be read, so nobody knows if the credentials are right: not a 401. */
+  @ExceptionHandler(AuthenticationServiceException.class)
+  public ProblemDetail handleAuthenticationFault(AuthenticationServiceException ex) {
+    return handleUnexpectedException(ex);
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+    log.debug("Access denied");
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "This account may not do this.");
+    problem.setTitle("Access denied");
     return problem;
   }
 

@@ -23,9 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.web.servlet.DelegatingFilterProxyRegistrationBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.Ordered;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
  * Cross-origin rules, proven over real HTTP against the application under its real profiles.
@@ -38,15 +40,13 @@ class CorsIT {
   private static final String LOCAL_ORIGIN = "http://localhost:5173";
   private static final String OTHER_ORIGIN = "https://other.example";
   private static final String PLAYERS = "/api/v1/players";
+  private static final String LIVENESS = "/actuator/health/liveness";
   private static final String ALLOW_ORIGIN = "Access-Control-Allow-Origin";
   private static final String ALLOW_METHODS = "Access-Control-Allow-Methods";
   private static final String ALLOW_HEADERS = "Access-Control-Allow-Headers";
   private static final String ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials";
   private static final String EXPOSE_HEADERS = "Access-Control-Expose-Headers";
   private static final String CORRELATION_ID = "X-Correlation-ID";
-
-  /** Where Spring Security's filter chain sits by default, once it is added. */
-  private static final int SECURITY_CHAIN_ORDER = -100;
 
   private static ConfigurableApplicationContext dev;
   private static ConfigurableApplicationContext prod;
@@ -158,14 +158,37 @@ class CorsIT {
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
   }
 
-  /** The dispatcher answers this one before a handler is chosen, so MVC mapping would miss it. */
+  /** The chain answers this one before a handler is chosen, so MVC mapping would miss it. */
   @Test
-  void refusedMethod_fromAllowedOrigin_isReadable() throws Exception {
+  void refusedRequest_fromAllowedOrigin_isReadable() throws Exception {
     HttpResponse<String> response =
         send(fromOrigin(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("POST", noBody()));
 
-    assertThat(response.statusCode()).isEqualTo(405);
+    assertThat(response.statusCode()).isEqualTo(401);
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
+  }
+
+  /** The exception to authentication covers the preflight and nothing after it. */
+  @Test
+  void realRequest_afterItsPreflight_stillNeedsCredentials() throws Exception {
+    HttpResponse<String> preflight =
+        send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "POST", "authorization,content-type"));
+    HttpResponse<String> request =
+        send(
+            fromOrigin(dev, PLAYERS, LOCAL_ORIGIN)
+                .header("Content-Type", "application/json")
+                .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}")));
+
+    assertThat(preflight.statusCode()).isEqualTo(200);
+    assertThat(request.statusCode()).isEqualTo(401);
+    assertThat(header(request, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
+  }
+
+  /** A second source would stop Spring Security seeing this one. */
+  @Test
+  void corsHasOneSourceAndNoBeanNamedForTheFramework() {
+    assertThat(dev.getBeansOfType(UrlBasedCorsConfigurationSource.class)).hasSize(1);
+    assertThat(dev.containsBean("corsFilter")).isFalse();
   }
 
   @Test
@@ -230,27 +253,32 @@ class CorsIT {
   @Test
   void filter_runsAfterCorrelationAndBeforeSecurity() {
     FilterRegistrationBean<?> filter = dev.getBean("apiCorsFilter", FilterRegistrationBean.class);
+    DelegatingFilterProxyRegistrationBean security =
+        dev.getBean(DelegatingFilterProxyRegistrationBean.class);
 
     assertThat(filter.getOrder())
         .isGreaterThan(Ordered.HIGHEST_PRECEDENCE + 1)
-        .isLessThan(SECURITY_CHAIN_ORDER);
+        .isLessThan(security.getOrder());
   }
 
   @Test
   void actuator_ignoresTheOrigin() throws Exception {
-    HttpResponse<String> response = send(get(dev, "/actuator/health", OTHER_ORIGIN));
+    HttpResponse<String> response = send(get(dev, LIVENESS, OTHER_ORIGIN));
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
   }
 
-  /** The filter ends any preflight it sees, so this proves it never sees the actuator. */
+  /**
+   * A CORS filter ends any preflight it sees, and refuses one on a path with no configuration, so
+   * this proves none sees the actuator: neither the API's, nor the one in the security chain.
+   */
   @Test
   void actuator_preflightIsNotAnsweredByCors() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, "/actuator/health", LOCAL_ORIGIN, "GET"));
+    HttpResponse<String> response = send(preflight(dev, LIVENESS, LOCAL_ORIGIN, "GET"));
 
-    assertThat(response.statusCode()).isEqualTo(200);
-    assertThat(response.headers().firstValue("Allow")).isPresent();
+    assertThat(response.statusCode()).isEqualTo(401);
+    assertThat(response.body()).doesNotContain("Invalid CORS request");
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
   }
 
@@ -294,6 +322,7 @@ class CorsIT {
   private static HttpRequest.Builder createPlayer(
       ConfigurableApplicationContext context, String origin) {
     return fromOrigin(context, PLAYERS, origin)
+        .header("Authorization", IntegrationTestBase.adminCredentials())
         .header("Content-Type", "application/json")
         .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}"));
   }

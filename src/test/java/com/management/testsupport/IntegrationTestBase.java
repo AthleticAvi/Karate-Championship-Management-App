@@ -3,25 +3,34 @@ package com.management.testsupport;
 import static org.awaitility.Awaitility.await;
 
 import com.management.KumiteGameStarter;
+import com.management.enums.AccountRole;
+import com.management.models.Account;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.mongodb.MongoDBContainer;
@@ -58,6 +67,11 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * the tests connect directly where production discovers members: {@code [facts]} in the
  * repositories README records what that leaves untested.
  *
+ * <p><strong>Accounts: made up per run.</strong> The password is random, so no credential is
+ * committed. The first Admin is configured with it, and the same Admin and a Scorekeeper are
+ * written back after each drop, with a low cost hash so a request stays cheap in a suite of
+ * hundreds.
+ *
  * <p><strong>Active profile: test.</strong> The {@code @ActiveProfiles("test")} annotation
  * activates the test profile for all integration tests, ensuring test-specific configuration is
  * used while preserving a single shared context across the suite.
@@ -69,6 +83,14 @@ public abstract class IntegrationTestBase {
 
   private static final String MONGO_IMAGE = "mongo:8.0";
   private static final int MONGO_PORT = 27017;
+  private static final int CHEAP_HASH_COST = 4;
+
+  public static final String ADMIN = "test-admin";
+  public static final String SCOREKEEPER = "test-scorekeeper";
+  public static final String PASSWORD = UUID.randomUUID().toString();
+
+  private static final String STORED_HASH =
+      "{bcrypt}" + new BCryptPasswordEncoder(CHEAP_HASH_COST).encode(PASSWORD);
 
   @ServiceConnection
   static final MongoDBContainer MONGO = new MongoDBContainer(MONGO_IMAGE).withReplicaSet();
@@ -79,6 +101,37 @@ public abstract class IntegrationTestBase {
 
   @Autowired protected MongoTemplate mongoTemplate;
 
+  @Autowired private TestRestTemplate anonymous;
+
+  @DynamicPropertySource
+  static void firstAdmin(DynamicPropertyRegistry registry) {
+    firstAdminSettings().forEach((key, value) -> registry.add(key, () -> value));
+  }
+
+  private static Map<String, String> firstAdminSettings() {
+    return Map.of(
+        "accounts.first-admin.username", ADMIN, "accounts.first-admin.password", PASSWORD);
+  }
+
+  /** The value of an {@code Authorization} header. */
+  public static String basic(String username, String password) {
+    String pair = username + ":" + password;
+    return "Basic " + Base64.getEncoder().encodeToString(pair.getBytes(StandardCharsets.UTF_8));
+  }
+
+  public static String adminCredentials() {
+    return basic(ADMIN, PASSWORD);
+  }
+
+  /** The shared client, signed in as the Admin. */
+  protected TestRestTemplate asAdmin() {
+    return anonymous.withBasicAuth(ADMIN, PASSWORD);
+  }
+
+  protected TestRestTemplate asScorekeeper() {
+    return anonymous.withBasicAuth(SCOREKEEPER, PASSWORD);
+  }
+
   /** The shared replica set, for the tests that start the application by hand. */
   public static String replicaSetUri() {
     return MONGO.getReplicaSetUrl();
@@ -87,6 +140,13 @@ public abstract class IntegrationTestBase {
   /** A standalone server, weaker than the shared one, for the tests that must be refused. */
   public static GenericContainer<?> standaloneMongo() {
     return new MongoDBContainer(MONGO_IMAGE);
+  }
+
+  /** A replica set of its own, for a test that must stop it answering. Started, and initiated. */
+  public static GenericContainer<?> replicaSet() {
+    GenericContainer<?> mongo = new MongoDBContainer(MONGO_IMAGE).withReplicaSet();
+    mongo.start();
+    return mongo;
   }
 
   /** A started replica set that requires a login, for the tests of rejected credentials. */
@@ -152,6 +212,7 @@ public abstract class IntegrationTestBase {
     Map<String, String> all = new LinkedHashMap<>();
     all.put("server.port", "0");
     all.put("spring.mongodb.uri", uri);
+    all.putAll(firstAdminSettings());
     all.putAll(settings);
     String[] args =
         all.entrySet().stream()
@@ -193,5 +254,7 @@ public abstract class IntegrationTestBase {
   @BeforeEach
   void dropEveryCollection() {
     mongoTemplate.getCollectionNames().forEach(mongoTemplate::dropCollection);
+    mongoTemplate.insert(new Account(ADMIN, STORED_HASH, AccountRole.ADMIN));
+    mongoTemplate.insert(new Account(SCOREKEEPER, STORED_HASH, AccountRole.SCOREKEEPER));
   }
 }

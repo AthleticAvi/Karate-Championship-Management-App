@@ -91,7 +91,8 @@ class ForwardedHeadersIT {
     return HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
         .header("X-Forwarded-Proto", "https")
         .header("X-Forwarded-Host", URI.create(PUBLIC_ADDRESS).getHost())
-        .header("X-Forwarded-For", "203.0.113.7");
+        .header("X-Forwarded-For", "203.0.113.7")
+        .header("Authorization", IntegrationTestBase.adminCredentials());
   }
 
   private static HttpResponse<String> send(HttpRequest.Builder request)

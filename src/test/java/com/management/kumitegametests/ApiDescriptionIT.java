@@ -10,6 +10,7 @@ import com.management.testsupport.IntegrationTestBase;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.io.IOException;
+import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
@@ -108,13 +109,45 @@ class ApiDescriptionIT {
   @Test
   void failures_matchWhatEachKindOfOperationCanMeet() {
     assertThat(statusesOf(operation("post", PLAYERS)))
-        .containsExactly("201", "400", "413", "415", "500");
-    assertThat(statusesOf(operation("get", PLAYER))).containsExactly("200", "404", "500");
-    assertThat(statusesOf(operation("delete", PLAYER))).containsExactly("204", "404", "409", "500");
+        .containsExactly("201", "400", "401", "403", "413", "415", "500");
+    assertThat(statusesOf(operation("get", PLAYER))).containsExactly("200", "401", "404", "500");
+    assertThat(statusesOf(operation("delete", PLAYER)))
+        .containsExactly("204", "401", "403", "404", "409", "500");
     assertThat(statusesOf(operation("put", MATCH + "/add-foul")))
-        .containsExactly("200", "400", "404", "409", "500");
+        .containsExactly("200", "400", "401", "404", "409", "500");
     assertThat(statusesOf(operation("put", MATCH + "/add-time")))
-        .containsExactly("200", "400", "404", "409", "413", "415", "500");
+        .containsExactly("200", "400", "401", "404", "409", "413", "415", "500");
+  }
+
+  @Test
+  void basicScheme_isDescribed() {
+    JsonNode scheme = description.get("components").get("securitySchemes").get("basicAuth");
+
+    assertThat(scheme.get("type").asString()).isEqualTo("http");
+    assertThat(scheme.get("scheme").asString()).isEqualTo("basic");
+  }
+
+  @Test
+  void everyOperationButPublicReads_needsTheScheme() {
+    assertThat(operation("get", PLAYER).has("security")).isFalse();
+    assertThat(operation("get", MATCH).has("security")).isFalse();
+    assertThat(operation("post", PLAYERS).get("security").toString()).contains("basicAuth");
+    assertThat(operation("put", MATCH + "/add-foul").get("security").toString())
+        .contains("basicAuth");
+  }
+
+  /** Both answers come from the real chain, so the description cannot claim what it never does. */
+  @Test
+  void authenticationFailures_matchTheRealAnswers() throws Exception {
+    String wrong = IntegrationTestBase.basic(IntegrationTestBase.ADMIN, "wrong");
+    HttpResponse<String> publicRead =
+        send(request(dev, PLAYERS + "/none").header("Authorization", wrong).GET());
+    HttpResponse<String> write = send(request(dev, PLAYERS).POST(BodyPublishers.ofString("{}")));
+
+    assertThat(publicRead.statusCode()).isEqualTo(401);
+    assertThat(write.statusCode()).isEqualTo(401);
+    assertThat(fieldsOf(write.body()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("ProblemDetail").get("required")));
   }
 
   @Test
@@ -127,7 +160,7 @@ class ApiDescriptionIT {
     assertThat(statusesOf(operation("get", PLAYER)))
         .contains(String.valueOf(send(request(dev, location).GET()).statusCode()));
     assertThat(statusesOf(operation("delete", PLAYER)))
-        .contains(String.valueOf(send(request(dev, location).DELETE()).statusCode()));
+        .contains(String.valueOf(send(asAdmin(request(dev, location)).DELETE()).statusCode()));
     assertThat(response("delete", PLAYER, "204").has("content")).isFalse();
     assertThat(response("get", PLAYER, "200").get("content").propertyNames())
         .containsExactly("application/json");
@@ -146,7 +179,7 @@ class ApiDescriptionIT {
     HttpResponse<String> missing = send(request(dev, PLAYERS + "/none").GET());
     HttpResponse<String> invalid =
         send(
-            request(dev, PLAYERS)
+            asAdmin(request(dev, PLAYERS))
                 .header("Content-Type", "application/json")
                 .POST(BodyPublishers.ofString("{}")));
 
@@ -179,7 +212,7 @@ class ApiDescriptionIT {
   void matchSchema_describesRealMatches() throws Exception {
     HttpResponse<String> created =
         send(
-            request(dev, MATCHES)
+            asAdmin(request(dev, MATCHES))
                 .header("Content-Type", "application/json")
                 .POST(BodyPublishers.ofString(NEW_MATCH)));
     JsonNode match = JsonMapper.shared().readTree(created.body());
@@ -223,7 +256,7 @@ class ApiDescriptionIT {
 
   @Test
   void description_isNotMovedUnderTheApiVersion() throws Exception {
-    assertThat(send(request(dev, "/api/v1" + DESCRIPTION).GET()).statusCode()).isEqualTo(404);
+    assertThat(send(request(dev, "/api/v1" + DESCRIPTION).GET()).statusCode()).isEqualTo(401);
   }
 
   @Test
@@ -242,16 +275,16 @@ class ApiDescriptionIT {
   }
 
   @ParameterizedTest
-  @ValueSource(
-      strings = {DESCRIPTION, DESCRIPTION + ".yaml", "/swagger-ui.html", "/swagger-ui/index.html"})
+  @ValueSource(strings = {DESCRIPTION, DESCRIPTION + ".yaml"})
   void prod_servesNoDescription(String path) throws Exception {
     assertThat(send(request(prod, path).GET()).statusCode()).isEqualTo(404);
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"/swagger-ui.html", "/swagger-ui/index.html"})
-  void dev_servesNoInterface(String path) throws Exception {
-    assertThat(send(request(dev, path).GET()).statusCode()).isEqualTo(404);
+  void noProfile_servesAnInterface(String path) throws Exception {
+    assertThat(send(asAdmin(request(dev, path)).GET()).statusCode()).isEqualTo(403);
+    assertThat(send(asAdmin(request(prod, path)).GET()).statusCode()).isEqualTo(403);
   }
 
   private static Set<String> realEndpoints() {
@@ -319,8 +352,12 @@ class ApiDescriptionIT {
 
   private static HttpResponse<String> createPlayer() throws IOException, InterruptedException {
     return send(
-        request(dev, PLAYERS)
+        asAdmin(request(dev, PLAYERS))
             .header("Content-Type", "application/json")
             .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}")));
+  }
+
+  private static HttpRequest.Builder asAdmin(HttpRequest.Builder request) {
+    return request.header("Authorization", IntegrationTestBase.adminCredentials());
   }
 }
