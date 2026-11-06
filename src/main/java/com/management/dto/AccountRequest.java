@@ -19,7 +19,7 @@ import jakarta.validation.constraints.Size;
  * @param role what the account may do
  */
 public record AccountRequest(
-    @NotBlank(message = "an account needs a username")
+    @NotNull(message = "an account needs a username")
         @Pattern(
             regexp = Account.USERNAME_PATTERN,
             message = "must be 1 to 64 letters, digits, dots, underscores or hyphens")

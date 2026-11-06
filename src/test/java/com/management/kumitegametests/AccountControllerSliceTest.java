@@ -110,6 +110,13 @@ class AccountControllerSliceTest extends WebSliceTestBase {
   }
 
   @Test
+  void create_withNoUsername_isRefused() throws Exception {
+    create("{\"password\":\"x\",\"role\":\"ADMIN\"}")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors.username").value("an account needs a username"));
+  }
+
+  @Test
   void create_withLongUsername_isRefused() throws Exception {
     create(body("x".repeat(65), PASSWORD, "ADMIN")).andExpect(status().isBadRequest());
   }
