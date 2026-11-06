@@ -30,6 +30,7 @@ This project is the system of record for that bout. It holds the competitors, th
 | Framework | Spring Boot 4.1.2 |
 | Database | MongoDB 8.0, in Docker |
 | Build | Maven |
+| API description | springdoc-openapi, generated, `dev` only |
 | Testing | JUnit, Mockito, AssertJ, Testcontainers |
 
 A frontend will follow once the backend supports it.
@@ -55,8 +56,8 @@ The defaults reach this database. To use another, set `MONGO_URI` and, if needed
 The application refuses to start without a profile. A deployment must choose one, so it can never
 fall back to local settings.
 
-- **dev**: local development. `mvn spring-boot:run` sets it through `spring-boot.run.profiles` in `pom.xml`, so a clean clone needs no extra steps. Holds the default `MONGO_URI`, which reaches the database above.
-- **prod**: a deployment. Set `SPRING_PROFILES_ACTIVE=prod` and `MONGO_URI`, which has no default here: without it, startup stops and names it.
+- **dev**: local development. `mvn spring-boot:run` sets it through `spring-boot.run.profiles` in `pom.xml`, so a clean clone needs no extra steps. Holds the default `MONGO_URI`, which reaches the database above. Allows calls from a local development server, and serves the API description at `/v3/api-docs`.
+- **prod**: a deployment. Set `SPRING_PROFILES_ACTIVE=prod` and `MONGO_URI`, which has no default here: without it, startup stops and names it. No browser origin may call it until `CORS_ALLOWED_ORIGINS` names one.
 - **test**: activated for the whole test suite via `@ActiveProfiles("test")` on the shared test base classes. It has no file, because nothing differs. `test` is not a profile the application should ever be started under.
 
 A profile with no file of its own, such as a mistyped one, is refused too.

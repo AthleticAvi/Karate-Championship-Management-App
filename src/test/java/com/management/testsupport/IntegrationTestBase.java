@@ -4,6 +4,11 @@ import static org.awaitility.Awaitility.await;
 
 import com.management.KumiteGameStarter;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -138,6 +143,12 @@ public abstract class IntegrationTestBase {
    */
   public static ConfigurableApplicationContext startApplication(
       String uri, Map<String, String> settings) {
+    return startApplication("test", uri, settings);
+  }
+
+  /** The same, under a profile a real deployment uses, for what differs between them. */
+  public static ConfigurableApplicationContext startApplication(
+      String profile, String uri, Map<String, String> settings) {
     Map<String, String> all = new LinkedHashMap<>();
     all.put("server.port", "0");
     all.put("spring.mongodb.uri", uri);
@@ -146,7 +157,29 @@ public abstract class IntegrationTestBase {
         all.entrySet().stream()
             .map(setting -> "--" + setting.getKey() + "=" + setting.getValue())
             .toArray(String[]::new);
-    return new SpringApplicationBuilder(KumiteGameStarter.class).profiles("test").run(args);
+    return new SpringApplicationBuilder(KumiteGameStarter.class).profiles(profile).run(args);
+  }
+
+  /** Where an application started by hand answers. */
+  public static String addressOf(ConfigurableApplicationContext context) {
+    return "http://localhost:" + context.getEnvironment().getProperty("local.server.port");
+  }
+
+  /**
+   * A request to an application started by hand.
+   *
+   * <p>On {@link HttpClient}, because it sends {@code Origin} as given. The older JDK client
+   * silently drops it.
+   */
+  public static HttpRequest.Builder request(ConfigurableApplicationContext context, String path) {
+    return HttpRequest.newBuilder(URI.create(addressOf(context) + path));
+  }
+
+  public static HttpResponse<String> send(HttpRequest.Builder request)
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      return client.send(request.build(), BodyHandlers.ofString());
+    }
   }
 
   /** A replica set member nobody initiated, for the tests that must be refused. */

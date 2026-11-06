@@ -46,8 +46,8 @@ Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest
 ## Stack
 
 Java **25** everywhere (`pom.xml`, `.java-version`, local JDK, CI). Enforcer fails any other JDK. Spring Boot **4.1.2**, Maven, embedded Tomcat.
-Jackson 3, JUnit 6, Testcontainers 2, MongoDB driver 5.8. MongoDB 8.0 in Docker, a one-member replica set. Frontend
-not started.
+Jackson 3, JUnit 6, Testcontainers 2, MongoDB driver 5.8. MongoDB 8.0 in Docker, a one-member replica set. springdoc
+3.2 for the API description, which brings Jackson 2 beside Jackson 3. Frontend not started.
 
 ## Commands
 

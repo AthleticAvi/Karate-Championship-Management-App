@@ -4,6 +4,7 @@ import com.management.dto.PlayerRequestDTO;
 import com.management.dto.PlayerResponse;
 import com.management.mappers.PlayerMapper;
 import com.management.services.PlayerService;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class PlayerController {
     this.playerService = playerService;
   }
 
+  @ApiResponse(responseCode = "201", description = "Created")
   @PostMapping
   public ResponseEntity<PlayerResponse> createPlayer(
       @Valid @RequestBody PlayerRequestDTO newPlayer) {
@@ -43,6 +45,7 @@ public class PlayerController {
    * the API to an English string. The status table in {@code
    * context/workflow/design/service-exposure.md} gives 204 for "succeeded, nothing to return".
    */
+  @ApiResponse(responseCode = "204", description = "No Content")
   @DeleteMapping("/{playerId}")
   public ResponseEntity<Void> deletePlayer(@PathVariable String playerId) {
     playerService.deletePlayer(playerId);

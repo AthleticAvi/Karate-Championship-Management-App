@@ -1,5 +1,7 @@
 package com.management.dto;
 
+import com.management.enums.PlayerColor;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -12,4 +14,5 @@ import jakarta.validation.constraints.Size;
  */
 public record PlayerDTO(
     @NotBlank(message = "a fighter needs a name") @Size(max = 100) String name,
-    @NotBlank(message = "a fighter needs a colour") String color) {}
+    @Schema(implementation = PlayerColor.class) @NotBlank(message = "a fighter needs a colour")
+        String color) {}

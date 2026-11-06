@@ -53,6 +53,9 @@ The store only changes on purpose. A fixed violation fails the build until you r
 `mvn test -Dtest=ArchitectureTest -Darchunit.freeze.store.default.allowStoreUpdate=true` and commit
 the store.
 
+Documentation types from the API description library stay in `controllers` and `dto`. A strict rule
+fails on any other package using them.
+
 One cycle is accepted by name, not frozen: `enums.PointsType` attaches strategies from
 `models.strategies`, and `models` uses `enums`. Any other cycle fails the build.
 

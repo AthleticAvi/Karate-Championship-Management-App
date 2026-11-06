@@ -54,5 +54,8 @@ Nothing in this application. Never `services`, `repositories` or `rules`.
 - The framework's `PageNotFound` logger is set to ERROR, because its line for a refused method
   repeats what the client sent.
 - Actuator requests get an ID and a line like any other, so health probes appear in the logs.
+- **The CORS filter runs inside this one,** so a preflight or a refused origin gets an ID and a line.
+  It answers before a handler is chosen, so its route is `UNMATCHED`. See `[cors]` in the controllers
+  README.
 - Text output shows the ID and fields through `logging.pattern.correlation`: see `[logging]` in the
   config README.

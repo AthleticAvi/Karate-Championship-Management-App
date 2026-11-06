@@ -11,6 +11,7 @@ Builds on: `languages/java/standards/standards.md`
 - [rules] Rules
 - [do] Do
 - [dont] Don't
+- [api-description] Generated API description
 - [package-layout] Package layout
 - [verify] Verify
 
@@ -89,6 +90,14 @@ public class WidgetService {
 ```
 
 A field initialised inline and marked `final` cannot be replaced by a test double: mock injection does not write to final fields. Any class built this way is untestable in the dimension that matters.
+
+## [api-description] Generated API description
+
+- springdoc reads a status only from an annotation. A `@RestControllerAdvice` that sets its status at runtime yields no failure responses at all, and a `ResponseEntity` reads as 200. Inspect the output: it looks complete.
+- It generates through swagger-core on Jackson 2, so a Jackson 3 application carries both. Spring MVC stays on Jackson 3.
+- Its YAML format makes Spring register a YAML message converter in every profile, even with the description off. Remove it with `configureMessageConverters`. Excluding the jar stops the application from starting.
+- `springdoc.model-converters.java-nullable-property-customizer.enabled` honours `@Nullable` on a record, but leaves `null` out of an enum's values, so a real `null` fails the schema.
+- Set `springdoc.api-docs.enabled` explicitly, or it logs a warning at startup.
 
 ## [package-layout] Package layout
 

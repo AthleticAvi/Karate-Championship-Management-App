@@ -115,6 +115,17 @@ class ArchitectureTest {
   }
 
   @Test
+  void documentationTypes_stayInTheGateways() {
+    noClasses()
+        .that()
+        .resideOutsideOfPackages("..controllers..", "..dto..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("io.swagger..", "org.springdoc..")
+        .check(CLASSES);
+  }
+
+  @Test
   void localDateTime_isNeverUsed() {
     noClasses()
         .should()

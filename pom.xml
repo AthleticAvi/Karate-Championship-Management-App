@@ -37,6 +37,7 @@
     <mockito.agent>"-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"</mockito.agent>
     <git-build-hook.version>3.6.0</git-build-hook.version>
     <archunit.version>1.5.1</archunit.version>
+    <springdoc.version>3.2.0</springdoc.version>
     <!--
       The profile mvn spring-boot:run starts with, so local development needs no extra steps. The
       plugin's own property and not a configuration entry, which -Dspring-boot.run.profiles could
@@ -61,6 +62,17 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!--
+      Generates the API description. The artifact with no UI: the description is what a client needs.
+      It brings Jackson 2 and a YAML data format beside the application's Jackson 3: see [description]
+      in src/main/java/com/management/controllers/README.md.
+    -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+      <version>${springdoc.version}</version>
     </dependency>
 
     <!-- Declared because the sources import it. Version managed by Spring Boot. -->

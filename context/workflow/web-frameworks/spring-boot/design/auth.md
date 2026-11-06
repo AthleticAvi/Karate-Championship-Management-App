@@ -71,7 +71,11 @@ Browsers block cross-origin calls unless the API permits them. This is invisible
 - Configure centrally, not per endpoint.
 - Allowed origins come from configuration and differ per environment. Never a wildcard where credentials are permitted: browsers reject the combination, and it is unsafe regardless.
 - Allow only the methods and headers actually used.
-- Verify from a real browser. A command-line client does not enforce cross-origin rules and will succeed regardless.
+- Expose what a browser client must read. It hides every response header outside a short list, including `Location` and any correlation header.
+- CORS runs before authentication, because a preflight carries no credentials. A `UrlBasedCorsConfigurationSource` bean is what Spring Security configures itself from, and a second source turns that off. A bean named `corsFilter` must be a plain `CorsFilter`.
+- `CorsFilter` ends every preflight it sees, even for a path with no configuration. Limit it in its servlet mapping, or it changes the answer on paths meant to stay out of CORS.
+- The server enforces the rules too: a refused origin gets a 403 before anything runs. Prove that with HTTP tests that send `Origin`. A browser adds what the server cannot show, so a browser check is a one-off, not the proof.
+- Same-origin is decided from the address the server sees, so a TLS proxy with forwarded headers off makes a same-origin page look cross-origin.
 
 ## [testing] Testing
 
