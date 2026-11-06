@@ -40,7 +40,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `git/branches.md`: [naming] [flow]
 - `git/commits.md`: [message] [enforcement] [units] [identity] [privacy]
 - `git/github/ci.md`: [scope] [actions]
-- `git/github/issues-and-prs.md`: [assignee] [issues] [prs]
+- `git/github/issues-and-prs.md`: [assignee] [issues] [prs] [pr-body]
 - `git/github/repo-settings.md`: [main]
 - `languages/java/standards/standards.md`: [rules] [do] [dont] [encoding] [naming] [third-party-code-generation] [verify] [sources]
 - `languages/java/testing/unit.md`: [rules] [final-field-trap] [do] [dont] [testing-time-dependent-logic] [verify]

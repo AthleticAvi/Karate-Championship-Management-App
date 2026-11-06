@@ -1,10 +1,18 @@
 Closes #
 
-## What
+## Summary
 
-## Why
+<!-- 3 to 5 sentences at most: what this did and what it delivers. -->
 
-## Validation
+## Changes
+
+<!-- One list per topic, up to 5 one-line bullets. Add topics such as Decisions for the owner,
+Findings or Not proven. Delete any with nothing to say. Say each thing once. Evidence goes in one
+PR comment, not here. -->
+
+-
+
+## Checks
 
 State the command you ran and what happened. "Tests attempted" is not a result.
 
