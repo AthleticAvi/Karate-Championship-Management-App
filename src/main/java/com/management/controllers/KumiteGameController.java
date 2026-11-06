@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
+import java.security.Principal;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -113,21 +114,31 @@ public class KumiteGameController {
     return ResponseEntity.ok(KumiteGameMapper.toResponse(kumiteGameService.forfeit(gameId, color)));
   }
 
-  /** Replaces the result with a referee's decision. The reason is required. */
+  /**
+   * Replaces the result with a referee's decision. The reason is required.
+   *
+   * <p>The operator is whoever signed in, so the record cannot name someone else.
+   */
   @PutMapping("/{gameId}/override-winner")
   public ResponseEntity<KumiteGameResponse> overrideWinner(
-      @PathVariable String gameId, @Valid @RequestBody WinnerOverrideRequest request) {
+      @PathVariable String gameId,
+      @Valid @RequestBody WinnerOverrideRequest request,
+      Principal operator) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(
-            kumiteGameService.overrideWinner(gameId, KumiteGameMapper.toNewOverride(request))));
+            kumiteGameService.overrideWinner(
+                gameId, KumiteGameMapper.toNewOverride(request, operator.getName()))));
   }
 
   /** Puts time back on the clock after a stop that came late. */
   @PutMapping("/{gameId}/add-time")
   public ResponseEntity<KumiteGameResponse> addTime(
-      @PathVariable String gameId, @Valid @RequestBody ClockAdjustmentRequest request) {
+      @PathVariable String gameId,
+      @Valid @RequestBody ClockAdjustmentRequest request,
+      Principal operator) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(
-            kumiteGameService.addTime(gameId, KumiteGameMapper.toNewClockAdjustment(request))));
+            kumiteGameService.addTime(
+                gameId, KumiteGameMapper.toNewClockAdjustment(request, operator.getName()))));
   }
 }

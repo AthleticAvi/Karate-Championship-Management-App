@@ -7,6 +7,7 @@
 - [may-call] May call
 - [contract] Response contract
 - [access] Who may call what
+- [identity] Who did it
 - [wire-formats] Wire formats, and why
 - [mutations] Mutations return the new state
 - [validation] Validation at the boundary
@@ -76,6 +77,14 @@ Any Scorekeeper may act on any bout: there is no assignment model. A new endpoin
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
 compares it with the real mappings, so a new endpoint fails the build until someone decides. What
 each answer means is in the security README.
+
+## [identity] Who did it
+
+A controller that records who acted takes `java.security.Principal` and passes `getName()` down as a
+plain string: `override-winner` and `add-time`. `decidedBy` and `addedBy` are not in any request, and
+a body that still sends them is not refused: the field is not read, so it reaches no record.
+`Principal` is the JDK's type, so the description does not list it as a parameter and no Spring
+Security type comes near the signature. Points and fouls record no actor.
 
 ## [wire-formats] Wire formats, and why
 

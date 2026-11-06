@@ -48,12 +48,13 @@ public final class KumiteGameMapper {
         request.gameDuration());
   }
 
-  public static NewOverride toNewOverride(WinnerOverrideRequest request) {
-    return new NewOverride(request.winner(), request.reason(), request.decidedBy());
+  public static NewOverride toNewOverride(WinnerOverrideRequest request, String operator) {
+    return new NewOverride(request.winner(), request.reason(), request.referee(), operator);
   }
 
-  public static NewClockAdjustment toNewClockAdjustment(ClockAdjustmentRequest request) {
-    return new NewClockAdjustment(request.seconds(), request.addedBy());
+  public static NewClockAdjustment toNewClockAdjustment(
+      ClockAdjustmentRequest request, String operator) {
+    return new NewClockAdjustment(request.seconds(), operator);
   }
 
   public static KumiteGameResponse toResponse(GameWithFighters gameWithFighters) {

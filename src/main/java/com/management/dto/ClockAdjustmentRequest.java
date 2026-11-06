@@ -1,9 +1,7 @@
 package com.management.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
 
 /**
  * A referee's request to put time back on the clock.
@@ -12,13 +10,11 @@ import jakarta.validation.constraints.Size;
  * Which values are actually permitted is configuration — {@code game.clock-increments} — and is
  * checked in the service, because a constraint cannot see it.
  *
+ * <p>Who added it comes from the signed-in account, so a caller cannot supply that.
+ *
  * @param seconds how much time to add; must be one of the configured increments
- * @param addedBy who added it. Caller-supplied until the security epic (#81) supplies an
- *     authenticated identity.
  */
 public record ClockAdjustmentRequest(
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         @Positive(message = "time added must be a positive number of seconds")
-        int seconds,
-    @NotBlank(message = "a clock adjustment must record who made it") @Size(max = 100)
-        String addedBy) {}
+        int seconds) {}

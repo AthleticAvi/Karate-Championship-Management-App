@@ -203,6 +203,25 @@ class ApiDescriptionIT {
         .isEqualTo("password");
   }
 
+  /** Who recorded a change comes from the signed-in account, so no body has room for it. */
+  @Test
+  void requests_haveNoRoomForTheOperator() {
+    assertThat(schema("WinnerOverrideRequest").get("properties").propertyNames())
+        .containsExactlyInAnyOrder("winner", "reason", "referee");
+    assertThat(schema("ClockAdjustmentRequest").get("properties").propertyNames())
+        .containsExactly("seconds");
+  }
+
+  @Test
+  void signedInIdentity_staysOutOfTheParameters() {
+    for (String path : List.of(MATCH + "/add-time", MATCH + "/override-winner")) {
+      List<String> names = new ArrayList<>();
+      operation("put", path).get("parameters").forEach(p -> names.add(p.get("name").asString()));
+
+      assertThat(names).containsExactly("gameId");
+    }
+  }
+
   @Test
   void headers_areDescribed() {
     assertThat(response("post", MATCHES, "201").get("headers").propertyNames())

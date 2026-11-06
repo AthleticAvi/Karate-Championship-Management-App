@@ -86,10 +86,12 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   }
 
   @Test
+  @WithMockUser(username = "operator-1", roles = "ADMIN")
   void overrideWinner_passesEachFieldToTheService() throws Exception {
     given(
             kumiteGameService.overrideWinner(
-                "game-1", new NewOverride("RED", "Stopped on the mat", "Chief Referee")))
+                "game-1",
+                new NewOverride("RED", "Stopped on the mat", "Chief Referee", "operator-1")))
         .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
 
     mockMvc
@@ -101,16 +103,57 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                     {
                       "winner": "RED",
                       "reason": "Stopped on the mat",
-                      "decidedBy": "Chief Referee"
+                      "referee": "Chief Referee"
                     }
                     """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value("game-1"));
   }
 
+  /** A name in the body must not reach the record: the old field is simply not read. */
   @Test
+  @WithMockUser(username = "operator-1", roles = "ADMIN")
+  void overrideWinner_ignoresAnOperatorInTheBody() throws Exception {
+    given(
+            kumiteGameService.overrideWinner(
+                "game-1", new NewOverride("RED", "Stopped on the mat", "Chief", "operator-1")))
+        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
+
+    mockMvc
+        .perform(
+            put("/api/v1/kumitegame/{gameId}/override-winner", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "winner": "RED",
+                      "reason": "Stopped on the mat",
+                      "referee": "Chief",
+                      "decidedBy": "someone-else",
+                      "operator": "someone-else"
+                    }
+                    """))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void overrideWinner_withNoReferee_isRefused() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/v1/kumitegame/{gameId}/override-winner", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    { "winner": "RED", "reason": "Stopped on the mat" }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors.referee").exists());
+  }
+
+  @Test
+  @WithMockUser(username = "operator-1", roles = "ADMIN")
   void addTime_passesEachFieldToTheService() throws Exception {
-    given(kumiteGameService.addTime("game-1", new NewClockAdjustment(30, "Timekeeper")))
+    given(kumiteGameService.addTime("game-1", new NewClockAdjustment(30, "operator-1")))
         .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
 
     mockMvc
@@ -119,7 +162,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    { "seconds": 30, "addedBy": "Timekeeper" }
+                    { "seconds": 30 }
                     """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value("game-1"));
