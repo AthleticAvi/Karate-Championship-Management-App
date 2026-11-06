@@ -15,10 +15,11 @@ import org.jspecify.annotations.Nullable;
  *
  * @param winner the colour to declare, or {@code null} to declare a draw
  * @param reason why the rules engine's result is being overruled; required
- * @param decidedBy who decided. A caller-supplied name until the security epic (#81) provides an
- *     authenticated identity to record instead — the field stays, its source changes.
+ * @param referee the referee who made the call, who may hold no account. Who recorded it comes from
+ *     the signed-in account, so a caller cannot supply that
  */
 public record WinnerOverrideRequest(
     @Schema(implementation = PlayerColor.class) @Nullable String winner,
     @NotBlank(message = "an override must record why it was made") @Size(max = 500) String reason,
-    @NotBlank(message = "an override must record who decided") @Size(max = 100) String decidedBy) {}
+    @NotBlank(message = "an override must record which referee made the call") @Size(max = 100)
+        String referee) {}

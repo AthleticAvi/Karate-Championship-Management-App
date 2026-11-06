@@ -305,7 +305,12 @@ public class KumiteGameService {
 
     kumiteGame.applyOverride(
         new RefereeOverride(
-            declared, override.reason(), override.decidedBy(), clock.instant(), engineOutcome),
+            declared,
+            override.reason(),
+            override.operator(),
+            override.referee(),
+            clock.instant(),
+            engineOutcome),
         clock);
     return withFighters(saveGame(kumiteGame));
   }

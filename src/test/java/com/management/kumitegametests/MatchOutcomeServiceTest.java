@@ -14,6 +14,7 @@ import com.management.models.KumiteGame;
 import com.management.models.NewClockAdjustment;
 import com.management.models.NewOverride;
 import com.management.models.Player;
+import com.management.models.RefereeOverride;
 import com.management.services.KumiteGameService;
 import com.management.services.MatchStateWriter;
 import com.management.services.PlayerService;
@@ -108,10 +109,25 @@ class MatchOutcomeServiceTest {
 
     GameWithFighters overridden =
         service.overrideWinner(
-            gameId, new NewOverride("RED", "Stopped on the mat", "Head Referee"));
+            gameId, new NewOverride("RED", "Stopped on the mat", "Head Referee", "operator-1"));
 
     assertThat(overridden.game().getRemainingTime())
         .isBetween(Duration.ofSeconds(85), Duration.ofSeconds(92));
+  }
+
+  @Test
+  void overrideWinner_recordsTheOperatorAndTheRefereeApart() {
+    String gameId =
+        storedMatch(
+            match -> match.runningSince(TestClock.NOW.minusSeconds(30), Duration.ofSeconds(120)));
+
+    GameWithFighters overridden =
+        service.overrideWinner(
+            gameId, new NewOverride("RED", "Stopped on the mat", "Head Referee", "operator-1"));
+
+    RefereeOverride stored = overridden.game().getRefereeOverride().orElseThrow();
+    assertThat(stored.operator()).isEqualTo("operator-1");
+    assertThat(stored.referee()).isEqualTo("Head Referee");
   }
 
   /**
@@ -168,9 +184,11 @@ class MatchOutcomeServiceTest {
     String gameId = runningMatch();
     service.disqualify(gameId, "RED");
 
-    service.overrideWinner(gameId, new NewOverride("RED", "First call", "Referee One"));
+    service.overrideWinner(
+        gameId, new NewOverride("RED", "First call", "Referee One", "operator-1"));
     GameWithFighters second =
-        service.overrideWinner(gameId, new NewOverride("BLUE", "Corrected again", "Head Referee"));
+        service.overrideWinner(
+            gameId, new NewOverride("BLUE", "Corrected again", "Head Referee", "operator-1"));
 
     assertThat(second.game().getRefereeOverride().orElseThrow().supersededOutcome())
         .as("the engine's original result survives a second correction")
@@ -254,7 +272,9 @@ class MatchOutcomeServiceTest {
 
     GameWithFighters overridden =
         service.overrideWinner(
-            gameId, new NewOverride("BLUE", "Scoring error on the third IPPON", "Head Referee"));
+            gameId,
+            new NewOverride(
+                "BLUE", "Scoring error on the third IPPON", "Head Referee", "operator-1"));
 
     assertThat(overridden.game().getWinner()).isEqualTo(PlayerColor.BLUE);
     assertThat(overridden.game().getEndReason()).contains(MatchEndReason.REFEREE_OVERRIDE);
@@ -270,14 +290,16 @@ class MatchOutcomeServiceTest {
     String gameId = storage.save(KumiteGameBuilder.newGame().build()).getId();
 
     assertThatThrownBy(() ->
-            service.overrideWinner(gameId, new NewOverride("RED", "any reason", "Head Referee")))
+            service.overrideWinner(
+                gameId, new NewOverride("RED", "any reason", "Head Referee", "operator-1")))
         .isInstanceOf(IllegalStateTransitionException.class);
   }
 
   @Test
   void addPoint_afterAnOverride_doesNotLetTheEngineTakeTheResultBack() {
     String gameId = runningMatch();
-    service.overrideWinner(gameId, new NewOverride("BLUE", "Called on the mat", "Head Referee"));
+    service.overrideWinner(
+        gameId, new NewOverride("BLUE", "Called on the mat", "Head Referee", "operator-1"));
 
     assertThatThrownBy(() -> service.addPoint(gameId, "RED", PointsType.IPPON.name()))
         .as("the match is finished, so scoring against it is refused")

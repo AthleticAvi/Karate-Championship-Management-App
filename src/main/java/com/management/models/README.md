@@ -19,6 +19,9 @@ bypassed. `KumiteGame` and `Player` mixing domain and storage is a frozen layer 
 - Aggregates: `KumiteGame`, `Player`, `Account`.
 - Values: `Points`, `Foul`, `Referee`, `RefereeOverride`, `ClockAdjustment`, `MatchOutcome`.
 - `GameWithFighters`: the composed read of both aggregates, which `KumiteGameMapper` consumes.
+- `NewOverride` carries the operator and the referee apart: the signed-in account that recorded the
+  call, and the referee who made it, who may hold no account. `NewClockAdjustment.addedBy` is the
+  signed-in account. Both arrive as plain strings.
 - `NewMatch`, `NewOverride`, `NewClockAdjustment`, `NewAccount`: business inputs, mapped from
   requests by the gateway.
 - `GameTimer`: the match clock.
@@ -58,6 +61,13 @@ the writer counts nothing until it catches up, because elapsed time is never neg
 absent version as 0, treats the entity as new, and the next `save` fails with a duplicate key on the
 existing `_id`. No backfill is provided, and pre-#49 documents (embedded fighters, no `playerIds`)
 are not migrated, because there is no production data. **Drop the dev database** instead.
+
+**Overrides stored before accounts existed are not migrated either.** They hold a `decidedBy` name
+that a caller typed, and nothing says who that was. They still read, with `operator` and `referee`
+as `null`, and `decidedBy` is dropped the next time that match is saved. There is no production data,
+so the same answer applies: drop the dev database if the old name matters. A clock adjustment keeps
+its field, `addedBy`, so an old one still holds what a caller typed. `OverrideAuditIT` proves an old
+override reads, and that a second override of it keeps what the rules engine decided.
 
 `Account` has no version field, because an account is only ever inserted or deleted, never updated.
 Its username is the document id, in a field named `id`, which the mapping stores as the id with no
