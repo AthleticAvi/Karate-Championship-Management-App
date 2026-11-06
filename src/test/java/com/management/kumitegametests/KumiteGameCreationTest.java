@@ -5,9 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.management.config.GameProperties;
 import com.management.enums.PlayerColor;
 import com.management.exceptions.InvalidGameRequestException;
@@ -29,6 +34,7 @@ import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * Match creation: the fighter-count rule (#28), write ordering and compensation (#51), and duration
@@ -218,6 +224,80 @@ class KumiteGameCreationTest {
     assertThat(storage.count(Player.class))
         .as("the compensating delete removed the fighters the failed creation wrote")
         .isZero();
+  }
+
+  @Test
+  void createKumiteGame_whenNoFighterWasSaved_logsThatNothingWasCompensated() {
+    PlayerRepository failingFighters = mock(PlayerRepository.class);
+    when(failingFighters.save(any(Player.class)))
+        .thenThrow(new IllegalStateException("simulated failure saving the first fighter"));
+    KumiteGameService failing =
+        serviceWith(FakeRepositories.kumiteGames(storage), new PlayerService(failingFighters));
+
+    assertThat(errorsLoggedBy(failing))
+        .containsExactly("Match creation failed before any fighter was saved");
+  }
+
+  @Test
+  void createKumiteGame_whenEveryFighterIsDeleted_logsTheCompensation() {
+    KumiteGameRepository failingMatches = mock(KumiteGameRepository.class);
+    when(failingMatches.save(any(KumiteGame.class)))
+        .thenThrow(new IllegalStateException("simulated write failure"));
+
+    assertThat(errorsLoggedBy(serviceWith(failingMatches, playerService)))
+        .containsExactly(
+            "Match creation failed after fighters were saved; compensated by deletion");
+  }
+
+  @Test
+  void createKumiteGame_whenFighterCannotBeDeleted_neverClaimsTheCompensation() {
+    KumiteGameRepository failingMatches = mock(KumiteGameRepository.class);
+    when(failingMatches.save(any(KumiteGame.class)))
+        .thenThrow(new IllegalStateException("simulated write failure"));
+    PlayerRepository undeletableFighters = mock(PlayerRepository.class);
+    when(undeletableFighters.save(any(Player.class)))
+        .thenAnswer(call -> storage.save((Player) call.getArgument(0)));
+    when(undeletableFighters.findById(anyString()))
+        .thenAnswer(call -> storage.findById(Player.class, call.getArgument(0)));
+    doThrow(new IllegalStateException("simulated delete failure"))
+        .when(undeletableFighters)
+        .delete(any(Player.class));
+
+    List<String> errors =
+        errorsLoggedBy(serviceWith(failingMatches, new PlayerService(undeletableFighters)));
+
+    assertThat(errors).hasSize(3).noneMatch(line -> line.contains("compensated"));
+    assertThat(errors.getLast()).contains("stranded");
+  }
+
+  private KumiteGameService serviceWith(KumiteGameRepository matches, PlayerService players) {
+    return new KumiteGameService(
+        matches,
+        TestGameProperties.standard(),
+        players,
+        TestRulesEngine.standard(),
+        new MatchStateWriter(FakeRepositories.kumiteGames(storage)),
+        TestClock.FIXED);
+  }
+
+  private static List<String> errorsLoggedBy(KumiteGameService failing) {
+    Logger log = (Logger) LoggerFactory.getLogger(KumiteGameService.class);
+    ListAppender<ILoggingEvent> lines = new ListAppender<>();
+    lines.start();
+    log.addAppender(lines);
+    try {
+      assertThatThrownBy(() ->
+              failing.createKumiteGame(
+                  request(
+                      new NewMatch.Fighter("Kenji", "RED"), new NewMatch.Fighter("Sato", "BLUE"))))
+          .isInstanceOf(IllegalStateException.class);
+    } finally {
+      log.detachAppender(lines);
+    }
+    return lines.list.stream()
+        .filter(line -> line.getLevel() == Level.ERROR)
+        .map(ILoggingEvent::getFormattedMessage)
+        .toList();
   }
 
   private static NewMatch request(NewMatch.Fighter... fighters) {

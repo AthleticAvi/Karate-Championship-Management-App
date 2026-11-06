@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
  * {@code PlayerColor} in the service, where the failure carries its own exception type and 400
  * mapping. The {@code id} field the class-based version carried is gone: it was never read.
  */
-public record FighterRequest(
+public record MatchFighterRequest(
     @NotBlank(message = "a fighter needs a name") @Size(max = 100) String name,
     @Schema(implementation = PlayerColor.class) @NotBlank(message = "a fighter needs a colour")
         String color) {}

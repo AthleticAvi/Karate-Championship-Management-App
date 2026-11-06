@@ -24,6 +24,8 @@ import com.management.exceptions.InvalidPlayerColorException;
 import com.management.exceptions.PlayerNotFoundException;
 import com.management.exceptions.PointTypeNotFoundException;
 import com.management.models.GameWithFighters;
+import com.management.models.NewClockAdjustment;
+import com.management.models.NewOverride;
 import com.management.services.KumiteGameService;
 import com.management.services.PlayerService;
 import com.management.testsupport.KumiteGameBuilder;
@@ -83,7 +85,9 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void overrideWinner_passesEachFieldToTheService() throws Exception {
-    given(kumiteGameService.overrideWinner("game-1", "RED", "Stopped on the mat", "Chief Referee"))
+    given(
+            kumiteGameService.overrideWinner(
+                "game-1", new NewOverride("RED", "Stopped on the mat", "Chief Referee")))
         .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
 
     mockMvc
@@ -104,7 +108,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void addTime_passesEachFieldToTheService() throws Exception {
-    given(kumiteGameService.addTime("game-1", 30, "Timekeeper"))
+    given(kumiteGameService.addTime("game-1", new NewClockAdjustment(30, "Timekeeper")))
         .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
 
     mockMvc

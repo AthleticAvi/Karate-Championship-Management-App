@@ -119,8 +119,7 @@ public class KumiteGameController {
       @PathVariable String gameId, @Valid @RequestBody WinnerOverrideRequest request) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(
-            kumiteGameService.overrideWinner(
-                gameId, request.winner(), request.reason(), request.decidedBy())));
+            kumiteGameService.overrideWinner(gameId, KumiteGameMapper.toNewOverride(request))));
   }
 
   /** Puts time back on the clock after a stop that came late. */
@@ -129,6 +128,6 @@ public class KumiteGameController {
       @PathVariable String gameId, @Valid @RequestBody ClockAdjustmentRequest request) {
     return ResponseEntity.ok(
         KumiteGameMapper.toResponse(
-            kumiteGameService.addTime(gameId, request.seconds(), request.addedBy())));
+            kumiteGameService.addTime(gameId, KumiteGameMapper.toNewClockAdjustment(request))));
   }
 }

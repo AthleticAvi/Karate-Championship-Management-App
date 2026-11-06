@@ -214,7 +214,7 @@ class ApiDescriptionIT {
         .allSatisfy(type ->
             assertThat(namesOf(type.get("schema").get("enum")))
                 .containsExactlyElementsOf(pointTypes));
-    assertThat(namesOf(schema("FighterRequest").get("properties").get("color").get("enum")))
+    assertThat(namesOf(schema("MatchFighterRequest").get("properties").get("color").get("enum")))
         .containsExactlyElementsOf(colours);
     assertThat(namesOf(schema("WinnerOverrideRequest").get("properties").get("winner").get("enum")))
         .containsAll(colours)
