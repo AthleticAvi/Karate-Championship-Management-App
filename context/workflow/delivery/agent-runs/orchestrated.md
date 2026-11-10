@@ -72,7 +72,8 @@ Check each of these yourself. Never merge on the sub-agent's report alone.
 - The branch contains the current `main`.
 - The body follows the PR description rules; the evidence comment exists and lists every review
   finding with what was done about it.
-- Nothing in the PR does what `[forbidden]` in `delivery/agent-runs/unattended.md` forbids.
+- Nothing in the PR does what `[forbidden]` in `delivery/agent-runs/unattended.md` forbids, and
+  it is not a draft held for an architecture or scope decision.
 
 A failed gate goes to a new sub-agent with the PR number and the failed checks. After two failed
 attempts, leave the PR unmerged, record it in the run issue, and carry on.

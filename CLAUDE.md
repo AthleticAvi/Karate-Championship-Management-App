@@ -88,6 +88,17 @@ java src/test/java/com/management/docs/IndexGenerator.java    regenerate indexes
    its technology folders. A test checks for known terms.
 9. **Record knowledge last.** Before every PR, ask what a future agent would not know.
 
+**Exception for orchestrated runs** (`context/workflow/delivery/agent-runs/orchestrated.md`), granted
+by the engineer, for that run only:
+
+- Rule 2: findings go to the run issue, the engineer's review point for the run.
+- Rule 5: the engineer's instruction to run is the sign-off to merge each PR that passes the merge
+  gate, and to start the next issue.
+- Rule 4 still holds. An agent never makes an architecture or scope decision. When the work needs
+  one, it opens a draft PR with the options and its recommendation, and records it in the run
+  issue. The orchestrator leaves that PR unmerged and carries on with issues that do not depend
+  on it.
+
 ## Never
 
 - Hardcode durations, point thresholds or rule values. All come from config.

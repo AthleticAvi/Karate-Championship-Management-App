@@ -56,6 +56,10 @@ Take the recommended option and record it in the PR, with the reason. A plan cha
 ends in disagreement is decided the same way: take the option that keeps the hard rules and
 protected behaviour, and record the disagreement.
 
+**Architecture and scope are never decided by the agent.** When the work needs such a decision,
+open the PR as a draft with the options and a recommendation, record it, and report back. The
+draft is not merged.
+
 ## [stuck] When stuck
 
 After 3 failed attempts at the same problem, open a draft PR with what was tried and what

@@ -47,4 +47,5 @@ Give that agent the plan and the context behind it, and ask what is wrong or mis
 rounds at most. Keep what holds up, and record what changed in the plan.
 
 If the two still disagree, attended work takes it to the owner. Unattended work takes the option
-that keeps the hard rules and protected behaviour, and records the disagreement.
+that keeps the hard rules and protected behaviour, and records the disagreement. A disagreement
+about architecture or scope is never decided: see `[decisions]` in the unattended mode file.
