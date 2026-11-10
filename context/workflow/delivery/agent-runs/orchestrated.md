@@ -11,6 +11,7 @@ Status: enforced
 - [merge-gate] The merge gate
 - [merge] Merge and move main
 - [keep-going] Nothing blocks the run
+- [resume] A usage limit pauses the run, it does not end it
 - [run-issue] The run issue
 - [verify] Verify
 
@@ -21,8 +22,8 @@ Status: enforced
 - It hands each issue to a fresh sub-agent, checks the result, merges it, and moves on.
 - It keeps its own context small: issue numbers, PR numbers, outcomes.
 - **The owner's instruction to run is the grant to merge,** for the PRs of this run only. It
-  replaces "stop after one PR" in `delivery/agent-runs/unattended.md` and "an agent never merges"
-  in the tracker rules, for this run.
+  is the "told to" the tracker rules require before an agent merges, and replaces "stop after one
+  PR" in `delivery/agent-runs/unattended.md`, for this run.
 
 ## [order] Order
 
@@ -34,8 +35,11 @@ Status: enforced
 
 ## [hand-off] The hand-off prompt
 
-Start a fresh sub-agent per issue, never a copy of the orchestrator's own context, and send this
-text with the numbers filled in. Nothing else, so every sub-agent starts the same way:
+Start a fresh sub-agent per hand-off, never a copy of the orchestrator's own context, and send
+one of these texts with the numbers filled in. Nothing else, so every sub-agent starts the same
+way.
+
+A new issue:
 
 ```
 Work issue #<N> unattended, inside orchestrated run #<R>.
@@ -45,6 +49,19 @@ delivery/agent-runs/unattended.md and delivery/flow.md in the workflow, from the
 open PR. Do not merge. Report back: the PR number, whether it is a draft, and what you
 recorded in run issue #<R>.
 ```
+
+A failed gate, or work interrupted mid-issue (see `[resume]`):
+
+```
+Continue issue #<N> on branch <branch>, PR #<P> if one exists, inside orchestrated run #<R>.
+Do not start over and do not open a second PR. What is left: <failed checks, or "unknown,
+inspect the branch">. Read CLAUDE.md, then follow delivery/agent-runs/unattended.md and
+delivery/flow.md from where the branch stands to a PR that passes. Do not merge. Report back
+as for a new issue.
+```
+
+A red `main` has no issue: the orchestrator opens one under the milestone with a "Done when" of
+"`main` passes its checks", then hands it off as a new issue.
 
 ## [merge-gate] The merge gate
 
@@ -66,13 +83,27 @@ attempts, leave the PR unmerged, record it in the run issue, and carry on.
 2. Delete the branch on the remote and locally.
 3. Update local `main` to the remote.
 4. Confirm the issue is closed. If not, close it with a link to the PR.
-5. If `main` fails its checks after the merge, the next hand-off is the repair, on its own branch.
+5. If `main` fails its checks after the merge, the next hand-off is the repair: see
+   `[hand-off]`.
 
 ## [keep-going] Nothing blocks the run
 
 - An issue left with a draft or unmerged PR stays open. Its dependents are skipped. Both are
   recorded in the run issue. Independent issues carry on.
 - The run ends when no runnable issue is left.
+
+## [resume] A usage limit pauses the run, it does not end it
+
+- The host's usage window can run out mid-run. The run waits for the reset and continues: the
+  host's automatic continue at the usage limit must be on before the run starts, and the
+  machine must not sleep through the reset.
+- On resume, trust no memory of the run. Rebuild it from the tracker: the run issue, the open and
+  merged PRs of the run, the state of each issue, and the branches.
+- A merged PR whose issue is still open: finish `[merge]` from step 2.
+- An open PR: run `[merge-gate]` on it.
+- A branch with no PR, or a sub-agent that did not report back: hand it off with the "continue"
+  text in `[hand-off]`. Never start that issue again on a new branch.
+- Record the interruption in the run issue only if it changed something.
 
 ## [run-issue] The run issue
 
@@ -89,12 +120,13 @@ Record only:
 - Findings outside an issue's scope.
 
 Never record routine progress, a per-issue status line, or what the PRs already show. Sub-agents
-add their own entries as comments. At the end, the orchestrator adds one closing comment: PRs
-merged, issues left open and why. The owner closes the run issue.
+add their own entries as comments. At the end, the orchestrator adds one closing comment: the
+issues left open and why, or that none were. The owner closes the run issue.
 
 ## [verify] Verify
 
 - Every merged PR passed every gate check, checked by the orchestrator.
 - `main` holds merge commits only, and no merged branch remains.
 - Every issue closed by the run has a merged PR.
-- The run issue holds only the five kinds of entry above.
+- The run issue holds only the five kinds of entry above and the closing comment.
+- After a resume, no issue has two branches or two PRs.

@@ -22,13 +22,14 @@ Builds on: `design/patterns.md`
 | Observer | `ApplicationEventPublisher` and `@EventListener` | A listener list on a service |
 | Decorator | AOP through framework annotations, such as `@Retryable` | Wrapper classes around every bean |
 | Retry | Spring Framework 7's own `@Retryable` (`org.springframework.resilience.annotation`), enabled by `@EnableResilientMethods` | A retry loop, or adding the separate spring-retry dependency |
+| Adapter | A bean wrapping `RestClient` behind an interface | Client calls in a service |
 
 **Two `@Retryable` annotations exist.** Spring Framework 7 has its own; spring-retry has one in
-`org.springframework.retry.annotation`, enabled by `@EnableRetry`. Check the import. `maxAttempts`
-differs: the framework counts retries only, spring-retry counts the first call too. Retry advice
-always runs outside `@Transactional`. The annotation works only through the proxy: a call from
-inside the same bean is not retried, so put the retried method on a separate bean.
-| Adapter | A bean wrapping `RestClient` behind an interface | Client calls in a service |
+`org.springframework.retry.annotation`, enabled by `@EnableRetry`. Check the import. The limit
+attribute differs: the framework's `maxRetries` counts retries only, spring-retry's `maxAttempts`
+counts the first call too. Retry advice always runs outside `@Transactional`. The annotation works
+only through the proxy: a call from inside the same bean is not retried, so put the retried method
+on a separate bean.
 
 ## [add-a-rule] Adding a rule means adding a class
 

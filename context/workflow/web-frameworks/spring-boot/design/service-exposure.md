@@ -12,10 +12,11 @@ Builds on: `design/service-exposure.md`
 
 ## [conditional-reads] Conditional reads: decide the tag in the handler
 
-- **Use `WebRequest.checkNotModified(etag)` in the handler,** or return
-  `ResponseEntity.ok().eTag(etag)`. Compute the tag from the versions the response depends on and
-  check it before building the body: when it returns true, return immediately and the framework
-  answers 304.
+- **Use `WebRequest.checkNotModified(etag)` in the handler.** Compute the tag from the versions
+  the response depends on and check it before building the body: when it returns true, return
+  immediately and the framework answers 304.
+- **`ResponseEntity.ok().eTag(etag)` compares after the body is built.** It still answers 304,
+  but every poll pays for the full read and mapping. Use it only on reads that are cheap to build.
 - **`ShallowEtagHeaderFilter` hashes the finished body.** The response is still rendered, so it
   saves bandwidth, not server work. It ignores `If-Match` and `If-Unmodified-Since`, and its own
   documentation points to `checkNotModified` instead. Choose it only when the tag cannot be known

@@ -19,7 +19,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 
 - `databases/mongodb/design/persistence.md`: [document-design] [acid] [object-construction-on-read] [excluded-fields] [dates] [identifiers] [optimistic-locking] [transactions] [write-and-read-concern] [schema-versioning] [indexes] [auditing] [local-setup-and-initialisation] [verify]
 - `delivery/agent-runs/attended.md`: [plan] [decisions] [findings] [progress]
-- `delivery/agent-runs/orchestrated.md`: [role] [order] [hand-off] [merge-gate] [merge] [keep-going] [run-issue] [verify]
+- `delivery/agent-runs/orchestrated.md`: [role] [order] [hand-off] [merge-gate] [merge] [keep-going] [resume] [run-issue] [verify]
 - `delivery/agent-runs/unattended.md`: [start] [plan] [bar] [forbidden] [decisions] [stuck] [record] [findings] [finish]
 - `delivery/bug.md`: [differs]
 - `delivery/change.md`: [differs]

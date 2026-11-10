@@ -18,8 +18,8 @@ Status: enforced
 ## [start] Before starting
 
 - Read `CLAUDE.md`, then only the domain READMEs and workflow files the issue needs.
-- An issue without a clear "Done when" is not started. Record what is missing (see `[record]`)
-  and report back.
+- An issue without a clear "Done when" is not started. Comment on the issue saying what is
+  missing, record it as `[record]` says inside an orchestrated run, and report back.
 
 ## [plan] Plan
 

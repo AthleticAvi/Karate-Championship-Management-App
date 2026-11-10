@@ -14,13 +14,14 @@ Status: enforced
 
 ## [no-tick] The server does not tick
 
-- **Store state, not a running counter.** A timer is "running since instant X with Y left" or
+- **Never store a running counter.** A timer's state is "running since instant X with Y left" or
   "paused with Y left". Remaining time is derived: Y minus (now minus X) while running.
+- **Store one of two things, never both:** that state alone, or the actions (start, pause, add,
+  set) with the state derived by folding them. Keep the actions when the history matters. A
+  stored state beside the action history is a second copy: see `[one-fact-one-owner]` in
+  `design/concurrency-consistency.md`.
 - **Derived state survives a restart.** Nothing is lost when the server or a client restarts,
   because nothing was counting in memory.
-- **Keep the actions, derive the state.** Store start, pause, add and set as a history and fold it
-  (see `[one-fact-one-owner]` in `design/concurrency-consistency.md`). A stored "remaining" field
-  beside that history is a second copy.
 - **Do not rely on a scheduled job firing at zero** for correctness. A restart loses it. Learn of
   zero from a client report, or derive it on the next read or write.
 
@@ -49,7 +50,7 @@ Status: enforced
 ## [verify] Verify
 
 - A test restarts the timer's owner mid-countdown and derives the same remaining time.
-- A test replays the action history and gets the stored state's answer.
+- Where actions are stored, no state field is stored beside them.
 - No scheduled job decides when a timer ends.
 
 ## [sources] Sources
