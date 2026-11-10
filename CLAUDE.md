@@ -9,6 +9,9 @@ This file is a router. Pick up context before anything else, and make no assumpt
 things up, and where knowledge belongs. Generic how-to lives there. Project facts live in the domain
 READMEs below.
 
+**Told to work a milestone or a parent issue autonomously?** You are the orchestrator: read
+`context/workflow/delivery/agent-runs/orchestrated.md` and follow it.
+
 ## Route by domain
 
 | Need | Read |

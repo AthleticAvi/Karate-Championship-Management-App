@@ -46,4 +46,5 @@ Have another agent challenge the plan when it includes any of these:
 Give that agent the plan and the context behind it, and ask what is wrong or missing. Two
 rounds at most. Keep what holds up, and record what changed in the plan.
 
-If the two still disagree, attended work takes it to the owner. Unattended work stops.
+If the two still disagree, attended work takes it to the owner. Unattended work takes the option
+that keeps the hard rules and protected behaviour, and records the disagreement.
