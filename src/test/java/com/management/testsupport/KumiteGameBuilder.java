@@ -1,13 +1,13 @@
 package com.management.testsupport;
 
-import com.management.enums.GameState;
-import com.management.enums.PlayerColor;
-import com.management.models.Foul;
-import com.management.models.GameWithFighters;
-import com.management.models.KumiteGame;
-import com.management.models.Player;
-import com.management.models.Points;
-import com.management.models.Referee;
+import com.management.athlete.domain.Foul;
+import com.management.athlete.domain.Player;
+import com.management.athlete.domain.Points;
+import com.management.kumitegame.domain.GameState;
+import com.management.kumitegame.domain.GameWithFighters;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.domain.Referee;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -98,8 +98,8 @@ public final class KumiteGameBuilder {
    * A match in progress whose clock started counting at the given instant.
    *
    * <p>For tests about elapsed time: the persisted {@code startTime} is what a rebuilt {@link
-   * com.management.models.GameTimer} measures against, so a start instant a known offset in the
-   * past yields a known amount of elapsed time without sleeping.
+   * com.management.kumitegame.domain.GameTimer} measures against, so a start instant a known offset
+   * in the past yields a known amount of elapsed time without sleeping.
    */
   public KumiteGameBuilder runningSince(Instant since, Duration remaining) {
     this.gameState = GameState.RUNNING;

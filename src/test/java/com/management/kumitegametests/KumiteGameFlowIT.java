@@ -2,9 +2,9 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.dto.KumiteGameResponse;
-import com.management.enums.GameState;
-import com.management.enums.PlayerColor;
+import com.management.kumitegame.domain.GameState;
+import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.web.KumiteGameResponse;
 import com.management.testsupport.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

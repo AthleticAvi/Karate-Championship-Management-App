@@ -55,8 +55,9 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
   upstream and how to re-vendor.
 - **Project rules:** edit `project-standards.xml`. Every module cites the standard it mechanises.
 - **Correctness:** toggle Error Prone checks with `-Xep:CheckName:OFF|WARN|ERROR` in compiler args.
-- **Null marking:** every main package has `@NullMarked` in `package-info.java`, except
-  `repositories`, which is `@NullUnmarked`: see its README. `util` marks its class instead, because
+- **Null marking:** every main package has `@NullMarked` in `package-info.java`, except each
+  feature's `data` package, which is `@NullUnmarked`: see
+  `src/main/java/com/management/kumitegame/data/README.md`. `util` marks its class instead, because
   the frozen `noUtilityPackage` rule would count a new `package-info` as a violation.
 - **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason. One entry today: the
   framework's retry interface names `shouldRetry`, which the boolean accessor rule cannot allow.

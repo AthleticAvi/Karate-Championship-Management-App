@@ -2,8 +2,8 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.enums.PlayerColor;
-import com.management.models.converters.LegacyWinnerConverter;
+import com.management.kumitegame.data.converters.LegacyWinnerConverter;
+import com.management.kumitegame.domain.PlayerColor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

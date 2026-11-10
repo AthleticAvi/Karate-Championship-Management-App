@@ -2,9 +2,9 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.models.KumiteGame;
-import com.management.models.Referee;
-import com.management.repositories.KumiteGameRepository;
+import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.Referee;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.KumiteGameBuilder;
 import org.junit.jupiter.api.Test;

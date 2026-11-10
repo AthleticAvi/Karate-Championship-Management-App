@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-import com.management.enums.AccountRole;
-import com.management.models.Account;
-import com.management.repositories.AccountRepository;
+import com.management.account.data.AccountRepository;
+import com.management.account.domain.Account;
+import com.management.account.domain.AccountRole;
 import com.management.testsupport.IntegrationTestBase;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.time.Duration;

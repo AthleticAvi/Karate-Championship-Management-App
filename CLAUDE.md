@@ -17,35 +17,37 @@ READMEs below.
 | Need | Read |
 |------|------|
 | Package map, layers, frozen violations, what is not built | `src/main/java/com/management/README.md` |
-| API, response contract, wire formats | `src/main/java/com/management/controllers/README.md` |
+| API, response contract, wire formats | `src/main/java/com/management/web/README.md` |
 | Correlation IDs, request logging | `src/main/java/com/management/filters/README.md` |
-| Errors and status codes | `src/main/java/com/management/exceptions/README.md` |
+| Errors and status codes | `[errors]` in `src/main/java/com/management/web/README.md` |
 | Authentication, roles, the first Admin | `src/main/java/com/management/security/README.md` |
-| Rules engine, how a match ends | `src/main/java/com/management/rules/README.md` |
-| Scoring across aggregates, concurrency | `src/main/java/com/management/services/README.md` |
-| Domain types, timer, versioned documents | `src/main/java/com/management/models/README.md` |
-| Vocabulary, state transitions, known deviations | `src/main/java/com/management/enums/README.md` |
+| Rules engine, how a match ends | `src/main/java/com/management/kumitegame/rules/README.md` |
+| Scoring across aggregates, concurrency | `src/main/java/com/management/kumitegame/service/README.md` |
+| Domain types, timer, versioned documents | `src/main/java/com/management/kumitegame/domain/README.md` |
+| Vocabulary, state transitions, known deviations | `src/main/java/com/management/kumitegame/domain/README.md` |
 | Rule values and configuration | `src/main/java/com/management/config/README.md` |
-| MongoDB setup | `src/main/java/com/management/repositories/README.md` |
+| MongoDB setup | `src/main/java/com/management/kumitegame/data/README.md` |
 | Test suites and layout | `src/test/java/com/management/README.md` |
 | Quality gates, baselines, hooks, MCP | `config/README.md` |
 | Contributor rules | `CONTRIBUTING.md` |
-| Business rules and where they come from | `[source]` in `src/main/java/com/management/rules/README.md` |
+| Business rules and where they come from | `[source]` in `src/main/java/com/management/kumitegame/rules/README.md` |
 
 Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and read that section:
 `grep -n "^## \[" <file>`.
 
 ## Layers
 
+One package per feature, `kumitegame`, `athlete` and `account`, each split by layer.
+
 | Responsibility | Packages |
 |-----------|----------|
-| Gateways | `controllers`, `filters`, `security`, `dto`, `mappers`, `exceptions` handler |
-| Business | `services`, `rules`, `models`, `enums`, `exceptions` types |
-| Data | `repositories`, `models/converters` |
+| Gateways | `<feature>.web`, shared `web`, `filters`, `security` |
+| Business | `<feature>.service`, `kumitegame.rules`, `<feature>.domain` |
+| Data | `<feature>.data` |
 | Wiring | `config`, `KumiteGameStarter` |
 
 `Controller -> Service -> Repository -> MongoDB`. Three aggregates, **KumiteGame**, **Player** and
-**Account**.
+**Account**. `kumitegame` may use `athlete`; no other feature uses another.
 Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest` enforces this.
 
 ## Stack

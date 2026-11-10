@@ -2,10 +2,10 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.enums.PlayerColor;
-import com.management.enums.PointsType;
-import com.management.models.KumiteGame;
-import com.management.models.Player;
+import com.management.athlete.domain.Player;
+import com.management.athlete.domain.PointsType;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.PlayerColor;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
@@ -72,7 +72,7 @@ class RepresentationCharacterizationTest {
     // The timer is never written: it is rebuilt from the two fields above.
     assertThat(stored).doesNotContainKey("timer");
     // Spring Data writes a type hint alongside the data.
-    assertThat(stored.get("_class")).isEqualTo("com.management.models.KumiteGame");
+    assertThat(stored.get("_class")).isEqualTo("com.management.kumitegame.domain.KumiteGame");
     // The optimistic-lock version is part of the stored form (#48). Written as 0 pre-save; the
     // real increment happens in MongoTemplate, which this double deliberately does not model.
     assertThat(stored.get("version")).isEqualTo(0L);

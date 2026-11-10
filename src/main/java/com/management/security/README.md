@@ -21,7 +21,7 @@ accounts in the datastore and applies the role table. It holds no rule of the sp
 - `FirstAdminSetup`: creates the first Admin from the environment. Every later account comes through
   `POST /api/v1/accounts`. There is no way to change a password: delete and create again.
 
-The role table itself is `ApiAccess` in `controllers`: see `[access]` in the controllers README.
+The role table itself is `ApiAccess` in `web`: see `[access]` in the web README.
 
 ## [contract] Contract
 
@@ -37,7 +37,7 @@ logout.
 | Valid credentials on anything the table does not list | 403 |
 | Accounts cannot be read, such as in an outage | 500, because nobody knows if the credentials are right |
 
-Both refusals are problem details: see the exceptions README. The body is the same for every kind of
+Both refusals are problem details: see `[errors]` in the web README. The body is the same for every kind of
 wrong credential, so it does not say whether an account exists.
 
 **Anything not listed is denied, whoever asks.** The last rule is `denyAll`, so a new endpoint is
@@ -53,9 +53,9 @@ unlisted: a public read answers `GET` only.
 
 ## [may-call] May call
 
-`services`, `models`, `enums`, `config`, and `controllers` for `ApiAccess`. Nothing depends on this
-package, so it cannot form a cycle. Spring Security types stay in this package, `controllers` and
-`GlobalExceptionHandler`: a strict rule in `ArchitectureTest` fails on any other.
+`account.service`, `account.domain`, `config`, and `web` for `ApiAccess`. Nothing depends on this
+package, so it cannot form a cycle. Spring Security types stay in this package, the controllers and
+the shared `web`: a strict rule in `ArchitectureTest` fails on any other.
 
 ## [facts] Project facts
 

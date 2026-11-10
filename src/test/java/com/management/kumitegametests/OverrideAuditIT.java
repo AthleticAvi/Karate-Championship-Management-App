@@ -2,12 +2,12 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.dto.KumiteGameResponse;
-import com.management.enums.PlayerColor;
-import com.management.models.GameWithFighters;
-import com.management.models.MatchOutcome;
-import com.management.models.RefereeOverride;
-import com.management.repositories.KumiteGameRepository;
+import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.GameWithFighters;
+import com.management.kumitegame.domain.MatchOutcome;
+import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.domain.RefereeOverride;
+import com.management.kumitegame.web.KumiteGameResponse;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.KumiteGameBuilder;
 import java.time.Duration;
@@ -139,7 +139,7 @@ class OverrideAuditIT extends IntegrationTestBase {
     assertThat(storedOverride().referee()).isNull();
   }
 
-  /** Stated in the models README: the old name has no field to go back into. */
+  /** Stated in the domain README: the old name has no field to go back into. */
   @Test
   void overrideFromBeforeAccounts_losesItsOldNameOnTheNextSave() {
     storeOverrideFromBeforeAccounts();

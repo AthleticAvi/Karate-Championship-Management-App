@@ -1,7 +1,7 @@
 package com.management.testsupport;
 
+import com.management.account.service.AccountService;
 import com.management.security.SecurityConfiguration;
-import com.management.services.AccountService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;

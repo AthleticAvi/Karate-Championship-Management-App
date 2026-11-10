@@ -50,7 +50,7 @@ mvn spring-boot:run   # run
 ```
 
 The defaults reach this database. To use another, set `MONGO_URI` and, if needed, `MONGO_DB`: see
-`src/main/java/com/management/repositories/README.md`.
+`src/main/java/com/management/kumitegame/data/README.md`.
 
 Reads are public. Everything else needs an account, and the first Admin comes from `ADMIN_USERNAME`
 and `ADMIN_PASSWORD`, used only when no Admin exists. Neither has a default in any profile. Under
@@ -91,7 +91,7 @@ wins over `SPRING_PROFILES_ACTIVE`.
 
 - **[`CONTRIBUTING.md`](CONTRIBUTING.md)**: how to contribute. Read this before opening a pull request.
 - **[`context/workflow/`](context/workflow/)**: the engineering knowledge this codebase is held to, organised by concern and technology. Deliberately project-agnostic, so it transfers to other work. Start with its README.
-- **Domain READMEs**: project facts, one per package under `src/main/java/com/management/`. The quality gates are in [`config/README.md`](config/README.md).
+- **Domain READMEs**: project facts, one per shared package and one per layer under `src/main/java/com/management/`. The quality gates are in [`config/README.md`](config/README.md).
 - **[`CLAUDE.md`](CLAUDE.md)**: the router for AI coding assistants. Project summary, hard rules, and where to find everything else.
 
 Planned work is tracked in [GitHub issues](../../issues), grouped under epics.

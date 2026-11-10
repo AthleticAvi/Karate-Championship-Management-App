@@ -4,11 +4,13 @@ import static com.management.testsupport.IntegrationTestBase.request;
 import static com.management.testsupport.IntegrationTestBase.send;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.enums.PlayerColor;
-import com.management.enums.PointsType;
+import com.management.athlete.domain.PointsType;
+import com.management.kumitegame.domain.PlayerColor;
+import com.management.testsupport.FeatureWeb;
 import com.management.testsupport.IntegrationTestBase;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import java.io.IOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
@@ -36,8 +38,8 @@ import tools.jackson.databind.json.JsonMapper;
  * The generated description, read from the real application and compared with what it really does.
  *
  * <p>Nothing here reads a copy of the description. The expected routes come from the live mappings
- * and the expected schemas from the {@code dto} package, so a later endpoint or request type cannot
- * go missing unnoticed.
+ * and the expected schemas from the records in each feature's web package, so a later endpoint or
+ * request type cannot go missing unnoticed.
  */
 class ApiDescriptionIT {
 
@@ -48,7 +50,6 @@ class ApiDescriptionIT {
   private static final String MATCHES = "/api/v1/kumitegame";
   private static final String MATCH = MATCHES + "/{gameId}";
   private static final String PLAYER = PLAYERS + "/{playerId}";
-  private static final String CONTROLLERS = "com.management.controllers";
   private static final String NEW_MATCH =
       """
       {
@@ -253,9 +254,11 @@ class ApiDescriptionIT {
   void schemas_areExactlyTheApiShapes() {
     Set<String> shapes =
         new ClassFileImporter()
-            .importPackages("com.management.dto").stream()
+                .withImportOption(new ImportOption.DoNotIncludeTests())
+                .importPackages("com.management")
+                .stream()
+                .filter(type -> FeatureWeb.holds(type.getPackageName()) && type.isRecord())
                 .map(JavaClass::getSimpleName)
-                .filter(name -> !"package-info".equals(name))
                 .collect(Collectors.toSet());
 
     assertThat(shapes).contains("PlayerRequest", "KumiteGameResponse");
@@ -349,7 +352,7 @@ class ApiDescriptionIT {
         .getHandlerMethods()
         .entrySet()
         .stream()
-        .filter(mapping -> mapping.getValue().getBeanType().getPackageName().equals(CONTROLLERS))
+        .filter(mapping -> FeatureWeb.holds(mapping.getValue().getBeanType().getPackageName()))
         .flatMap(mapping ->
             mapping.getKey().getMethodsCondition().getMethods().stream()
                 .flatMap(method ->

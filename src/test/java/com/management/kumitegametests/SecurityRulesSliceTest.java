@@ -7,9 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.controllers.KumiteGameController;
-import com.management.services.KumiteGameService;
-import com.management.services.PlayerService;
+import com.management.athlete.service.PlayerService;
+import com.management.kumitegame.service.KumiteGameService;
+import com.management.testsupport.FeatureWeb;
 import com.management.testsupport.WebSliceTestBase;
 import java.util.List;
 import java.util.Map;
@@ -115,12 +115,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   void table_listsExactlyTheRealEndpoints() {
     Set<String> real =
         handlerMapping.getHandlerMethods().entrySet().stream()
-            .filter(mapping ->
-                mapping
-                    .getValue()
-                    .getBeanType()
-                    .getPackage()
-                    .equals(KumiteGameController.class.getPackage()))
+            .filter(mapping -> FeatureWeb.holds(mapping.getValue().getBeanType().getPackageName()))
             .flatMap(mapping ->
                 mapping.getKey().getMethodsCondition().getMethods().stream()
                     .flatMap(method ->
@@ -193,7 +188,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
     assertThat(status).isNotIn(401, 403);
   }
 
-  /** Not in the controllers package, so it stays out of the comparison with the table. */
+  /** Not in a feature's web package, so it stays out of the comparison with the table. */
   @RestController
   static class UnlistedController {
 

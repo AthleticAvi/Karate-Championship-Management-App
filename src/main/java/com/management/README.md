@@ -11,16 +11,37 @@
 ## [purpose] Purpose
 
 The system of record for a Kumite bout: fighters, the clock, every point and foul, and the result.
-This README maps the packages. Each package has its own README.
+This README maps the packages. Each shared package has its own README, and each layer has one in
+`kumitegame` that covers that layer in every feature.
 
 ## [layers] Layers
 
+The code is grouped by feature, `kumitegame`, `athlete` and `account`, and each feature is split by
+layer. Shared code sits in its own top-level packages.
+
 | Responsibility | Packages | Job |
 |---|---|---|
-| Gateways | `controllers`, `filters`, `security`, `dto`, `mappers`, `exceptions` handler | HTTP in and out. Translate, then delegate |
-| Business | `services`, `rules`, `models`, `enums`, `exceptions` types | Orchestration, rules, domain types |
-| Data | `repositories`, `models/converters` | MongoDB access and stored-form conversion |
+| Gateways | `<feature>.web`, `web`, `filters`, `security` | HTTP in and out. Translate, then delegate |
+| Business | `<feature>.service`, `kumitegame.rules`, `<feature>.domain` | Orchestration, rules, domain types |
+| Data | `<feature>.data`, `kumitegame.data.converters` | MongoDB access and stored-form conversion |
 | Wiring | `config`, `KumiteGameStarter` | Typed settings and application start |
+
+| Package | Holds | README |
+|---|---|---|
+| `<feature>.web` | The feature's controller, request and response records, and mapper | `web/README.md` |
+| `web` | What every feature's API shares: version prefix, role table, CORS, API description, `GlobalExceptionHandler` | `web/README.md` |
+| `<feature>.service` | Services | `kumitegame/service/README.md` |
+| `kumitegame.rules` | The rules engine | `kumitegame/rules/README.md` |
+| `<feature>.domain` | Domain types, the vocabulary, and the exception types the feature throws | `kumitegame/domain/README.md` |
+| `<feature>.data` | Repositories, and in `kumitegame` the stored-form converters | `kumitegame/data/README.md` |
+| `filters`, `security`, `config`, `util` | Shared, each with its own README | |
+
+`athlete` holds today's `Player` types under their current names. A referee is a name inside the
+match, so there is no `referee` package.
+
+`[package-layout]` in `context/workflow/web-frameworks/spring-boot/standards/standards.md` names
+`web`, `domain` and `data` only. `service` and `rules` are kept as layers of their own, because the
+Spring Boot layer contract does not let domain code call persistence, and the services do.
 
 Flow: `Filter -> Security -> Controller -> Service -> Repository -> MongoDB`. There are no outbound
 gateways yet.
@@ -31,9 +52,10 @@ and test slice configuration all derive from its location, so no `scanBasePackag
 
 ## [aggregates] Aggregates
 
-Three aggregate roots: **KumiteGame** and **Player**, each with a controller, service and
-repository, and **Account**, with a service and repository. Nothing ties an account to a match or a
-fighter.
+Three aggregate roots, one per feature: **KumiteGame** in `kumitegame`, **Player** in `athlete`,
+**Account** in `account`. Each has a controller, service and repository. Nothing ties an account to a
+match or a fighter. `kumitegame` may use `athlete`; no other feature uses another, and
+`ArchitectureTest` enforces it.
 
 `KumiteGame` stores fighter **ids** keyed by colour (`playerIds`). Names, points and fouls live
 only on `Player` documents: one fact, one owner, no embedded snapshot to re-sync.
@@ -46,7 +68,7 @@ only on `Player` documents: one fact, one owner, no embedded snapshot to re-sync
 
 | Frozen rule | Today |
 |---|---|
-| Domain types carry no persistence mapping | `KumiteGame` and `Player` are also Spring Data documents |
+| Domain types carry no persistence mapping | `kumitegame.domain.KumiteGame` and `athlete.domain.Player` are also Spring Data documents |
 | No utility package | `util.KumiteGameManagementUtils` |
 
 Separating domain and persistence types is an architecture decision, not yet taken.
@@ -55,15 +77,18 @@ The store only changes on purpose. A fixed violation fails the build until you r
 `mvn test -Dtest=ArchitectureTest -Darchunit.freeze.store.default.allowStoreUpdate=true` and commit
 the store.
 
-Documentation types from the API description library stay in `controllers` and `dto`. A strict rule
-fails on any other package using them. Spring Security types stay in `security`, `controllers` and
-`GlobalExceptionHandler` the same way.
+Documentation types from the API description library stay in the web packages, never in a mapper. A
+strict rule fails on any other class using them. Spring Security types stay in `security`, the
+controllers and the shared `web` the same way.
 
-One cycle is accepted by name, not frozen: `enums.PointsType` attaches strategies from
-`models.strategies`, and `models` uses `enums`. Any other cycle fails the build.
+The cycle rule gives each layer of each feature a slice, such as `kumitegame.domain`, and each shared
+package one. One cycle is accepted by name, not frozen: `KumiteGame` names `LegacyWinnerConverter` in
+its mapping, and the converter reads `PlayerColor`. It is part of the frozen persistence mapping. Any
+other cycle fails the build. A feature is any top-level package split into layers, so a new one falls
+under the feature rule without editing the test.
 
-`exceptions` holds two responsibilities: the types business code throws, and
-`GlobalExceptionHandler`, the gateway. Both stay in one package for now.
+Exception types sit in the `domain` package of the feature that throws them, and
+`GlobalExceptionHandler`, the gateway, in `web`.
 
 ## [not-built] Not built yet
 

@@ -3,10 +3,10 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.management.enums.PlayerColor;
-import com.management.enums.PointsType;
-import com.management.exceptions.InvalidPlayerColorException;
-import com.management.exceptions.PointTypeNotFoundException;
+import com.management.athlete.domain.PointTypeNotFoundException;
+import com.management.athlete.domain.PointsType;
+import com.management.kumitegame.domain.InvalidPlayerColorException;
+import com.management.kumitegame.domain.PlayerColor;
 import com.management.util.KumiteGameManagementUtils;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
