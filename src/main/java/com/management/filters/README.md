@@ -60,7 +60,6 @@ Nothing in this application. Never a `service`, `data` or `rules` package.
   before a handler is chosen, so the route is `UNMATCHED`, except on a request that the chain let
   through. A request line for a 401 therefore cannot say which endpoint was tried.
 - **The CORS filter runs inside this one,** so a preflight or a refused origin gets an ID and a line.
-  It answers before a handler is chosen, so its route is `UNMATCHED`. See `[cors]` in the controllers
-  README.
+  It answers before a handler is chosen, so its route is `UNMATCHED`. See `[cors]` in the web README.
 - Text output shows the ID and fields through `logging.pattern.correlation`: see `[logging]` in the
   config README.

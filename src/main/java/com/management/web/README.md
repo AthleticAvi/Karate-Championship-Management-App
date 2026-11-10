@@ -223,8 +223,8 @@ add a second message to the `errors` body. A colour lists `RED` and `BLUE`, thou
 accepted. Required response fields follow direct references, so a list of a response type would need
 that walk extended.
 
-**Documentation annotations stay in the web packages.** `ArchitectureTest` fails on any other package
-using them.
+**Documentation annotations stay in the web packages, never in a mapper.** `ArchitectureTest` fails on
+any other class using them.
 
 **Jackson 2 is here for this.** springdoc reads types through swagger-core, which needs Jackson 2 and
 its YAML format. Spring MVC still uses Jackson 3 for every request and response. The framework adds

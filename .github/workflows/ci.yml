@@ -114,7 +114,7 @@ jobs:
   integration:
     name: Integration tests
     # Pinned: mongo:8.0 refuses to start on Linux kernel 6.19 and newer, which ubuntu-24.04 and later run.
-    # See the repositories README before moving this.
+    # See the data README, src/main/java/com/management/kumitegame/data/README.md, before moving this.
     runs-on: ubuntu-22.04
     timeout-minutes: 20
 

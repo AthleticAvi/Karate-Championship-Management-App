@@ -67,7 +67,7 @@
     <!--
       Generates the API description. The artifact with no UI: the description is what a client needs.
       It brings Jackson 2 and a YAML data format beside the application's Jackson 3: see [description]
-      in src/main/java/com/management/controllers/README.md.
+      in src/main/java/com/management/web/README.md.
     -->
     <dependency>
       <groupId>org.springdoc</groupId>

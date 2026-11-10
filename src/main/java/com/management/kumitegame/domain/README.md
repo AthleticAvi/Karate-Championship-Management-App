@@ -42,8 +42,9 @@ in `src/main/java/com/management/README.md`.
 ## [may-call] May call
 
 Other `domain` types: `kumitegame.domain` uses `athlete.domain`. Never a `service`, `data`, `rules`
-or `web` package. The one exception is frozen: `KumiteGame` names its stored-winner converter in its
-mapping.
+or `web` package. Strict rules hold this for `service` and `web`; `data` and `rules` are held only by
+the cycle rule. The one known edge into `data`: `KumiteGame` names its stored-winner converter in its
+mapping, part of the frozen persistence mapping, and the cycle rule ignores it by name.
 
 ## [timer] The timer
 
@@ -68,6 +69,12 @@ the writer counts nothing until it catches up, because elapsed time is never neg
 
 `KumiteGame` and `Player` carry `@Version private long`, so a stale save raises
 `OptimisticLockingFailureException` instead of silently losing an update.
+
+**The type hint follows the package.** Spring Data stores each document's fully qualified class name
+in `_class`, so moving a document class changes it on every later write, and a collection then holds
+both names. A document with a name that no longer loads still reads: Spring Data falls back to the
+declared type. Anything that relies on `_class`, such as a type restriction on a query, misses the old
+ones. Documents written before the move into feature packages keep the old names.
 
 **Documents written before the version field existed cannot be re-saved.** Spring Data reads an
 absent version as 0, treats the entity as new, and the next `save` fails with a duplicate key on the

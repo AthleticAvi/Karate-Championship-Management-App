@@ -54,8 +54,8 @@ unlisted: a public read answers `GET` only.
 ## [may-call] May call
 
 `account.service`, `account.domain`, `config`, and `web` for `ApiAccess`. Nothing depends on this
-package, so it cannot form a cycle. Spring Security types stay in this package and the web packages:
-a strict rule in `ArchitectureTest` fails on any other.
+package, so it cannot form a cycle. Spring Security types stay in this package, the controllers and
+the shared `web`: a strict rule in `ArchitectureTest` fails on any other.
 
 ## [facts] Project facts
 

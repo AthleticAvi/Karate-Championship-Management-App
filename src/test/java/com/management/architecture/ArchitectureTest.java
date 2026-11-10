@@ -6,6 +6,7 @@ import static com.tngtech.archunit.core.domain.properties.HasName.AndFullName.Pr
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.management.kumitegame.data.converters.LegacyWinnerConverter;
 import com.management.kumitegame.domain.KumiteGame;
@@ -20,7 +21,10 @@ import com.tngtech.archunit.library.dependencies.SliceIdentifier;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * The layer boundaries: gateways, business and data stay apart, inside every feature.
@@ -32,7 +36,21 @@ import org.junit.jupiter.api.Test;
 class ArchitectureTest {
 
   private static final String ROOT = "com.management";
-  private static final List<String> FEATURES = List.of("kumitegame", "athlete", "account");
+  private static final Set<String> LAYER_NAMES =
+      Set.of("web", "service", "rules", "domain", "data");
+
+  private static final JavaClasses CLASSES =
+      new ClassFileImporter()
+          .withImportOption(new ImportOption.DoNotIncludeTests())
+          .importPackages(ROOT);
+
+  /** A feature is a top-level package split into layers, so a new one is checked unasked. */
+  private static final Set<String> FEATURES =
+      CLASSES.stream()
+          .map(ArchitectureTest::packagePath)
+          .filter(path -> path.size() > 3 && LAYER_NAMES.contains(path.get(3)))
+          .map(path -> path.get(2))
+          .collect(Collectors.toSet());
 
   // Rooted, because Spring has packages named web, data, domain and service too.
   private static final String WEB = ROOT + "..web..";
@@ -52,18 +70,22 @@ class ArchitectureTest {
           + "|java\\.lang\\.System\\.currentTimeMillis\\(\\)";
 
   /**
-   * One slice per layer, across the features, and one per shared package: the slices the layer
-   * packages were before the code moved into features.
+   * One slice per layer of each feature, such as {@code kumitegame.domain}, and one per shared
+   * package. A layer's sub-packages share its slice. Coarser than the old layer packages: a
+   * feature's web holds what controllers, dto and mappers were, and its domain what models, enums
+   * and the exception types were, so a cycle inside one of those is no longer seen.
    */
   private static final SliceAssignment LAYERS =
       new SliceAssignment() {
         @Override
         public SliceIdentifier getIdentifierOf(JavaClass javaClass) {
-          List<String> path = List.of(javaClass.getPackageName().split("\\."));
-          int layer = path.size() > 2 && FEATURES.contains(path.get(2)) ? 3 : 2;
-          return path.size() > layer
-              ? SliceIdentifier.of(path.get(layer))
-              : SliceIdentifier.ignore();
+          List<String> path = packagePath(javaClass);
+          if (path.size() < 3) {
+            return SliceIdentifier.ignore();
+          }
+          return FEATURES.contains(path.get(2)) && path.size() > 3
+              ? SliceIdentifier.of(path.get(2) + "." + path.get(3))
+              : SliceIdentifier.of(path.get(2));
         }
 
         @Override
@@ -71,11 +93,6 @@ class ArchitectureTest {
           return "layers";
         }
       };
-
-  private static final JavaClasses CLASSES =
-      new ClassFileImporter()
-          .withImportOption(new ImportOption.DoNotIncludeTests())
-          .importPackages(ROOT);
 
   @Test
   void gateways_neverReachRulesOrTheDataLayer() {
@@ -148,29 +165,41 @@ class ArchitectureTest {
   /** {@code kumitegame} may use {@code athlete}. No other feature uses another. */
   @Test
   void features_dependOnlyKumiteGameOnAthlete() {
-    CompositeArchRule.of(featureUsesNoOtherFeature("kumitegame", "athlete"))
-        .and(featureUsesNoOtherFeature("athlete"))
-        .and(featureUsesNoOtherFeature("account"))
+    assertThat(FEATURES).contains("kumitegame", "athlete", "account");
+    CompositeArchRule.of(
+            FEATURES.stream()
+                .map(feature ->
+                    featureUsesNoOtherFeature(
+                        feature, feature.equals("kumitegame") ? Set.of("athlete") : Set.of()))
+                .toList())
         .check(CLASSES);
   }
 
+  /** The shared web package, the controllers, and the request and response records. */
   @Test
   void documentationTypes_stayInTheGateways() {
     noClasses()
         .that()
         .resideOutsideOfPackage(WEB)
+        .or()
+        .haveSimpleNameEndingWith("Mapper")
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage("io.swagger..", "org.springdoc..")
         .check(CLASSES);
   }
 
-  /** The exception handler turns a security failure into an answer, so the web layer may too. */
+  /**
+   * The security package, the controllers, and the shared web package, where the exception handler
+   * turns a security failure into an answer. Not the request and response records or the mappers.
+   */
   @Test
   void securityTypes_stayInTheGateways() {
     noClasses()
         .that()
-        .resideOutsideOfPackages("..security..", WEB)
+        .resideOutsideOfPackages("..security..", ROOT + ".web")
+        .and()
+        .areNotAnnotatedWith(RestController.class)
         .should()
         .dependOnClassesThat()
         .resideInAPackage("org.springframework.security..")
@@ -204,8 +233,8 @@ class ArchitectureTest {
   /**
    * Strict rather than frozen, with the one known edge named: a frozen cycle is stored as a single
    * message that counts its dependencies, so any edit to either layer would read as a new cycle.
-   * The edge is the stored-form converter that {@code KumiteGame} names in its mapping, part of the
-   * frozen persistence mapping below.
+   * {@code KumiteGame} names its stored-form converter in its mapping, part of the frozen
+   * persistence mapping below.
    */
   @Test
   void layers_areFreeOfCyclesBeyondTheStoredWinner() {
@@ -245,10 +274,14 @@ class ArchitectureTest {
     freeze(noClasses().should().resideInAPackage("..util..")).check(CLASSES);
   }
 
-  private static ArchRule featureUsesNoOtherFeature(String feature, String... allowed) {
+  private static List<String> packagePath(JavaClass type) {
+    return List.of(type.getPackageName().split("\\."));
+  }
+
+  private static ArchRule featureUsesNoOtherFeature(String feature, Set<String> allowed) {
     String[] others =
         FEATURES.stream()
-            .filter(other -> !other.equals(feature) && !List.of(allowed).contains(other))
+            .filter(other -> !other.equals(feature) && !allowed.contains(other))
             .map(other -> ROOT + "." + other + "..")
             .toArray(String[]::new);
     return noClasses()

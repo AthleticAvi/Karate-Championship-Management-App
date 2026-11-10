@@ -77,15 +77,15 @@ The store only changes on purpose. A fixed violation fails the build until you r
 `mvn test -Dtest=ArchitectureTest -Darchunit.freeze.store.default.allowStoreUpdate=true` and commit
 the store.
 
-Documentation types from the API description library stay in the web packages. A strict rule fails
-on any other package using them. Spring Security types stay in `security` and the web packages the
-same way.
+Documentation types from the API description library stay in the web packages, never in a mapper. A
+strict rule fails on any other class using them. Spring Security types stay in `security`, the
+controllers and the shared `web` the same way.
 
-The cycle rule treats each layer as one slice across the features, as the layer packages were before
-the move, so the shared `web` and each feature's `web` are one slice: `ApiAccess` names each
-controller's path, and each controller names the version prefix. One cycle is accepted by name, not
-frozen: `KumiteGame` names `LegacyWinnerConverter` in its mapping, and the converter reads
-`PlayerColor`. It is part of the frozen persistence mapping. Any other cycle fails the build.
+The cycle rule gives each layer of each feature a slice, such as `kumitegame.domain`, and each shared
+package one. One cycle is accepted by name, not frozen: `KumiteGame` names `LegacyWinnerConverter` in
+its mapping, and the converter reads `PlayerColor`. It is part of the frozen persistence mapping. Any
+other cycle fails the build. A feature is any top-level package split into layers, so a new one falls
+under the feature rule without editing the test.
 
 Exception types sit in the `domain` package of the feature that throws them, and
 `GlobalExceptionHandler`, the gateway, in `web`.
