@@ -2,12 +2,12 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.enums.PlayerColor;
-import com.management.models.ClockAdjustment;
-import com.management.models.KumiteGame;
-import com.management.models.RefereeOverride;
-import com.management.repositories.KumiteGameRepository;
-import com.management.services.KumiteGameService;
+import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.ClockAdjustment;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.domain.RefereeOverride;
+import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.KumiteGameBuilder;
 import java.time.Clock;

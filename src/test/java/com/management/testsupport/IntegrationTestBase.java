@@ -3,8 +3,8 @@ package com.management.testsupport;
 import static org.awaitility.Awaitility.await;
 
 import com.management.KumiteGameStarter;
-import com.management.enums.AccountRole;
-import com.management.models.Account;
+import com.management.account.domain.Account;
+import com.management.account.domain.AccountRole;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -64,8 +64,8 @@ import org.testcontainers.mongodb.MongoDBContainer;
  *
  * <p><strong>A replica set, as in production.</strong> A container is standalone unless asked, and
  * a standalone hides what production gives. The URL it hands over names no {@code replicaSet}, so
- * the tests connect directly where production discovers members: {@code [facts]} in the
- * repositories README records what that leaves untested.
+ * the tests connect directly where production discovers members: {@code [facts]} in the data README
+ * records what that leaves untested.
  *
  * <p><strong>Accounts: made up per run.</strong> The password is random, so no credential is
  * committed. The first Admin is configured with it, and the same Admin and a Scorekeeper are

@@ -1,9 +1,9 @@
 package com.management.testsupport;
 
-import com.management.enums.PointsType;
-import com.management.models.Foul;
-import com.management.models.Player;
-import com.management.models.Points;
+import com.management.athlete.domain.Foul;
+import com.management.athlete.domain.Player;
+import com.management.athlete.domain.Points;
+import com.management.athlete.domain.PointsType;
 import java.util.EnumMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;

@@ -2,10 +2,10 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.dto.KumiteGameRequest;
-import com.management.dto.MatchFighterRequest;
-import com.management.mappers.KumiteGameMapper;
-import com.management.models.NewMatch;
+import com.management.kumitegame.domain.NewMatch;
+import com.management.kumitegame.web.KumiteGameMapper;
+import com.management.kumitegame.web.KumiteGameRequest;
+import com.management.kumitegame.web.MatchFighterRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

@@ -2,9 +2,9 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.management.athlete.data.PlayerRepository;
+import com.management.athlete.domain.Player;
 import com.management.config.DatastoreProperties;
-import com.management.models.Player;
-import com.management.repositories.PlayerRepository;
 import com.management.testsupport.IntegrationTestBase;
 import com.management.testsupport.PlayerBuilder;
 import com.mongodb.ConnectionString;

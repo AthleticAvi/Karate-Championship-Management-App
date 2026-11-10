@@ -1,9 +1,9 @@
 package com.management.util;
 
-import com.management.enums.PlayerColor;
-import com.management.enums.PointsType;
-import com.management.exceptions.InvalidPlayerColorException;
-import com.management.exceptions.PointTypeNotFoundException;
+import com.management.athlete.domain.PointTypeNotFoundException;
+import com.management.athlete.domain.PointsType;
+import com.management.kumitegame.domain.InvalidPlayerColorException;
+import com.management.kumitegame.domain.PlayerColor;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
@@ -24,14 +24,14 @@ public class KumiteGameManagementUtils {
   /**
    * Parses a colour from the URL, or rejects it as bad input.
    *
-   * <p>Threw {@link com.management.exceptions.PlayerNotFoundException} until #36, which meant
+   * <p>Threw {@link com.management.athlete.domain.PlayerNotFoundException} until #36, which meant
    * {@code color=purple} came back as a 404 saying no such player — the wrong status and a
    * misleading message for what is simply an unparseable value. {@link InvalidPlayerColorException}
    * had no throw site anywhere in the codebase before this; it does now.
    *
    * <p>The two failures are genuinely different and stay different types: this one is "not a
    * colour", 400. "A real colour that this match does not field" is {@link
-   * com.management.exceptions.PlayerNotFoundException}, 404, raised where the match is actually
+   * com.management.athlete.domain.PlayerNotFoundException}, 404, raised where the match is actually
    * consulted.
    */
   public static PlayerColor mapPlayerColor(String color) {

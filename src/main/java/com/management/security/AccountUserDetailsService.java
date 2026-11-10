@@ -1,7 +1,7 @@
 package com.management.security;
 
-import com.management.models.Account;
-import com.management.services.AccountService;
+import com.management.account.domain.Account;
+import com.management.account.service.AccountService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

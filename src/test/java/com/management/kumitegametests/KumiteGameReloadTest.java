@@ -3,12 +3,12 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-import com.management.enums.GameState;
-import com.management.models.KumiteGame;
-import com.management.repositories.KumiteGameRepository;
-import com.management.services.KumiteGameService;
-import com.management.services.MatchStateWriter;
-import com.management.services.PlayerService;
+import com.management.athlete.service.PlayerService;
+import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.GameState;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.service.KumiteGameService;
+import com.management.kumitegame.service.MatchStateWriter;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;

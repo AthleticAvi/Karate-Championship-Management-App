@@ -1,8 +1,8 @@
 package com.management.security;
 
-import com.management.controllers.ApiAccess;
-import com.management.enums.AccountRole;
-import com.management.services.AccountService;
+import com.management.account.domain.AccountRole;
+import com.management.account.service.AccountService;
+import com.management.web.ApiAccess;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;

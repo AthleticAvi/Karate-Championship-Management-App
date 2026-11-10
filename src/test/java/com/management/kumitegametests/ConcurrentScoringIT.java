@@ -3,9 +3,9 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.management.dto.KumiteGameResponse;
-import com.management.models.Player;
-import com.management.repositories.PlayerRepository;
+import com.management.athlete.data.PlayerRepository;
+import com.management.athlete.domain.Player;
+import com.management.kumitegame.web.KumiteGameResponse;
 import com.management.testsupport.IntegrationTestBase;
 import java.util.ArrayList;
 import java.util.List;

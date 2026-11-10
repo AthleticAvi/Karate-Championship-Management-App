@@ -13,10 +13,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.enums.PointsType;
-import com.management.exceptions.PlayerNotFoundException;
-import com.management.services.KumiteGameService;
-import com.management.services.PlayerService;
+import com.management.athlete.domain.PlayerNotFoundException;
+import com.management.athlete.domain.PointsType;
+import com.management.athlete.service.PlayerService;
+import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.PlayerBuilder;
 import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;

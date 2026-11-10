@@ -1,15 +1,15 @@
 package com.management.testsupport;
 
-import com.management.rules.MatchOutcomeEvaluator;
-import com.management.rules.conditions.DisqualificationCondition;
-import com.management.rules.conditions.FoulLimitCondition;
-import com.management.rules.conditions.PointsThresholdCondition;
-import com.management.rules.conditions.TimeExpiredCondition;
-import com.management.rules.winners.DisqualificationWinnerRule;
-import com.management.rules.winners.DrawWinnerRule;
-import com.management.rules.winners.FoulLimitWinnerRule;
-import com.management.rules.winners.HighestScoreWinnerRule;
-import com.management.rules.winners.SenshuWinnerRule;
+import com.management.kumitegame.rules.MatchOutcomeEvaluator;
+import com.management.kumitegame.rules.conditions.DisqualificationCondition;
+import com.management.kumitegame.rules.conditions.FoulLimitCondition;
+import com.management.kumitegame.rules.conditions.PointsThresholdCondition;
+import com.management.kumitegame.rules.conditions.TimeExpiredCondition;
+import com.management.kumitegame.rules.winners.DisqualificationWinnerRule;
+import com.management.kumitegame.rules.winners.DrawWinnerRule;
+import com.management.kumitegame.rules.winners.FoulLimitWinnerRule;
+import com.management.kumitegame.rules.winners.HighestScoreWinnerRule;
+import com.management.kumitegame.rules.winners.SenshuWinnerRule;
 import java.util.List;
 
 /**

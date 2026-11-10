@@ -2,10 +2,10 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.enums.PlayerColor;
-import com.management.enums.PointsType;
-import com.management.models.GameWithFighters;
-import com.management.models.Player;
+import com.management.athlete.domain.Player;
+import com.management.athlete.domain.PointsType;
+import com.management.kumitegame.domain.GameWithFighters;
+import com.management.kumitegame.domain.PlayerColor;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
 import org.junit.jupiter.api.Test;

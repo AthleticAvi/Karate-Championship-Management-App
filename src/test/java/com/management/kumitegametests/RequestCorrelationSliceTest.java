@@ -7,8 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.services.KumiteGameService;
-import com.management.services.PlayerService;
+import com.management.athlete.service.PlayerService;
+import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

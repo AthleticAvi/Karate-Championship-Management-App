@@ -1,6 +1,6 @@
 package com.management.config;
 
-import com.management.models.Account;
+import com.management.account.domain.Account;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;

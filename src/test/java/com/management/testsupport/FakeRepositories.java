@@ -6,10 +6,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.management.models.KumiteGame;
-import com.management.models.Player;
-import com.management.repositories.KumiteGameRepository;
-import com.management.repositories.PlayerRepository;
+import com.management.athlete.data.PlayerRepository;
+import com.management.athlete.domain.Player;
+import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.KumiteGame;
 
 /**
  * Repository doubles backed by {@link InMemoryMongo}, so every read is a real conversion round

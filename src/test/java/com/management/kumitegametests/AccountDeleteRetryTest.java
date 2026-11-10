@@ -9,10 +9,10 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.management.exceptions.LastAdminException;
-import com.management.repositories.AccountRepository;
-import com.management.services.AccountRemoval;
-import com.management.services.AccountService;
+import com.management.account.data.AccountRepository;
+import com.management.account.domain.LastAdminException;
+import com.management.account.service.AccountRemoval;
+import com.management.account.service.AccountService;
 import com.mongodb.MongoException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -3,10 +3,10 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.management.enums.GameState;
-import com.management.enums.PlayerColor;
-import com.management.models.KumiteGame;
-import com.management.models.Player;
+import com.management.athlete.domain.Player;
+import com.management.kumitegame.domain.GameState;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.PlayerColor;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.KumiteGameBuilder;
 import com.management.testsupport.PlayerBuilder;
@@ -138,7 +138,7 @@ class InMemoryMongoFidelityTest {
     Player player = PlayerBuilder.newPlayer().named("Scoring Fighter").build();
 
     storage.save(player);
-    player.addPoint(com.management.enums.PointsType.IPPON);
+    player.addPoint(com.management.athlete.domain.PointsType.IPPON);
     storage.save(player);
 
     assertThat(storage.count(Player.class))
@@ -176,7 +176,7 @@ class InMemoryMongoFidelityTest {
     Player scorer =
         PlayerBuilder.newPlayer()
             .named("Scoring Fighter")
-            .scoring(com.management.enums.PointsType.IPPON)
+            .scoring(com.management.athlete.domain.PointsType.IPPON)
             .withFouls(2)
             .build();
 

@@ -2,9 +2,9 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.dto.KumiteGameResponse;
-import com.management.enums.PlayerColor;
-import com.management.models.KumiteGame;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.web.KumiteGameResponse;
 import com.management.testsupport.IntegrationTestBase;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
@@ -34,9 +34,9 @@ import org.springframework.http.ResponseEntity;
  * migration decision recorded in {@code CLAUDE.md} is that documents predating it are not supported
  * — so a genuine pre-#34 document, which also carries embedded fighters, no longer loads for a
  * reason that has nothing to do with the winner field. What {@link
- * com.management.models.converters.LegacyWinnerConverter} does is a property-level conversion, and
- * that is exactly what these tests exercise. Whether the converter still earns its place is a
- * question for the engineer, raised in the pull request rather than answered here.
+ * com.management.kumitegame.data.converters.LegacyWinnerConverter} does is a property-level
+ * conversion, and that is exactly what these tests exercise. Whether the converter still earns its
+ * place is a question for the engineer, raised in the pull request rather than answered here.
  */
 class LegacyWinnerIT extends IntegrationTestBase {
 

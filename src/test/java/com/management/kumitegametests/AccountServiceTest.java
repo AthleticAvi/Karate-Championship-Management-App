@@ -7,12 +7,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import com.management.account.data.AccountRepository;
+import com.management.account.domain.Account;
+import com.management.account.domain.AccountRole;
+import com.management.account.service.AccountRemoval;
+import com.management.account.service.AccountService;
 import com.management.config.FirstAdminProperties;
-import com.management.enums.AccountRole;
-import com.management.models.Account;
-import com.management.repositories.AccountRepository;
-import com.management.services.AccountRemoval;
-import com.management.services.AccountService;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 

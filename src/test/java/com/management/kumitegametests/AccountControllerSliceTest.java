@@ -13,15 +13,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.dto.AccountRequest;
-import com.management.enums.AccountRole;
-import com.management.exceptions.AccountAlreadyExistsException;
-import com.management.exceptions.AccountNotFoundException;
-import com.management.exceptions.LastAdminException;
-import com.management.models.Account;
-import com.management.models.NewAccount;
-import com.management.services.KumiteGameService;
-import com.management.services.PlayerService;
+import com.management.account.domain.Account;
+import com.management.account.domain.AccountAlreadyExistsException;
+import com.management.account.domain.AccountNotFoundException;
+import com.management.account.domain.AccountRole;
+import com.management.account.domain.LastAdminException;
+import com.management.account.domain.NewAccount;
+import com.management.account.web.AccountRequest;
+import com.management.athlete.service.PlayerService;
+import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

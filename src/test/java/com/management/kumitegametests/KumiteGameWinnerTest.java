@@ -3,9 +3,9 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.management.enums.PlayerColor;
-import com.management.exceptions.PlayerNotFoundException;
-import com.management.models.KumiteGame;
+import com.management.athlete.domain.PlayerNotFoundException;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.PlayerColor;
 import com.management.testsupport.KumiteGameBuilder;
 import java.time.Duration;
 import java.util.EnumMap;
