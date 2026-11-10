@@ -49,7 +49,7 @@ class RefereeDocumentMapperTest {
 
   @Test
   void newDocument_isUnsavedAtTheCurrentShape() {
-    RefereeDocument written = RefereeDocumentMapper.toNewDocument(Referee.named("Sato"));
+    RefereeDocument written = RefereeDocumentMapper.toNewDocument("Sato");
 
     assertThat(written.getId()).isNull();
     assertThat(written.getVersion()).isZero();

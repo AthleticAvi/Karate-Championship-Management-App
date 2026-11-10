@@ -20,10 +20,11 @@ in `src/main/java/com/management/README.md`.
 
 ## [owns] Owns
 
-- Aggregates: `KumiteGame` in `kumitegame.domain`, `Player` in `athlete.domain`, `Account` in
-  `account.domain`.
-- Values: `Points` and `Foul` in `athlete.domain`. `Referee`, `RefereeOverride`, `ClockAdjustment`
-  and `MatchOutcome` in `kumitegame.domain`.
+- Aggregates: `KumiteGame` in `kumitegame.domain`, `Player` in `athlete.domain`, `Referee` in
+  `referee.domain`, `Account` in `account.domain`. `Referee` is the one with no stored form in it:
+  see `src/main/java/com/management/referee/README.md`.
+- Values: `Points` and `Foul` in `athlete.domain`. `Referee` (a name embedded in a match, not the
+  aggregate), `RefereeOverride`, `ClockAdjustment` and `MatchOutcome` in `kumitegame.domain`.
 - `GameWithFighters`: the composed read of both aggregates, which `KumiteGameMapper` consumes.
 - `NewOverride` carries the operator and the referee apart: the signed-in account that recorded the
   call, and the referee who made it, who may hold no account. `NewClockAdjustment.addedBy` is the

@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.bson.Document;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -65,12 +66,13 @@ class RefereeApiIT extends IntegrationTestBase {
     return json(create(name)).get("id").asString();
   }
 
-  private HttpResponse<String> rename(String id, String name, String credentials) throws Exception {
+  private HttpResponse<String> rename(String id, String name, @Nullable String credentials)
+      throws Exception {
     HttpRequest.Builder request = withName(to(REFEREES + "/" + id), "PUT", name);
     return send(credentials == null ? request : request.header(AUTHORIZATION, credentials));
   }
 
-  private HttpResponse<String> delete(String id, String credentials) throws Exception {
+  private HttpResponse<String> delete(String id, @Nullable String credentials) throws Exception {
     HttpRequest.Builder request = to(REFEREES + "/" + id).DELETE();
     return send(credentials == null ? request : request.header(AUTHORIZATION, credentials));
   }

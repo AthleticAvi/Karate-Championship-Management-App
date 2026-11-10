@@ -16,8 +16,8 @@ This README maps the packages. Each shared package has its own README, and each 
 
 ## [layers] Layers
 
-The code is grouped by feature, `kumitegame`, `athlete` and `account`, and each feature is split by
-layer. Shared code sits in its own top-level packages.
+The code is grouped by feature, `kumitegame`, `athlete`, `referee` and `account`, and each feature is
+split by layer. Shared code sits in its own top-level packages.
 
 | Responsibility | Packages | Job |
 |---|---|---|
@@ -34,10 +34,12 @@ layer. Shared code sits in its own top-level packages.
 | `kumitegame.rules` | The rules engine | `kumitegame/rules/README.md` |
 | `<feature>.domain` | Domain types, the vocabulary, and the exception types the feature throws | `kumitegame/domain/README.md` |
 | `<feature>.data` | Repositories, and in `kumitegame` the stored-form converters | `kumitegame/data/README.md` |
+| `referee` | The referee aggregate, and the domain, document and mapper split to follow | `referee/README.md` |
 | `filters`, `security`, `config`, `util` | Shared, each with its own README | |
 
-`athlete` holds today's `Player` types under their current names. A referee is a name inside the
-match, so there is no `referee` package.
+`athlete` holds today's `Player` types under their current names. A match still holds referee names,
+as `kumitegame.domain.Referee`, a different type from the `referee` aggregate: no match refers to a
+referee by id yet.
 
 `[package-layout]` in `context/workflow/web-frameworks/spring-boot/standards/standards.md` names
 `web`, `domain` and `data` only. `service` and `rules` are kept as layers of their own, because the
@@ -52,9 +54,9 @@ and test slice configuration all derive from its location, so no `scanBasePackag
 
 ## [aggregates] Aggregates
 
-Three aggregate roots, one per feature: **KumiteGame** in `kumitegame`, **Player** in `athlete`,
-**Account** in `account`. Each has a controller, service and repository. Nothing ties an account to a
-match or a fighter. `kumitegame` may use `athlete`; no other feature uses another, and
+Four aggregate roots, one per feature: **KumiteGame** in `kumitegame`, **Player** in `athlete`,
+**Referee** in `referee`, **Account** in `account`. Each has a controller, service and repository.
+Nothing ties an account to a match or a fighter, and no match refers to a `Referee` yet. `kumitegame` may use `athlete`; no other feature uses another, and
 `ArchitectureTest` enforces it.
 
 `KumiteGame` stores fighter **ids** keyed by colour (`playerIds`). Names, points and fouls live
@@ -71,7 +73,10 @@ only on `Player` documents: one fact, one owner, no embedded snapshot to re-sync
 | Domain types carry no persistence mapping | `kumitegame.domain.KumiteGame` and `athlete.domain.Player` are also Spring Data documents |
 | No utility package | `util.KumiteGameManagementUtils` |
 
-Separating domain and persistence types is an architecture decision, not yet taken.
+Every other feature's `domain` is held to the same rule strictly, by a second rule that names the
+two frozen features. `referee` is apart from its stored form: see `[pattern]` in
+`referee/README.md`. Once `kumitegame` and `athlete` are parted the same way, the frozen rule, its
+store entry and those two names in the strict rule go together.
 
 The store only changes on purpose. A fixed violation fails the build until you run
 `mvn test -Dtest=ArchitectureTest -Darchunit.freeze.store.default.allowStoreUpdate=true` and commit

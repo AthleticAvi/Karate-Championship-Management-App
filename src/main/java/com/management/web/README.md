@@ -33,6 +33,7 @@ In the feature packages:
 - `KumiteGameController` at `/api/v1/kumitegame`: match creation, retrieval, points, fouls, winner
   assignment, disqualification, KIKEN, referee override and clock extension.
 - `PlayerController` at `/api/v1/players`: player CRUD.
+- `RefereeController` at `/api/v1/referees`: creates, reads, renames and deletes referees.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
   because the encoder is a Spring Security type.
 
@@ -67,14 +68,16 @@ for `Location`.
 A request on an old path, or on any other version, is refused before a controller runs: it has no
 row in the role table, so it answers 401, or 403 with credentials.
 
-Persistence types do not cross the HTTP boundary in either direction. `KumiteGameMapper` and
-`PlayerMapper` are the only places a document becomes a response.
+Persistence types do not cross the HTTP boundary in either direction. `KumiteGameMapper`,
+`PlayerMapper` and `RefereeMapper` are the only places a domain type becomes a response.
+`RefereeMapper` never sees a document: `referee` keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
 | `KumiteGameResponse` | everything under `/api/v1/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
 | `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
 | `PlayerResponse` | `/api/v1/players` | `id`, `name`, `points`, `fouls` |
+| `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
 | `AccountResponse` | `POST /api/v1/accounts` | `username`, `role`. Never a password or a hash |
 
 ## [access] Who may call what
@@ -85,11 +88,12 @@ live in the web packages and `security` already depends on it, so the reverse wo
 
 | Level | Endpoints under `/api/v1` |
 |---|---|
-| Public | `GET /kumitegame/{gameId}`, `GET /players/{playerId}` |
+| Public | `GET /kumitegame/{gameId}`, `GET /players/{playerId}`, `GET /referees/{refereeId}` |
 | Scorekeeper and Admin | `POST /kumitegame`, `add-point`, `remove-point`, `add-foul`, `remove-foul`, `kiken`, `add-time` |
-| Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}`, `POST /accounts`, `DELETE /accounts/{username}` |
+| Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
-Any Scorekeeper may act on any bout: there is no assignment model. A new endpoint needs a row here,
+Any Scorekeeper may act on any bout: there is no assignment model. Referees follow the `/players`
+levels, which no plan states: an owner decision pending. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
 compares it with the real mappings, so a new endpoint fails the build until someone decides. What
 each answer means is in the security README.
@@ -123,8 +127,9 @@ thing between this contract and a silent shift under a dependency upgrade.
 
 Scoring, disqualification, KIKEN, override and add-time endpoints answer with the updated
 `KumiteGameResponse`, so a scoreboard never needs a follow-up read, including when the mutation
-finished the match. `DELETE /api/v1/players/{id}` and `DELETE /api/v1/accounts/{username}` answer 204
-with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET` serves it:
+finished the match. `PUT /api/v1/referees/{id}` answers the renamed `RefereeResponse`.
+`DELETE /api/v1/players/{id}`, `DELETE /api/v1/referees/{id}` and `DELETE /api/v1/accounts/{username}`
+answer 204 with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET` serves it:
 nothing reads an account back, and the path is what `DELETE` takes.
 
 ## [validation] Validation at the boundary
@@ -200,7 +205,10 @@ every success. So:
 | A request body | 413, 415 |
 
 `POST /api/v1/accounts` states its own 409, because a body of its own can collide: the rules give a
-409 only to a path parameter.
+409 only to a path parameter. `PUT /api/v1/referees/{refereeId}` states its 409 to say that `current`
+holds the referee, in words only: the shared problem schema cannot list it, because a 400 does not
+carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409 on
+`DELETE /api/v1/referees/{refereeId}` comes from the rules and cannot happen yet.
 
 `ApiDescriptionIT` pins these rules, and compares 400, 401, 404 and the success codes with real
 answers. A 401 is on public reads too, because wrong credentials are refused there. A 403 is on Admin
@@ -241,6 +249,7 @@ no logic.
   `WinnerOverrideRequest`, `KumiteGameResponse`.
 - `athlete.web`: `PlayerRequest`, `PlayerResponse`, `PlayerSummary`. A match response nests
   `PlayerSummary`, so `kumitegame.web` uses it.
+- `referee.web`: `RefereeRequest`, the body of a create and a rename, and `RefereeResponse`.
 - `account.web`: `AccountRequest`, `AccountResponse`.
 
 They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a username has one home.
@@ -261,6 +270,7 @@ never a `service`, `data` or `rules` package.
 - `KumiteGameMapper`: consumes `GameWithFighters`, produces `KumiteGameResponse`. Also turns
   requests into `NewMatch`, `NewOverride` and `NewClockAdjustment`.
 - `PlayerMapper`: `Player` to `PlayerResponse`.
+- `RefereeMapper`: `Referee` to `RefereeResponse`. `GlobalExceptionHandler` uses it for `current`.
 - `AccountMapper`: `AccountRequest` and a hash to `NewAccount`, `Account` to `AccountResponse`.
 
 `KumiteGameMapper` keeps its own one-RED-one-BLUE check. `KumiteGameService` guards what enters the
@@ -289,9 +299,11 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | A username already taken | 409 | `AccountAlreadyExistsException` | the message |
 | Removing the last Admin | 409 | `LastAdminException` | the message |
 | A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
+| A referee rename that lost to another write | 409 | `RefereeChangedException` | fixed, plus a `current` extension property holding the referee as it now stands. Not retried |
 | A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
 | No such match | 404 | `GameNotFoundException` | the message |
 | No such account | 404 | `AccountNotFoundException` | the message |
+| No such referee | 404 | `RefereeNotFoundException` | the message |
 | No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
 | Accounts could not be read while checking credentials | 500 | `AuthenticationServiceException` (framework) | **generic**, message logged |
 | Anything else | 500 | catch-all | **generic**, message logged |

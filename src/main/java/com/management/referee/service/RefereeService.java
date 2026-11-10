@@ -31,7 +31,7 @@ public class RefereeService {
 
   public Referee create(String name) {
     return RefereeDocumentMapper.toDomain(
-        refereeRepository.save(RefereeDocumentMapper.toNewDocument(Referee.named(name))));
+        refereeRepository.save(RefereeDocumentMapper.toNewDocument(name)));
   }
 
   public Referee get(String refereeId) {

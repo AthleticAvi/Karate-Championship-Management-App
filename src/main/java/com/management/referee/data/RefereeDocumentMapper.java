@@ -28,10 +28,11 @@ public final class RefereeDocumentMapper {
     return new Referee(document.getId(), document.getName());
   }
 
-  /** A referee not yet stored: no version, and the instants are set by auditing on the insert. */
-  public static RefereeDocument toNewDocument(Referee referee) {
-    return new RefereeDocument(
-        referee.id(), 0, RefereeDocument.CURRENT_SCHEMA_VERSION, referee.name(), null, null);
+  /**
+   * A referee not yet stored. The insert assigns the id and the version, and auditing the instants.
+   */
+  public static RefereeDocument toNewDocument(String name) {
+    return new RefereeDocument(null, 0, RefereeDocument.CURRENT_SCHEMA_VERSION, name, null, null);
   }
 
   /**

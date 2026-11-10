@@ -17,8 +17,10 @@ aggregate root, in its feature's `data` package.
 
 ## [owns] Owns
 
-`KumiteGameRepository` here, `PlayerRepository` in `athlete.data` and `AccountRepository` in
-`account.data`. Stored-form conversion sits in `converters/`: see its README.
+`KumiteGameRepository` here, `PlayerRepository` in `athlete.data`, `RefereeRepository` with
+`RefereeDocument` and `RefereeDocumentMapper` in `referee.data`, and `AccountRepository` in
+`account.data`. `referee` stores a document apart from its domain type: see `[pattern]` in
+`src/main/java/com/management/referee/README.md`. Stored-form conversion sits in `converters/`: see its README.
 
 ## [may-call] May call
 
@@ -62,6 +64,9 @@ aggregate root, in its feature's `data` package.
   the container on another port needs a matching member address in `rs.initiate`.
 - A wrong password starts the application with readiness DOWN (503), and every request that needs
   the datastore fails with a 500, including one with credentials, because they cannot be checked.
+- Collections: `kumiteGame`, `player`, `account`, and `referee`, named in `@Document` because the
+  class is `RefereeDocument`. Only `referee` documents carry `schemaVersion`, `createdAt` and
+  `modifiedAt`.
 - Each feature's `data` package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring
   Data adds a runtime null check to every repository. Today that only adds an interceptor, because
   both interfaces are empty and `findById` returns `Optional`. It matters once a custom finder
