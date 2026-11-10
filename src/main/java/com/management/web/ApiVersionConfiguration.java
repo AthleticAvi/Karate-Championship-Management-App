@@ -3,6 +3,7 @@ package com.management.web;
 import com.management.account.web.AccountController;
 import com.management.athlete.web.PlayerController;
 import com.management.kumitegame.web.KumiteGameController;
+import com.management.referee.web.RefereeController;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.HandlerTypePredicate;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
@@ -26,6 +27,9 @@ public class ApiVersionConfiguration implements WebMvcConfigurer {
     configurer.addPathPrefix(
         PREFIX,
         HandlerTypePredicate.forBasePackageClass(
-            KumiteGameController.class, PlayerController.class, AccountController.class));
+            KumiteGameController.class,
+            PlayerController.class,
+            RefereeController.class,
+            AccountController.class));
   }
 }

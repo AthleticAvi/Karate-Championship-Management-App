@@ -94,6 +94,7 @@ A field initialised inline and marked `final` cannot be replaced by a test doubl
 ## [api-description] Generated API description
 
 - springdoc reads a status only from an annotation. A `@RestControllerAdvice` that sets its status at runtime yields no failure responses at all, and a `ResponseEntity` reads as 200. Inspect the output: it looks complete.
+- Stating one status with `@ApiResponse` on a method stops it adding the default 200: the operation then lists no success. State the 200 too.
 - It generates through swagger-core on Jackson 2, so a Jackson 3 application carries both. Spring MVC stays on Jackson 3.
 - Its YAML format makes Spring register a YAML message converter in every profile, even with the description off. Remove it with `configureMessageConverters`. Excluding the jar stops the application from starting.
 - `springdoc.model-converters.java-nullable-property-customizer.enabled` honours `@Nullable` on a record, but leaves `null` out of an enum's values, so a real `null` fails the schema.

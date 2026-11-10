@@ -26,6 +26,7 @@ READMEs below.
 | Domain types, timer, versioned documents | `src/main/java/com/management/kumitegame/domain/README.md` |
 | Vocabulary, state transitions, known deviations | `src/main/java/com/management/kumitegame/domain/README.md` |
 | Rule values and configuration | `src/main/java/com/management/config/README.md` |
+| Domain type apart from its stored document, the pattern to follow | `src/main/java/com/management/referee/README.md` |
 | MongoDB setup | `src/main/java/com/management/kumitegame/data/README.md` |
 | Test suites and layout | `src/test/java/com/management/README.md` |
 | Quality gates, baselines, hooks, MCP | `config/README.md` |
@@ -37,7 +38,7 @@ Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and
 
 ## Layers
 
-One package per feature, `kumitegame`, `athlete` and `account`, each split by layer.
+One package per feature, `kumitegame`, `athlete`, `referee` and `account`, each split by layer.
 
 | Responsibility | Packages |
 |-----------|----------|
@@ -46,8 +47,8 @@ One package per feature, `kumitegame`, `athlete` and `account`, each split by la
 | Data | `<feature>.data` |
 | Wiring | `config`, `KumiteGameStarter` |
 
-`Controller -> Service -> Repository -> MongoDB`. Three aggregates, **KumiteGame**, **Player** and
-**Account**. `kumitegame` may use `athlete`; no other feature uses another.
+`Controller -> Service -> Repository -> MongoDB`. Four aggregates, **KumiteGame**, **Player**,
+**Referee** and **Account**. `kumitegame` may use `athlete`; no other feature uses another.
 Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest` enforces this.
 
 ## Stack

@@ -6,6 +6,7 @@
 - [owns] Owns
 - [facts] Rule values
 - [datastore] Datastore guarantees
+- [auditing] Created and modified instants
 - [profiles] Profiles
 - [server] Server limits
 - [cors] Allowed origins and the API description
@@ -30,6 +31,8 @@ see `[datastore]`.
 `CorsProperties`: see `[cors]`.
 
 `FirstAdminProperties`: see `[accounts]`.
+
+`AuditingConfiguration`: see `[auditing]`.
 
 `TimeConfiguration`: the one `Clock` bean. It is UTC, and ticks in whole milliseconds because that
 is what a BSON date keeps, so a value in memory equals the value a reload returns.
@@ -82,6 +85,13 @@ A context closed after startup ends the process with exit code 0, not 1. Only th
 checked, so a datastore swapped for a weaker one later goes unnoticed. With `replicaSet` set, the
 driver will not use a standalone at all. On a direct connection, a write already waiting for a
 server can land in the moment before the context closes.
+
+## [auditing] Created and modified instants
+
+`AuditingConfiguration` turns on Spring Data auditing, and its `DateTimeProvider` reads the `Clock`
+bean, so a stored instant is UTC in whole milliseconds and a test that replaces the clock fixes it.
+It is a class of its own, not an annotation on `KumiteGameStarter`, so a web slice does not start it.
+Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: today `RefereeDocument`.
 
 ## [profiles] Profiles
 

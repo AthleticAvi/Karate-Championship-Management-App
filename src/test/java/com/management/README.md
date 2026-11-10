@@ -6,6 +6,7 @@
 - [suites] Suffixes decide the suite
 - [layout] Layout
 - [accounts] Accounts in tests
+- [contexts] Integration contexts
 - [docs-tools] Docs tools
 
 ## [purpose] Purpose
@@ -30,8 +31,8 @@ must be running for `mvn verify`: integration tests start their own MongoDB thro
 | Package | Holds |
 |---|---|
 | `kumitegametests` | Behaviour, controller slice and integration tests. `SecurityRulesSliceTest` holds the role table as decided, `SecurityIT` proves credentials over HTTP, `FirstAdminIT` starts the application with and without an Admin |
-| `kumitegame.domain`, `kumitegame.rules`, `athlete.domain`, `filters`, `config` | Unit tests for those packages. A test moves with the package it mirrors |
-| `testsupport` | Base classes, builders and fakes: `IntegrationTestBase`, which also supplies the weak MongoDB containers `DatastoreRefusalIT` needs and starts and calls an application by hand, `WebSliceTestBase`, `TestClock`, `KumiteGameBuilder`, `PlayerBuilder`, `FakeRepositories`, `InMemoryMongo`, and `FeatureWeb`, which finds the controllers and API shapes in each feature's `web` package |
+| `kumitegame.domain`, `kumitegame.rules`, `athlete.domain`, `referee.data`, `filters`, `config` | Unit tests for those packages. A test moves with the package it mirrors |
+| `testsupport` | Base classes, builders and fakes: `IntegrationTestBase`, which also supplies the weak MongoDB containers `DatastoreRefusalIT` needs and starts and calls an application by hand, `WebSliceTestBase`, which also mocks `AccountService` and `RefereeService` for every slice, `TestClock`, `KumiteGameBuilder`, `PlayerBuilder`, `FakeRepositories`, `InMemoryMongo`, and `FeatureWeb`, which finds the controllers and API shapes in each feature's `web` package |
 | `architecture` | `ArchitectureTest`, the layer rules |
 | `docs` | Index generator, commit message check, and the tests that hold the docs to the scaffold |
 
@@ -45,6 +46,12 @@ started by hand gets the same Admin through `startApplication`.
 
 Logging restarts with each application started by hand, which removes any appender a test added
 before the start. Such a test reads `CapturedOutput` instead, or it passes with nothing to check.
+
+## [contexts] Integration contexts
+
+Every integration test shares one context, except `RefereeAuditingIT`. It replaces the clock bean,
+because only a replaced clock shows where a stored instant comes from, and that costs one more
+context start. A test that needs a fixed time otherwise passes a clock of its own to the code.
 
 ## [docs-tools] Docs tools
 

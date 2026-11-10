@@ -9,6 +9,9 @@ import com.management.kumitegame.domain.GameNotFoundException;
 import com.management.kumitegame.domain.IllegalStateTransitionException;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.InvalidPlayerColorException;
+import com.management.referee.domain.RefereeChangedException;
+import com.management.referee.domain.RefereeNotFoundException;
+import com.management.referee.web.RefereeMapper;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -129,6 +132,31 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(PlayerNotFoundException.class)
   public ProblemDetail handlePlayerNotFound(PlayerNotFoundException ex) {
     return notFound("Fighter not found", ex);
+  }
+
+  @ExceptionHandler(RefereeNotFoundException.class)
+  public ProblemDetail handleRefereeNotFound(RefereeNotFoundException ex) {
+    return notFound("Referee not found", ex);
+  }
+
+  /**
+   * A rename that lost to another write: 409, with the referee as it now stands.
+   *
+   * <p>A rename sets a value, so retrying it would overwrite a name the caller never saw. The
+   * current referee goes back in a {@code current} extension property, so the caller can decide
+   * without a second read.
+   */
+  @ExceptionHandler(RefereeChangedException.class)
+  public ProblemDetail handleRefereeChanged(RefereeChangedException ex) {
+    log.debug("Concurrent update (409): {}", ex.getMessage());
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "Someone else changed this referee at the same moment. It is returned as it now"
+                + " stands.");
+    problem.setTitle("Concurrent update");
+    problem.setProperty("current", RefereeMapper.toResponse(ex.current()));
+    return problem;
   }
 
   /**

@@ -24,6 +24,8 @@ happens next. This README covers the `service` package of each feature.
 - `PlayerService`, in `athlete.service`: a leaf that mutates and saves a `Player`.
 - `MatchStateWriter`, in `kumitegame.service`: applies a write-once change to a match, retrying a
   losing write.
+- `RefereeService`, in `referee.service`: a leaf that creates, reads, renames and deletes referees.
+  A rename is not retried: see `[writes]` in `src/main/java/com/management/referee/README.md`.
 - `AccountService`, in `account.service`: a leaf that reads, creates and deletes accounts. A
   password reaches it already hashed.
 - `AccountRemoval`, in `account.service`: the one transaction in this application. See
