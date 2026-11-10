@@ -1,6 +1,7 @@
 package com.management.testsupport;
 
 import com.management.account.service.AccountService;
+import com.management.referee.service.RefereeService;
 import com.management.security.SecurityConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -43,7 +44,14 @@ public abstract class WebSliceTestBase {
   /** The chain reads accounts through this, so a slice decides who exists. */
   @MockitoBean private AccountService accountService;
 
+  /** Here rather than in each slice, so a slice that never calls it keeps the shared context. */
+  @MockitoBean private RefereeService refereeService;
+
   protected AccountService accountService() {
     return accountService;
+  }
+
+  protected RefereeService refereeService() {
+    return refereeService;
   }
 }

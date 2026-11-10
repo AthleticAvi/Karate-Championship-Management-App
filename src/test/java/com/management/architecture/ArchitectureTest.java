@@ -269,6 +269,24 @@ class ArchitectureTest {
         .check(CLASSES);
   }
 
+  /**
+   * The same rule, strict, for every feature whose domain is already apart from its stored form.
+   * Only {@code kumitegame} and {@code athlete} are held by the frozen rule above, so a new feature
+   * is checked strictly without editing this test.
+   */
+  @Test
+  void domainTypes_ofSeparatedFeatures_carryNoPersistenceMapping() {
+    noClasses()
+        .that()
+        .resideInAPackage(DOMAIN)
+        .and()
+        .resideOutsideOfPackages(ROOT + ".kumitegame..", ROOT + ".athlete..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.springframework.data..")
+        .check(CLASSES);
+  }
+
   @Test
   void noUtilityPackage() {
     freeze(noClasses().should().resideInAPackage("..util..")).check(CLASSES);

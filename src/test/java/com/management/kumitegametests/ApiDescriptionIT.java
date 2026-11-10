@@ -50,6 +50,7 @@ class ApiDescriptionIT {
   private static final String MATCHES = "/api/v1/kumitegame";
   private static final String MATCH = MATCHES + "/{gameId}";
   private static final String PLAYER = PLAYERS + "/{playerId}";
+  private static final String REFEREE = "/api/v1/referees/{refereeId}";
   private static final String NEW_MATCH =
       """
       {
@@ -121,6 +122,10 @@ class ApiDescriptionIT {
         .containsExactly("200", "400", "401", "404", "409", "500");
     assertThat(statusesOf(operation("put", MATCH + "/add-time")))
         .containsExactly("200", "400", "401", "404", "409", "413", "415", "500");
+    assertThat(statusesOf(operation("get", REFEREE))).containsExactly("200", "401", "404", "500");
+    assertThat(statusesOf(operation("put", REFEREE)))
+        .containsExactly("200", "400", "401", "403", "404", "409", "413", "415", "500");
+    assertThat(response("put", REFEREE, "409").get("description").asString()).contains("current");
   }
 
   @Test

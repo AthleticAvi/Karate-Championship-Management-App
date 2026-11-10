@@ -52,11 +52,14 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   private static final String ONE_GAME = GAME + "/{gameId}";
   private static final String PLAYERS = "/api/v1/players";
   private static final String ONE_PLAYER = PLAYERS + "/{playerId}";
+  private static final String REFEREES = "/api/v1/referees";
+  private static final String ONE_REFEREE = REFEREES + "/{refereeId}";
 
   private static final Map<String, String> TABLE =
       Map.ofEntries(
           Map.entry("GET " + ONE_GAME, PUBLIC),
           Map.entry("GET " + ONE_PLAYER, PUBLIC),
+          Map.entry("GET " + ONE_REFEREE, PUBLIC),
           Map.entry("POST " + GAME, SCOREKEEPER),
           Map.entry("PUT " + ONE_GAME + "/add-point", SCOREKEEPER),
           Map.entry("PUT " + ONE_GAME + "/remove-point", SCOREKEEPER),
@@ -69,6 +72,9 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
           Map.entry("PUT " + ONE_GAME + "/update-winner/{color}", ADMIN),
           Map.entry("POST " + PLAYERS, ADMIN),
           Map.entry("DELETE " + ONE_PLAYER, ADMIN),
+          Map.entry("POST " + REFEREES, ADMIN),
+          Map.entry("PUT " + ONE_REFEREE, ADMIN),
+          Map.entry("DELETE " + ONE_REFEREE, ADMIN),
           Map.entry("POST /api/v1/accounts", ADMIN),
           Map.entry("DELETE /api/v1/accounts/{username}", ADMIN));
 
@@ -131,7 +137,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   void noCredentials_isRefusedBeforeAnythingRuns(String endpoint) throws Exception {
     mockMvc.perform(call(endpoint)).andExpect(status().isUnauthorized());
 
-    verifyNoInteractions(kumiteGameService, playerService);
+    verifyNoInteractions(kumiteGameService, playerService, refereeService());
   }
 
   @ParameterizedTest
@@ -147,7 +153,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
         .perform(call(endpoint).with(user("someone").roles(SCOREKEEPER)))
         .andExpect(status().isForbidden());
 
-    verifyNoInteractions(kumiteGameService, playerService);
+    verifyNoInteractions(kumiteGameService, playerService, refereeService());
   }
 
   /** No stored role fails a Scorekeeper rule, so the wrong role here is one nothing admits. */
@@ -158,7 +164,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
         .perform(call(endpoint).with(user("someone").roles("SPECTATOR")))
         .andExpect(status().isForbidden());
 
-    verifyNoInteractions(kumiteGameService, playerService);
+    verifyNoInteractions(kumiteGameService, playerService, refereeService());
   }
 
   @ParameterizedTest
