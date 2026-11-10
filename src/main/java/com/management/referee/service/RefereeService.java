@@ -40,10 +40,13 @@ public class RefereeService {
 
   /**
    * Saves against the version that was read, so a write in between fails the save. A referee
-   * deleted in between answers 404 from the second read.
+   * deleted in between answers 404 from the second read. The name already stored writes nothing.
    */
   public Referee rename(String refereeId, String name) {
     RefereeDocument stored = stored(refereeId);
+    if (stored.getName().equals(name)) {
+      return RefereeDocumentMapper.toDomain(stored);
+    }
     Referee renamed = RefereeDocumentMapper.toDomain(stored).rename(name);
     try {
       return RefereeDocumentMapper.toDomain(
@@ -53,15 +56,11 @@ public class RefereeService {
     }
   }
 
-  /**
-   * Deletes by id, with no version check: a delete does not depend on the name it removes. A
-   * referee deleted between the check and the delete is gone either way.
-   */
+  /** Deletes by id, with no version check: a delete does not depend on the name it removes. */
   public void delete(String refereeId) {
-    if (!refereeRepository.existsById(refereeId)) {
+    if (refereeRepository.removeById(refereeId) == 0) {
       throw notFound(refereeId);
     }
-    refereeRepository.deleteById(refereeId);
   }
 
   private RefereeDocument stored(String refereeId) {

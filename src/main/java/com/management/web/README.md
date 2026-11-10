@@ -93,7 +93,7 @@ live in the web packages and `security` already depends on it, so the reverse wo
 | Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
 Any Scorekeeper may act on any bout: there is no assignment model. Referees follow the `/players`
-levels, which no plan states: an owner decision pending. A new endpoint needs a row here,
+levels, as their issue directs, because no plan states them: listed for the owner to confirm. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
 compares it with the real mappings, so a new endpoint fails the build until someone decides. What
 each answer means is in the security README.

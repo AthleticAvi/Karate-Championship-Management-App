@@ -11,8 +11,8 @@
 ## [purpose] Purpose
 
 A referee, kept once and outside any match, so a match can refer to one by id. The first feature
-whose domain type is apart from its stored document: `kumitegame` and `athlete` follow the same
-split.
+whose domain type is apart from its stored document. `kumitegame` and `athlete` are not parted
+yet, and are to follow the same split.
 
 `kumitegame.domain.Referee` is a different type: today's name embedded in a match. It stays until
 match assignments replace it.
@@ -51,7 +51,9 @@ The pattern to follow when a domain type is parted from its stored form.
   whole document, so the mapper must copy `createdAt` from the stored one: auditing sets it only
   on an insert.
 - **Instants come from auditing,** never set by hand: see `[auditing]` in the config README.
-- **A primitive `version` is stored as 1 on insert** and rises by one on each save.
+- **A primitive `version` is stored as 1 on insert** and rises by one on each save. A document
+  stored without one reads as version 0, so its next save is an insert and fails on the duplicate
+  id: not backfilled, as for the other versioned documents. Only this application writes referees.
 
 `RefereeAuditingIT` and `RefereeApiIT` prove the stored shape, and `RefereeDocumentMapperTest`
 the round trip.
@@ -67,5 +69,7 @@ the round trip.
 saw. A rename that loses to another write answers 409 with the referee as it now stands, in a
 `current` property of the problem detail. A referee deleted in between answers 404.
 
-**A delete has no version check.** It goes by id, because removing a referee does not depend on
-the name. Deleting a referee a match refers to is refused once matches refer to referees by id.
+**A rename to the name already stored writes nothing** and answers the referee as it is.
+
+**A delete has no version check.** It goes by id in one call, because removing a referee does not
+depend on the name, and the count it returns tells a miss apart. Deleting a referee a match refers to is refused once matches refer to referees by id.

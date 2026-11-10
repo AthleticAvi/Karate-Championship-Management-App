@@ -40,6 +40,10 @@ public final class RefereeDocumentMapper {
    * version the write is checked against and the created instant, which the domain never sees.
    */
   public static RefereeDocument toDocument(Referee referee, RefereeDocument stored) {
+    if (!referee.id().equals(stored.getId())) {
+      throw new IllegalArgumentException(
+          "Referee " + referee.id() + " cannot be written onto referee " + stored.getId());
+    }
     return new RefereeDocument(
         referee.id(),
         stored.getVersion(),

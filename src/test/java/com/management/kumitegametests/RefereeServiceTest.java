@@ -3,7 +3,6 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -72,10 +71,17 @@ class RefereeServiceTest {
   }
 
   @Test
-  void delete_ofNobody_isNotFoundAndDeletesNothing() {
-    given(repository.existsById("nobody")).willReturn(false);
+  void delete_ofNobody_isNotFound() {
+    given(repository.removeById("nobody")).willReturn(0L);
 
     assertThatThrownBy(() -> service.delete("nobody")).isInstanceOf(RefereeNotFoundException.class);
-    then(repository).should(never()).deleteById(anyString());
+  }
+
+  @Test
+  void rename_toTheStoredName_writesNothing() {
+    given(repository.findById("referee-1")).willReturn(Optional.of(stored(3, "Sato")));
+
+    assertThat(service.rename("referee-1", "Sato")).isEqualTo(new Referee("referee-1", "Sato"));
+    then(repository).should(never()).save(any(RefereeDocument.class));
   }
 }

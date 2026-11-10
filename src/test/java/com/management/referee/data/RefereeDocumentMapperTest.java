@@ -67,6 +67,13 @@ class RefereeDocumentMapperTest {
         .isEqualTo(referee);
   }
 
+  @Test
+  void toDocument_refusesAnotherRefereesStoredDocument() {
+    assertThatThrownBy(
+            () -> RefereeDocumentMapper.toDocument(new Referee("referee-2", "Sato"), stored()))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
   /** Written by a newer build: refused rather than read as a shape it is not. */
   @Test
   void toDomain_refusesShapesNewerThanThisBuild() {
