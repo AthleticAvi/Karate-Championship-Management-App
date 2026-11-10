@@ -1,4 +1,4 @@
-# services
+# service
 
 ## Index
 
@@ -14,22 +14,25 @@
 ## [purpose] Purpose
 
 Orchestration. Owns every operation that spans the match and fighter aggregates, and decides what
-happens next.
+happens next. This README covers the `service` package of each feature.
 
 ## [owns] Owns
 
-- `KumiteGameService`: match creation, lifecycle, scoring, fouls, disqualification, KIKEN, override
-  and clock extension. Resolves colour to fighter id and calls down into `PlayerService`.
-- `PlayerService`: a leaf that mutates and saves a `Player`.
-- `MatchStateWriter`: applies a write-once change to a match, retrying a losing write.
-- `AccountService`: a leaf that reads, creates and deletes accounts. A password reaches it already
-  hashed.
-- `AccountRemoval`: the one transaction in this application. See `[last-admin]`.
+- `KumiteGameService`, in `kumitegame.service`: match creation, lifecycle, scoring, fouls,
+  disqualification, KIKEN, override and clock extension. Resolves colour to fighter id and calls
+  down into `PlayerService`.
+- `PlayerService`, in `athlete.service`: a leaf that mutates and saves a `Player`.
+- `MatchStateWriter`, in `kumitegame.service`: applies a write-once change to a match, retrying a
+  losing write.
+- `AccountService`, in `account.service`: a leaf that reads, creates and deletes accounts. A
+  password reaches it already hashed.
+- `AccountRemoval`, in `account.service`: the one transaction in this application. See
+  `[last-admin]`.
 
 ## [may-call] May call
 
-`repositories`, `rules`, `models`, `enums`, `config`, `exceptions`. Never `controllers` or `mappers`.
-Never `dto`: the gateway maps a request first, and a strict rule enforces it.
+Its own feature's `data`, `rules` and `domain`, the `domain` of a feature it may use, and `config`.
+Never a `web` package: the gateway maps a request first, and a strict rule enforces it.
 
 ## [cross-aggregate] How scoring works across aggregates
 
@@ -46,7 +49,7 @@ Recording a point is exactly one document write. Reads compose the match and the
 
 ## [concurrency] Concurrency
 
-Both documents are versioned: see `[versioning]` in `models/README.md`. The scoring mutations in
+Both documents are versioned: see `[versioning]` in `domain/README.md`. The scoring mutations in
 `PlayerService` are `@Retryable` (Spring Framework core resilience, enabled by
 `@EnableResilientMethods` on the application class): re-read, re-apply, bounded attempts. Exhaustion
 surfaces as HTTP 409.
@@ -80,7 +83,7 @@ fails with a write conflict and runs again, and then sees the other's deletion.
 
 `AccountService.delete` retries outside the transaction, on the `TransientTransactionError` label,
 because the framework retries nothing and `@Retryable` on the same method would run inside it. The
-exception type cannot decide this: see `[facts]` in the exceptions README. The transaction manager
+exception type cannot decide this: see `[error-facts]` in the web README. The transaction manager
 retries a commit with an unknown result, and only the commit, then fails as a 500. Deleting a
 Scorekeeper takes the same path with no guard, because no rule depends on one.
 

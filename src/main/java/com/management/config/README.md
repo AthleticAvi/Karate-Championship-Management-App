@@ -55,7 +55,7 @@ Never hardcode these. All come from configuration.
 | How long startup waits for an answer | 5s | `datastore.startup-wait` |
 
 `CommitRetryingTransactionManager` and `TransientTransactionRetry` serve the one transaction: see
-`[last-admin]` in the services README.
+`[last-admin]` in the service README.
 
 `w=majority`, primary reads and retryable writes are fixed in code: they are guarantees, not
 tunables. The driver API for the timeout is
@@ -128,7 +128,7 @@ here.
 parser enforces the limit as it reads, so a body not read as JSON is not covered: the form and
 multipart readers stay off for that reason, and a new `String` or `byte[]` `@RequestBody` would
 need its own limit. For the same reason the YAML converter is removed: see `[description]` in the
-controllers README.
+web README.
 
 On shutdown, a request in flight finishes and a stalled one ends with the connection timeout. Both
 were seen on the packaged jar, by sending SIGTERM to it in a container.
@@ -162,7 +162,7 @@ separated. Each value is one exact origin, as a browser sends it. A wildcard, a 
 or a scheme's default port stops startup.
 
 The rest of the CORS rules and the reasons for the description settings are in `[cors]` and
-`[description]` in the controllers README.
+`[description]` in the web README.
 
 ## [accounts] The first Admin
 

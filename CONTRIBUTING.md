@@ -50,7 +50,7 @@ Engineering standards live in [`context/workflow/`](context/workflow/) and apply
 - [`web-frameworks/spring-boot/`](context/workflow/web-frameworks/spring-boot/): framework-level rules
 - [`databases/mongodb/`](context/workflow/databases/mongodb/): persistence
 
-Project facts live in a README in each package under `src/main/java/com/management/`.
+Project facts live in READMEs under `src/main/java/com/management/`, one per shared package and one per layer.
 
 Each workflow file opens with an `Applies when:` line. Read the ones your change touches. You are not expected to read all of them.
 

@@ -1,4 +1,4 @@
-# repositories
+# data
 
 ## Index
 
@@ -12,15 +12,17 @@
 
 ## [purpose] Purpose
 
-The data layer. One Spring Data repository per aggregate root.
+The data layer of each feature, and the MongoDB setup they share. One Spring Data repository per
+aggregate root, in its feature's `data` package.
 
 ## [owns] Owns
 
-`KumiteGameRepository`, `PlayerRepository`, `AccountRepository`.
+`KumiteGameRepository` here, `PlayerRepository` in `athlete.data` and `AccountRepository` in
+`account.data`. Stored-form conversion sits in `converters/`: see its README.
 
 ## [may-call] May call
 
-`models` only. Only `services` calls this package.
+`domain` types only. Only a `service` package calls a repository.
 
 ## [facts] Project facts
 
@@ -43,7 +45,8 @@ The data layer. One Spring Data repository per aggregate root.
   MongoDB by changing them alone. Credentials and TLS arrive in `MONGO_URI`, and `mongodb+srv` turns
   TLS on. Only the `dev` profile defaults `MONGO_URI`: see `[profiles]` in the config README.
 - `AccountRepository.touchEveryAccountWithRole` writes a `writeGuard` field that `Account` does not
-  map, so transactions collide: see `[last-admin]` in the services README.
+  map, so transactions collide: see `[last-admin]` in
+  `src/main/java/com/management/kumitegame/service/README.md`.
 - `MONGO_DB` wins over a database named in `MONGO_URI`. A hosted URI usually names none, and without
   this the driver would write to `test`.
 - **The database password never reaches a log.** `DatastoreConnectionIT` proves it on a failed
@@ -59,11 +62,11 @@ The data layer. One Spring Data repository per aggregate root.
   the container on another port needs a matching member address in `rs.initiate`.
 - A wrong password starts the application with readiness DOWN (503), and every request that needs
   the datastore fails with a 500, including one with credentials, because they cannot be checked.
-- This package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring Data adds a runtime
-  null check to every repository. Today that only adds an interceptor, because both interfaces are
-  empty and `findById` returns `Optional`. It matters once a custom finder exists: one that finds
-  nothing would throw `EmptyResultDataAccessException`, which `GlobalExceptionHandler` does not
-  handle.
+- Each feature's `data` package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring
+  Data adds a runtime null check to every repository. Today that only adds an interceptor, because
+  both interfaces are empty and `findById` returns `Optional`. It matters once a custom finder
+  exists: one that finds nothing would throw `EmptyResultDataAccessException`, which
+  `GlobalExceptionHandler` does not handle.
 
 ## [backup] Backup and restore
 

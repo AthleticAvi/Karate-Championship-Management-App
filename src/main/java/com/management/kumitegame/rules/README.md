@@ -23,7 +23,7 @@ docs call the Game Orchestrator.
 
 ## [may-call] May call
 
-`models`, `enums`, `config`. Never `repositories`, `controllers` or `dto`.
+`domain`, `config`. Never a `data` or `web` package.
 
 ## [contract] Contract
 

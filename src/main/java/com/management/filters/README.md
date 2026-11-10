@@ -38,7 +38,7 @@ The request line is `Request completed` at INFO, with these fields:
 
 ## [may-call] May call
 
-Nothing in this application. Never `services`, `repositories` or `rules`.
+Nothing in this application. Never a `service`, `data` or `rules` package.
 
 ## [facts] Project facts
 
@@ -49,7 +49,7 @@ Nothing in this application. Never `services`, `repositories` or `rules`.
   lets through with nothing there, under the description's paths in `prod`: it reaches the static
   resource handler, so its route is `/**`.
 - **Tomcat refuses some requests before any filter runs,** such as headers past the size limit. They
-  get no ID and no line: see `[facts]` in the exceptions README.
+  get no ID and no line: see `[error-facts]` in the web README.
 - **An exception that escapes the chain outlives the ID.** The container logs it after this filter
   finishes, so that line has no `correlationId`. `GlobalExceptionHandler` catches everything an
   endpoint throws, so only a failure in the handler itself or in a later filter gets this far.

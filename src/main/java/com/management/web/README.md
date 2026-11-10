@@ -1,4 +1,4 @@
-# controllers
+# web
 
 ## Index
 
@@ -13,33 +13,49 @@
 - [validation] Validation at the boundary
 - [cors] Cross-origin calls
 - [description] API description
+- [shapes] Request and response records
+- [mappers] Mappers
+- [errors] Error contract
+- [error-facts] Error facts
 
 ## [purpose] Purpose
 
 The inbound gateway. Accepts HTTP, delegates to a service, maps the result, returns. No logic.
 
+This package holds what every feature's API shares: the version prefix, the role table, CORS, the
+API description and the error contract. Each feature keeps its controller, its request and response
+records and its mapper in its own `web` package: `kumitegame.web`, `athlete.web` and `account.web`.
+
 ## [owns] Owns
+
+In the feature packages:
 
 - `KumiteGameController` at `/api/v1/kumitegame`: match creation, retrieval, points, fouls, winner
   assignment, disqualification, KIKEN, referee override and clock extension.
 - `PlayerController` at `/api/v1/players`: player CRUD.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
   because the encoder is a Spring Security type.
+
+In this package:
+
 - `ApiAccess`: the role table. See `[access]`.
 - `ApiVersionConfiguration`: `PREFIX`, the one place the version is named. It adds the prefix to
-  every controller in this package through the framework's path matching, so a controller maps only
-  its own resource. Nothing else moves: the actuator, the error path and the API description stay
-  where they are.
+  every feature controller through the framework's path matching, so a controller maps only its own
+  resource. It names one controller per feature, so a new feature's controller is added there.
+  Nothing else moves: the actuator, the error path and the API description stay where they are.
 - `ApiCorsConfiguration`: which browsers may call the API. See `[cors]`.
 - `ApiDescriptionConfiguration`: what the generated description cannot find. See `[description]`.
 - `ApiMediaTypeConfiguration`: keeps the API on JSON. See `[description]`.
+- `GlobalExceptionHandler`: the inbound gateway for failures. See `[errors]`.
 
 ## [may-call] May call
 
-`services`, `mappers`, `dto`. Never `repositories` or `rules`.
+A feature's `web` package calls its own `service`, and the `domain` types its mapper reads and its
+records carry. Never `data` or `rules`.
 
-Three narrow additions: `config` for `CorsProperties`, the header name in `filters`, and `enums` for
-the values a documented parameter takes. `security` depends on this package, never the reverse. `config` never depends back on this package, because
+Three narrow additions: `config` for `CorsProperties`, the header name in `filters`, and `domain`
+enums for the values a documented parameter takes. `security` depends on this package, never the
+reverse. `config` never depends back on this package, because
 services depend on `config`, so that would be a cycle. That is why the CORS wiring sits here.
 
 ## [contract] Response contract
@@ -65,7 +81,7 @@ Persistence types do not cross the HTTP boundary in either direction. `KumiteGam
 
 `ApiAccess` is the one statement of the role table. The filter chain builds its rules from it, and
 the description reads it, so the two cannot disagree. It sits here because the description may only
-live in this package and `security` already depends on it, so the reverse would be a cycle.
+live in the web packages and `security` already depends on it, so the reverse would be a cycle.
 
 | Level | Endpoints under `/api/v1` |
 |---|---|
@@ -115,9 +131,10 @@ nothing reads an account back, and the path is what `DELETE` takes.
 
 Request DTOs are records with Jakarta Bean Validation constraints, triggered by `@Valid` on
 `@RequestBody` parameters. `gameDuration` is an `Integer` of seconds, so non-numeric input dies at
-binding as a 400. The one-RED-one-BLUE rule is domain validation: see `services/README.md`.
+binding as a 400. The one-RED-one-BLUE rule is domain validation: see
+`kumitegame/service/README.md`.
 
-Failures map to the table in `exceptions/README.md`.
+Failures map to the table in `[errors]`.
 
 ## [cors] Cross-origin calls
 
@@ -206,11 +223,100 @@ add a second message to the `errors` body. A colour lists `RED` and `BLUE`, thou
 accepted. Required response fields follow direct references, so a list of a response type would need
 that walk extended.
 
-**Documentation annotations stay in `controllers` and `dto`.** `ArchitectureTest` fails on any other
-package using them.
+**Documentation annotations stay in the web packages.** `ArchitectureTest` fails on any other package
+using them.
 
 **Jackson 2 is here for this.** springdoc reads types through swagger-core, which needs Jackson 2 and
 its YAML format. Spring MVC still uses Jackson 3 for every request and response. The framework adds
 a YAML converter on its own once the format is present, in every profile, so `ApiMediaTypeConfiguration`
 removes it: left in, a YAML body gets past the JSON size limit. The jar cannot simply be excluded,
 because springdoc will not start without it.
+
+## [shapes] Request and response records
+
+Each feature's `web` package holds the shapes of its part of the API: records that carry values and
+no logic.
+
+- `kumitegame.web`: `KumiteGameRequest`, `MatchFighterRequest`, `ClockAdjustmentRequest`,
+  `WinnerOverrideRequest`, `KumiteGameResponse`.
+- `athlete.web`: `PlayerRequest`, `PlayerResponse`, `PlayerSummary`. A match response nests
+  `PlayerSummary`, so `kumitegame.web` uses it.
+- `account.web`: `AccountRequest`, `AccountResponse`.
+
+They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a username has one home.
+
+- Name records `*Request` and `*Response`. A `DTO` suffix fails Checkstyle, as an abbreviation.
+- `@Schema` on them feeds the API description and nothing else: see `[description]`.
+- Requests stop at the gateway. No `service` package imports them.
+- `AccountRequest` holds a password in clear, so its `toString` leaves it out. A password within the
+  character limit can still pass the 72 bytes the hash takes: the encoder refuses it, and the handler
+  for an illegal argument answers 400.
+
+## [mappers] Mappers
+
+Each feature's mapper turns domain types into API responses, and requests into domain input. The
+only place a document becomes a response. A mapper reads `domain` types and its feature's records,
+never a `service`, `data` or `rules` package.
+
+- `KumiteGameMapper`: consumes `GameWithFighters`, produces `KumiteGameResponse`. Also turns
+  requests into `NewMatch`, `NewOverride` and `NewClockAdjustment`.
+- `PlayerMapper`: `Player` to `PlayerResponse`.
+- `AccountMapper`: `AccountRequest` and a hash to `NewAccount`, `Account` to `AccountResponse`.
+
+`KumiteGameMapper` keeps its own one-RED-one-BLUE check. `KumiteGameService` guards what enters the
+database, and the mapper guards what leaves it.
+
+## [errors] Error contract
+
+`GlobalExceptionHandler` is the one place a failure becomes an HTTP response. It extends
+`ResponseEntityExceptionHandler`, so framework exceptions map too rather than falling through to the
+catch-all as 500s. The types it maps sit in the `domain` package of the feature that throws them,
+one exception type per meaning.
+
+Errors are RFC 9457 problem details: `application/problem+json`, with `status`, `title`, `detail`
+and `instance`. `type` is not sent, because no problem has a page to point at.
+
+| Failure | Status | Exception | Detail |
+|---|---|---|---|
+| Request fails Bean Validation | 400 | `MethodArgumentNotValidException` (framework) | generic, plus an `errors` extension property mapping each failing field path to its message |
+| Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` | the message |
+| Not a point type | 400 | `PointTypeNotFoundException` | the message |
+| A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
+| Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
+| Missing or wrong credentials | 401 | `AuthenticationException` (framework) | fixed, the same for every cause |
+| Valid credentials without the role | 403 | `AccessDeniedException` (framework) | fixed |
+| Body past the JSON size limit | 413 | `HttpMessageNotReadableException` (framework) | generic |
+| A username already taken | 409 | `AccountAlreadyExistsException` | the message |
+| Removing the last Admin | 409 | `LastAdminException` | the message |
+| A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
+| A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
+| No such match | 404 | `GameNotFoundException` | the message |
+| No such account | 404 | `AccountNotFoundException` | the message |
+| No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
+| Accounts could not be read while checking credentials | 500 | `AuthenticationServiceException` (framework) | **generic**, message logged |
+| Anything else | 500 | catch-all | **generic**, message logged |
+
+## [error-facts] Error facts
+
+- The 413 is told apart by the wording of the Jackson message, because every parser limit raises the
+  same type. `RequestLimitsIT` fails if an upgrade changes it. The other limits, such as nesting
+  depth, stay 400.
+- **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
+  the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
+  application sees them, so they carry no correlation ID and leave no request line.
+- **A lost write conflict arrives as a data integrity violation,** because the mapping layer sorts
+  that code with the duplicate keys. A duplicate key on a create is caught in `AccountService`.
+- **A 401 and a 403 start in the security filter chain, outside Spring MVC.** `SecurityFailureResponder`
+  hands them to this handler through the framework's exception resolver, so they get the same form,
+  `instance` and content type as every other failure. A 401 sends no challenge: see the security
+  README.
+- **Spring Security's firewall refuses some requests before the chain,** such as a path with a `;`.
+  They answer 400 through the error dispatch, with a correlation ID, and are not problem details.
+- **A CORS refusal is not a problem detail.** It is the framework's 403, answered before Spring MVC:
+  see `[cors]`.
+- The two colour failures differ on purpose: *not a colour* is the caller's mistake (400), *a colour
+  this match does not have* is a missing resource (404).
+- **Only messages this project wrote are returned.** `InvalidGameRequestException` marks wording
+  meant for the caller, so its detail is echoed. A bare `IllegalArgumentException` can come from
+  anywhere, such as Spring Data's "The given id must not be null", so it answers 400 with a fixed
+  detail and the real message in the log.
