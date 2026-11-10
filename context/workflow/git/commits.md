@@ -17,6 +17,8 @@ Status: enforced
 - Short and to the point, 72 characters at most: `Add login form`.
 - Any reader understands it without the diff. Professional and concise. No essays, no filler.
 - Body only when the why is not obvious, and then two lines at most.
+- Never list files or restate the diff. A reader scanning the one-line log understands the
+  history from the subjects alone.
 
 ## [enforcement] Enforcement
 

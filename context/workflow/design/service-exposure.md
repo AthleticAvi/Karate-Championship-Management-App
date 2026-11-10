@@ -1,6 +1,6 @@
 # Service Exposure
 
-Applies when: adding an endpoint, choosing a status code, designing a response body, URL naming, API versioning, serialisation format
+Applies when: adding an endpoint, choosing a status code, designing a response body, URL naming, API versioning, serialisation format, ETag, If-None-Match, If-Match, 304, polling, caching
 Status: enforced
 Framework-first: content negotiation, status mapping, serialisation and binding are provided. Assembling responses by hand is a defect.
 
@@ -12,6 +12,7 @@ Framework-first: content negotiation, status mapping, serialisation and binding 
 - [response-shape] Response shape
 - [serialisation-format] Serialisation format
 - [urls] URLs
+- [conditional-reads] Conditional reads: ETag and 304
 - [description] Generated description
 - [verify] Verify
 - [sources] Sources
@@ -75,6 +76,23 @@ Omit a field entirely rather than specify a format nobody consumes.
 - Filtering, sorting and pagination are query parameters, never path segments.
 - Version at the base path from the first public release. Retrofitting a version once clients exist is a migration, not a change.
 
+## [conditional-reads] Conditional reads: ETag and 304
+
+- **Use an entity tag on reads that many clients poll.** The server sends `ETag`; the client
+  sends it back in `If-None-Match`; an unchanged resource answers `304 Not Modified` with no body.
+- **The tag must change whenever any part of the representation changes,** including data composed
+  in from other records at read time. A tag built from one record's version alone serves a stale
+  304 after a change to a record it embeds. Build it from every version the response depends on.
+- **Decide the tag before building the body** where possible. A tag hashed from the finished body
+  saves bandwidth, not work.
+- **Preconditions on writes (`If-Match`, answering 412) guard against lost updates** from a client
+  editing a stale view. They also refuse a client's own second action sent before the first
+  answer arrived. Use them where a person edits a resource at leisure, not on a stream of quick
+  commands; protect those with a version check on the server and an idempotency key (see
+  `[idempotency]` in `design/concurrency-consistency.md`).
+- **A polled countdown needs the server's time.** Send the server's current time in the response,
+  so the client computes its offset and its display does not drift.
+
 ## [description] Generated description
 
 - Generate the description from the code. A copy kept by hand drifts, and nothing fails when it does.
@@ -88,8 +106,11 @@ Omit a field entirely rather than specify a format nobody consumes.
 - At least one test per response asserts an internal field is absent.
 - Every status code in the table above that the endpoint can produce has a test.
 - Temporal and numeric formats are asserted against a literal body, not an object.
+- A read with a current `If-None-Match` answers 304; a change to any record the response composes
+  in changes the tag.
 
 ## [sources] Sources
 
-- RFC 9110: HTTP semantics; the normative definition of every status code above.
+- RFC 9110: HTTP semantics; the normative definition of every status code above. Conditional
+  requests: `ETag` (8.8.3), `If-Match` and `If-None-Match` (13.1.1, 13.1.2), 304 (15.4.5).
 - The boundary rule is the API-contract / persistence-model separation described as the Data Transfer Object pattern in *Patterns of Enterprise Application Architecture* (Fowler), and as the adapter boundary in hexagonal architecture.

@@ -17,8 +17,10 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 
 ## Catalogue
 
-- `databases/mongodb/design/persistence.md`: [document-design] [acid] [object-construction-on-read] [excluded-fields] [dates] [identifiers] [optimistic-locking] [transactions] [write-and-read-concern] [indexes] [auditing] [local-setup-and-initialisation] [verify]
-- `delivery/attended.md`: [plan] [decisions] [findings] [progress]
+- `databases/mongodb/design/persistence.md`: [document-design] [acid] [object-construction-on-read] [excluded-fields] [dates] [identifiers] [optimistic-locking] [transactions] [write-and-read-concern] [schema-versioning] [indexes] [auditing] [local-setup-and-initialisation] [verify]
+- `delivery/agent-runs/attended.md`: [plan] [decisions] [findings] [progress]
+- `delivery/agent-runs/orchestrated.md`: [role] [order] [hand-off] [merge-gate] [merge] [keep-going] [resume] [run-issue] [verify]
+- `delivery/agent-runs/unattended.md`: [start] [plan] [bar] [forbidden] [decisions] [stuck] [record] [findings] [finish]
 - `delivery/bug.md`: [differs]
 - `delivery/change.md`: [differs]
 - `delivery/chore.md`: [differs]
@@ -28,15 +30,15 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `delivery/flow.md`: [context] [plan] [execute] [tests] [self-review] [commit] [reviews] [record] [finalise] [pr] [after-merge] [findings] [artefacts]
 - `delivery/learning.md`: [find] [answer]
 - `delivery/planning.md`: [plan] [design-check] [challenge]
-- `delivery/unattended.md`: [start] [plan] [stop] [decisions] [stuck] [findings] [finish]
 - `design/acid.md`: [contract] [atomicity] [consistency] [isolation] [durability] [same-guarantees] [enforcement] [verify]
-- `design/concurrency-consistency.md`: [default-failure-mode-is] [one-fact-one-owner] [version-writes] [write-last] [idempotency] [verify]
+- `design/concurrency-consistency.md`: [default-failure-mode-is] [one-fact-one-owner] [version-writes] [write-last] [idempotency] [verify] [sources]
 - `design/layers.md`: [responsibilities] [gateways] [business] [data] [dependencies] [ownership] [readmes] [add-layer] [external-tools] [verify]
 - `design/logging.md`: [rules] [levels] [correlation] [structured-output] [never-log] [log-lines-are-an] [verify]
 - `design/patterns.md`: [choose] [table] [smells] [verify]
 - `design/principles.md`: [use] [single-responsibility] [open-closed] [liskov] [interface-segregation] [dependency-inversion] [kiss] [reuse] [one-owner] [conflicts] [verify]
-- `design/service-exposure.md`: [boundary-rule] [controllers] [status-codes] [response-shape] [serialisation-format] [urls] [description] [verify] [sources]
+- `design/service-exposure.md`: [boundary-rule] [controllers] [status-codes] [response-shape] [serialisation-format] [urls] [conditional-reads] [description] [verify] [sources]
 - `design/service-interaction.md`: [circular-dependencies] [where-logic-belongs] [transaction-and-consistency-boundary] [cross-aggregate-reads] [verify]
+- `design/timers.md`: [no-tick] [client-time] [display] [units] [verify] [sources]
 - `git/branches.md`: [naming] [flow]
 - `git/commits.md`: [message] [enforcement] [units] [identity] [privacy]
 - `git/github/ci.md`: [scope] [actions]
@@ -56,6 +58,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `web-frameworks/spring-boot/design/error-handling.md`: [response-format] [rules] [messages] [extension-fields] [verify] [sources]
 - `web-frameworks/spring-boot/design/layers.md`: [mapping] [contract] [stereotypes] [verify]
 - `web-frameworks/spring-boot/design/patterns.md`: [framework-provides] [add-a-rule] [enum-strategy] [verify]
+- `web-frameworks/spring-boot/design/service-exposure.md`: [conditional-reads] [verify] [sources]
 - `web-frameworks/spring-boot/design/validation.md`: [two-kinds-two-places] [input-validation] [what-constraints-cannot-express] [domain-invariants] [failure-reporting] [trust-boundary] [verify] [sources]
 - `web-frameworks/spring-boot/standards/standards.md`: [framework-first] [rules] [do] [dont] [api-description] [package-layout] [verify]
 - `web-frameworks/spring-boot/testing/integration.md`: [purpose] [real-infrastructure-never-a] [rules] [concurrency-scenarios] [what-belongs-at-this] [verify]
@@ -64,7 +67,8 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 ## [start] Start here
 
 1. **Classify** the work with `[work-types]`.
-2. **Find your mode.** The prompt states attended or unattended. If it does not, you are attended.
+2. **Find your mode.** The prompt states attended, unattended, or an autonomous run of a milestone
+   or parent issue (orchestrated). If it does not, you are attended.
 3. **Read context:** the domain READMEs the task touches, then the files this README points to.
 4. **Think and plan,** then act as your mode says.
 
@@ -75,8 +79,9 @@ code cannot decide.
 
 | Mode | Owner is | Read |
 |---|---|---|
-| Attended | Present and answering | `delivery/attended.md` |
-| Unattended | Away | `delivery/unattended.md` |
+| Attended | Present and answering | `delivery/agent-runs/attended.md` |
+| Unattended | Away | `delivery/agent-runs/unattended.md` |
+| Orchestrated | Away, a milestone or parent issue to run | `delivery/agent-runs/orchestrated.md` |
 
 ## [work-types] Work types
 

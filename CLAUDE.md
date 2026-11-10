@@ -9,6 +9,9 @@ This file is a router. Pick up context before anything else, and make no assumpt
 things up, and where knowledge belongs. Generic how-to lives there. Project facts live in the domain
 READMEs below.
 
+**Told to work a milestone or a parent issue autonomously?** You are the orchestrator: read
+`context/workflow/delivery/agent-runs/orchestrated.md` and follow it.
+
 ## Route by domain
 
 | Need | Read |
@@ -84,6 +87,17 @@ java src/test/java/com/management/docs/IndexGenerator.java    regenerate indexes
 8. **`context/workflow/` stays generic:** project agnostic everywhere, and stack agnostic outside
    its technology folders. A test checks for known terms.
 9. **Record knowledge last.** Before every PR, ask what a future agent would not know.
+
+**Exception for orchestrated runs** (`context/workflow/delivery/agent-runs/orchestrated.md`), granted
+by the engineer, for that run only:
+
+- Rule 2: findings go to the run issue, the engineer's review point for the run.
+- Rule 5: the engineer's instruction to run is the sign-off to merge each PR that passes the merge
+  gate, and to start the next issue.
+- Rule 4 still holds. An agent never makes an architecture or scope decision. When the work needs
+  one, it opens a draft PR with the options and its recommendation, and records it in the run
+  issue. The orchestrator leaves that PR unmerged and carries on with issues that do not depend
+  on it.
 
 ## Never
 

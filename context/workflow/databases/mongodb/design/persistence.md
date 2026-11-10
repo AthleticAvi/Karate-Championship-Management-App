@@ -1,6 +1,6 @@
 # MongoDB Persistence
 
-Applies when: defining a document, mapping fields, object construction on read, indexes, transactions, local database setup, versioning, ACID, write concern, read concern, journaling, replica set, standalone, retryable writes, durability
+Applies when: defining a document, mapping fields, object construction on read, indexes, transactions, local database setup, versioning, schemaVersion, schema migration, ACID, write concern, read concern, journaling, replica set, standalone, retryable writes, durability
 Status: enforced
 Framework-first: the repository abstraction, mapping layer, auditing, index declaration and optimistic locking are all provided. Direct driver calls in a service are a defect.
 Builds on: `design/acid.md`, `design/concurrency-consistency.md`
@@ -16,6 +16,7 @@ Builds on: `design/acid.md`, `design/concurrency-consistency.md`
 - [optimistic-locking] Optimistic locking
 - [transactions] Transactions
 - [write-and-read-concern] Write and read concern
+- [schema-versioning] Schema versioning and migration
 - [indexes] Indexes
 - [auditing] Auditing
 - [local-setup-and-initialisation] Local setup and initialisation
@@ -127,6 +128,24 @@ Reads:
 - **Read your own writes across members needs a causally consistent session,** with `majority` on both the read and the write.
 
 Retryable writes are on by default in current drivers, but they need a replica set or sharded cluster: a standalone gives none. They retry once by default, for single-document operations only, and the manual does not promise exactly-once. They cover a dropped connection between the driver and the server. They are no substitute for a key from the caller.
+
+## [schema-versioning] Schema versioning and migration
+
+- **Put an integer `schemaVersion` on every document from the first write.** Documents of several
+  shapes then coexist in one collection, and code can tell them apart. Adding it later means
+  guessing the shape of every old document.
+- **An additive change needs no new version.** A new optional field reads as absent on old
+  documents. Bump the version only when a field is renamed, moved or changes meaning.
+- **Absorb old shapes in one place:** the mapping between the stored document and the domain type.
+  Otherwise every query must check every location a field has ever had, and a field stored at two
+  levels needs two indexes.
+- **Decide how old documents reach the new shape:** upgraded when next written, or rewritten in
+  bulk by a versioned migration. Choose a migration tool when the first real migration exists.
+- **Back up before any migration,** and prove a restore.
+- **Without production data, drop the database instead of migrating.** Write that decision down,
+  because it stops being true on the day real data exists.
+
+Source: MongoDB Manual, Schema Versioning pattern (data-modeling, design patterns).
 
 ## [indexes] Indexes
 
