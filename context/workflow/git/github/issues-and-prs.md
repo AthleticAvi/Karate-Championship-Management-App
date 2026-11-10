@@ -43,13 +43,17 @@ and what they must do.
 
 1. **Summary first.** 3 to 5 sentences at most: what the PR did and what it delivers. Plain words,
    clear with no other context.
-2. **Then short bulleted lists, one per topic.** For example changes, decisions for the owner,
-   findings, not proven. Up to 5 bullets a list, one line each. Drop a topic with nothing to say.
-3. **Say each thing once.** A point appears in one place. Never restate the summary in a list.
-4. **Keep only what the reader needs.** That is what changes their review or needs their decision.
+2. **Then short bulleted lists, one per concern or delivered item.** For example changes,
+   decisions for the owner, findings, not proven. Up to 5 bullets a list, one line each. Drop a
+   topic with nothing to say.
+3. **No blocks of text.** The summary is the only paragraph. Anything longer than a one-line
+   bullet is cut or split. The evidence comment and run-issue entries follow the same rule:
+   headings and bullets a person can scan, never an essay.
+4. **Say each thing once.** A point appears in one place. Never restate the summary in a list.
+5. **Keep only what the reader needs.** That is what changes their review or needs their decision.
    Leave out what the diff, the commits or CI already show.
-5. **Evidence stays out of the body.** The body gets one line: the command run and what happened.
+6. **Evidence stays out of the body.** The body gets one line: the command run and what happened.
    Further proof, the plan and full findings go in one PR comment, linked from that line. No long
    tables in the body. Anything that must outlive the PR is an issue.
-6. **Read it as the owner before posting.** Cut any line they would skip. No filler, no padding,
+7. **Read it as the owner before posting.** Cut any line they would skip. No filler, no padding,
    no claims without a result behind them.

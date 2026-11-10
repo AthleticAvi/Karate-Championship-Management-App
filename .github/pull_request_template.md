@@ -6,8 +6,9 @@ Closes #
 
 ## Changes
 
-<!-- One list per topic, up to 5 one-line bullets. Add topics such as Decisions for the owner,
-Findings or Not proven. Delete any with nothing to say. Say each thing once. -->
+<!-- One list per concern or delivered item, up to 5 one-line bullets. Add topics such as
+Decisions for the owner, Findings or Not proven. Delete any with nothing to say. Say each thing
+once. No blocks of text. -->
 
 -
 
