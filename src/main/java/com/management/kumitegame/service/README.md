@@ -5,27 +5,26 @@
 - [purpose] Purpose
 - [owns] Owns
 - [may-call] May call
-- [cross-aggregate] How scoring works across aggregates
 - [dependencies] Dependencies are one way
-- [concurrency] Concurrency
-- [creation] A match is validated before anything is written
+- [writes] Every write a game takes
+- [creation] Everything is read before anything is written
 - [last-admin] At least one Admin always remains
 
 ## [purpose] Purpose
 
-Orchestration. Owns every operation that spans the match and fighter aggregates, and decides what
-happens next. This README covers the `service` package of each feature.
+Orchestration: reads what an action needs, applies it through the domain, writes once. This README
+covers the `service` package of each feature.
 
 ## [owns] Owns
 
-- `KumiteGameService`, in `kumitegame.service`: match creation, lifecycle, scoring, fouls,
-  disqualification, KIKEN, override and clock extension. Resolves colour to fighter id and calls
-  down into `PlayerService`.
-- `PlayerService`, in `athlete.service`: a leaf that mutates and saves a `Player`.
-- `MatchStateWriter`, in `kumitegame.service`: applies a write-once change to a match, retrying a
-  losing write.
-- `RefereeService`, in `referee.service`: a leaf that creates, reads, renames and deletes referees.
-  A rename is not retried: see `[writes]` in `src/main/java/com/management/referee/README.md`.
+- `KumiteGameService`, in `kumitegame.service`: creates and reads games, and records every action
+  on one. Reads the athletes and referees a game names, and composes `GameRead`.
+- `KumiteGameWriter`, in `kumitegame.service`: reads a game, applies an action, saves it against the
+  version it read. Appends retry; absolute actions do not. See `[writes]`.
+- `GameReferences`, in `kumitegame.service`: answers `AthleteReferences` and `RefereeReferences`,
+  whether a game names an athlete or referee.
+- `AthleteService`, in `athlete.service`, and `RefereeService`, in `referee.service`: leaves that
+  create, read, update and delete one document. A delete asks the references interface first.
 - `AccountService`, in `account.service`: a leaf that reads, creates and deletes accounts. A
   password reaches it already hashed.
 - `AccountRemoval`, in `account.service`: the one transaction in this application. See
@@ -33,38 +32,48 @@ happens next. This README covers the `service` package of each feature.
 
 ## [may-call] May call
 
-Its own feature's `data`, `rules` and `domain`, the `domain` of a feature it may use, and `config`.
-Never a `web` package: the gateway maps a request first, and a strict rule enforces it.
-
-## [cross-aggregate] How scoring works across aggregates
-
-Recording a point is exactly one document write. Reads compose the match and the fighters into
-`GameWithFighters`, which `KumiteGameMapper` consumes. After every point, foul and disqualification
-`KumiteGameService` calls the rules engine, then applies and persists the answer: see
-`rules/README.md`.
+Its own feature's `data` and `domain`, the `service` and `domain` of a feature it may use, and
+`config`. Never a `web` package: the gateway maps a request first, and a strict rule enforces it.
 
 ## [dependencies] Dependencies are one way
 
-`KumiteGameService -> PlayerService`, acyclically. The old mutual dependency, the
-`GameHelperService` pass-through and the `@Lazy` workaround are gone. Keep it that way: see
-`context/workflow/design/service-interaction.md`.
+`KumiteGameService -> AthleteService, RefereeService`, acyclically. The athlete and referee services
+never call the game feature: the question they need answered is an interface they own, implemented
+in `kumitegame.service`. See `context/workflow/design/service-interaction.md`.
 
-## [concurrency] Concurrency
+## [writes] Every write a game takes
 
-Both documents are versioned: see `[versioning]` in `domain/README.md`. The scoring mutations in
-`PlayerService` are `@Retryable` (Spring Framework core resilience, enabled by
-`@EnableResilientMethods` on the application class): re-read, re-apply, bounded attempts. Exhaustion
-surfaces as HTTP 409.
+One game is one document, so every action is one atomic write, with no transaction.
 
-`MatchStateWriter` is a separate bean, not a private method, because `@Retryable` is applied by a
-proxy and a self-call would bypass it. First scorer and result are write-once facts, so a retry
-that finds them already recorded changes nothing.
+| Operation | Atomic unit | Invariants | Guard | Acknowledgement |
+|---|---|---|---|---|
+| Score, penalty, clock action but SET_TIME, assignment, amendment | One `kumiteGame` document | `KumiteGame`: refusals, then warnings | Version, bounded retry | `w=majority` |
+| SET_TIME, result, settings change | One `kumiteGame` document | `KumiteGame`: the status matrix | Version, no retry, 409 with the game as it stands | `w=majority` |
+| Create a game | One new `kumiteGame` document | Athletes and referees exist, read first | Insert | `w=majority` |
+| Create, update an athlete or referee | One document | The domain type | Version | `w=majority` |
+| Delete an athlete or referee | One document | No game names it, read first | None | `w=majority` |
 
-## [creation] A match is validated before anything is written
+- **An append retries** on a lost version race, through Spring Framework's own `@Retryable` on
+  `KumiteGameWriter.append`: re-read, re-apply, at most ten attempts, then a 409. A retry that
+  finds its entry id on record applies nothing, which is what makes it safe. `KumiteGameWriter` is
+  its own bean because `@Retryable` works through a proxy, which a self-call would bypass.
+- **An absolute action does not retry.** It sets a value the caller chose while looking at what is
+  now stale, so the loser answers 409 with the game as it now stands, in `current`.
+- **A retried entry writes nothing.** The writer skips the save when the domain answers a replay.
+- **The residual race with a delete is accepted.** A game created between a delete's check and the
+  delete names an athlete that is gone, and reads it as unknown.
 
-Exactly one RED and one BLUE is checked here at creation. A duplicate colour used to persist both
-fighters and the half-formed match, then fail in the mapper as a 500 with no id returned. That was
-unrecoverable, with no transaction to roll back.
+`KumiteGameApiIT` proves concurrent appends all land, with a latch, and that a score leaves the
+athlete's version alone. `KumiteGameServiceTest` proves an absolute action that loses answers the
+current game and is not retried.
+
+## [creation] Everything is read before anything is written
+
+A game is created with one insert, after the athletes and referees it names have been read. A
+missing one answers 400 and writes nothing. An assignment naming an athlete or referee reads it
+first the same way. The game's id and the ids of its first entries are given by the service, so
+the domain type is never without an id: a create is not retried by id, and a retried create makes a
+second game.
 
 ## [last-admin] At least one Admin always remains
 

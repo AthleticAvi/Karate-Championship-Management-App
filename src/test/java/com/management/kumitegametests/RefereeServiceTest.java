@@ -13,7 +13,9 @@ import com.management.referee.data.RefereeDocument;
 import com.management.referee.data.RefereeRepository;
 import com.management.referee.domain.Referee;
 import com.management.referee.domain.RefereeChangedException;
+import com.management.referee.domain.RefereeInUseException;
 import com.management.referee.domain.RefereeNotFoundException;
+import com.management.referee.service.RefereeReferences;
 import com.management.referee.service.RefereeService;
 import com.management.testsupport.TestClock;
 import java.util.Optional;
@@ -23,7 +25,8 @@ import org.springframework.dao.OptimisticLockingFailureException;
 class RefereeServiceTest {
 
   private final RefereeRepository repository = mock(RefereeRepository.class);
-  private final RefereeService service = new RefereeService(repository);
+  private final RefereeReferences references = mock(RefereeReferences.class);
+  private final RefereeService service = new RefereeService(repository, references);
 
   private static RefereeDocument stored(long version, String name) {
     return new RefereeDocument(
@@ -39,7 +42,8 @@ class RefereeServiceTest {
   @Test
   void rename_whenAnotherWriteWins_answersTheCurrentRefereeWithoutRetrying() {
     given(repository.findById("referee-1"))
-        .willReturn(Optional.of(stored(1, "Sato")), Optional.of(stored(2, "Suzuki")));
+        .willReturn(Optional.of(stored(1, "Sato")))
+        .willReturn(Optional.of(stored(2, "Suzuki")));
     given(repository.save(any(RefereeDocument.class)))
         .willThrow(new OptimisticLockingFailureException("stale version"));
 
@@ -62,7 +66,8 @@ class RefereeServiceTest {
   @Test
   void rename_whenDeletedInBetween_isNotFound() {
     given(repository.findById("referee-1"))
-        .willReturn(Optional.of(stored(1, "Sato")), Optional.empty());
+        .willReturn(Optional.of(stored(1, "Sato")))
+        .willReturn(Optional.empty());
     given(repository.save(any(RefereeDocument.class)))
         .willThrow(new OptimisticLockingFailureException("gone"));
 
@@ -75,6 +80,24 @@ class RefereeServiceTest {
     given(repository.removeById("nobody")).willReturn(0L);
 
     assertThatThrownBy(() -> service.delete("nobody")).isInstanceOf(RefereeNotFoundException.class);
+  }
+
+  /** Deleting it would leave a game naming nobody, so nothing is deleted. */
+  @Test
+  void delete_whileGamesNameTheReferee_isRefused() {
+    given(references.isRefereeReferred("referee-1")).willReturn(true);
+
+    assertThatThrownBy(() -> service.delete("referee-1")).isInstanceOf(RefereeInUseException.class);
+    then(repository).should(never()).removeById(any());
+  }
+
+  @Test
+  void delete_ofRefereeInNoGame_deletesIt() {
+    given(repository.removeById("referee-1")).willReturn(1L);
+
+    service.delete("referee-1");
+
+    then(repository).should().removeById("referee-1");
   }
 
   @Test

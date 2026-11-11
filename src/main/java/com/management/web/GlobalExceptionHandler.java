@@ -3,13 +3,18 @@ package com.management.web;
 import com.management.account.domain.AccountAlreadyExistsException;
 import com.management.account.domain.AccountNotFoundException;
 import com.management.account.domain.LastAdminException;
-import com.management.athlete.domain.PlayerNotFoundException;
-import com.management.athlete.domain.PointTypeNotFoundException;
+import com.management.athlete.domain.AthleteChangedException;
+import com.management.athlete.domain.AthleteInUseException;
+import com.management.athlete.domain.AthleteNotFoundException;
+import com.management.athlete.web.AthleteMapper;
+import com.management.config.KumiteGameProperties;
+import com.management.kumitegame.domain.ActionRefusedException;
+import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameNotFoundException;
-import com.management.kumitegame.domain.IllegalStateTransitionException;
 import com.management.kumitegame.domain.InvalidGameRequestException;
-import com.management.kumitegame.domain.InvalidPlayerColorException;
+import com.management.kumitegame.web.KumiteGameMapper;
 import com.management.referee.domain.RefereeChangedException;
+import com.management.referee.domain.RefereeInUseException;
 import com.management.referee.domain.RefereeNotFoundException;
 import com.management.referee.web.RefereeMapper;
 import java.util.LinkedHashMap;
@@ -62,6 +67,13 @@ import tools.jackson.core.exc.StreamConstraintsException;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  private final KumiteGameProperties gameProperties;
+
+  /** The side colours, so a game sent back in {@code current} reads as every other answer does. */
+  public GlobalExceptionHandler(KumiteGameProperties gameProperties) {
+    this.gameProperties = gameProperties;
+  }
 
   /**
    * The catch-all.
@@ -126,12 +138,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(GameNotFoundException.class)
   public ProblemDetail handleGameNotFound(GameNotFoundException ex) {
-    return notFound("Match not found", ex);
+    return notFound("Game not found", ex);
   }
 
-  @ExceptionHandler(PlayerNotFoundException.class)
-  public ProblemDetail handlePlayerNotFound(PlayerNotFoundException ex) {
-    return notFound("Fighter not found", ex);
+  @ExceptionHandler(AthleteNotFoundException.class)
+  public ProblemDetail handleAthleteNotFound(AthleteNotFoundException ex) {
+    return notFound("Athlete not found", ex);
   }
 
   @ExceptionHandler(RefereeNotFoundException.class)
@@ -148,32 +160,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler(RefereeChangedException.class)
   public ProblemDetail handleRefereeChanged(RefereeChangedException ex) {
-    log.debug("Concurrent update (409): {}", ex.getMessage());
-    ProblemDetail problem =
-        ProblemDetail.forStatusAndDetail(
-            HttpStatus.CONFLICT,
-            "Someone else changed this referee at the same moment. It is returned as it now"
-                + " stands.");
-    problem.setTitle("Concurrent update");
-    problem.setProperty("current", RefereeMapper.toResponse(ex.current()));
-    return problem;
+    return changed(ex, "referee", RefereeMapper.toResponse(ex.current()));
+  }
+
+  /** An update that lost to another write: 409, with the athlete as it now stands. */
+  @ExceptionHandler(AthleteChangedException.class)
+  public ProblemDetail handleAthleteChanged(AthleteChangedException ex) {
+    return changed(ex, "athlete", AthleteMapper.toResponse(ex.current()));
   }
 
   /**
-   * An unparseable colour is 400, not 404.
+   * An absolute action on a game that lost to another write: 409, with the game as it now stands.
    *
-   * <p>The caller sent something that is not a colour; nothing is missing. Answering 404 sent them
-   * hunting for a resource they never referenced. The genuinely different case — a real colour that
-   * this match does not have — stays 404 as {@link PlayerNotFoundException}.
+   * <p>Setting the time, recording a result or changing the settings sets a value, so retrying it
+   * would overwrite what the caller never saw.
    */
-  @ExceptionHandler(InvalidPlayerColorException.class)
-  public ProblemDetail handleInvalidPlayerColor(InvalidPlayerColorException ex) {
-    return badRequest("Invalid player colour", ex);
+  @ExceptionHandler(GameChangedException.class)
+  public ProblemDetail handleGameChanged(GameChangedException ex) {
+    return changed(
+        ex, "game", KumiteGameMapper.toResponse(ex.current(), gameProperties.sideColours()));
   }
 
-  @ExceptionHandler(PointTypeNotFoundException.class)
-  public ProblemDetail handleInvalidPointType(PointTypeNotFoundException ex) {
-    return badRequest("Invalid point type", ex);
+  @ExceptionHandler(AthleteInUseException.class)
+  public ProblemDetail handleAthleteInUse(AthleteInUseException ex) {
+    return clientError(HttpStatus.CONFLICT, "Athlete in use", ex);
+  }
+
+  @ExceptionHandler(RefereeInUseException.class)
+  public ProblemDetail handleRefereeInUse(RefereeInUseException ex) {
+    return clientError(HttpStatus.CONFLICT, "Referee in use", ex);
   }
 
   /**
@@ -245,11 +260,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   /**
    * A concurrent modification the application could not absorb.
    *
-   * <p>Optimistic-lock conflicts on scoring are retried inside {@code PlayerService}; this handler
-   * sees only a conflict that persisted through every attempt, or one raised on a path with no
-   * retry — updating or deleting a fighter, for instance. The detail names neither a match nor a
-   * fighter, because it covers both, and the framework's own message can carry document identifiers
-   * and query fragments, which is internal text.
+   * <p>An append to a game is retried; this handler sees only a conflict that persisted through
+   * every attempt. The detail names nothing, because it covers every document, and the framework's
+   * own message can carry document identifiers and query fragments, which is internal text.
    *
    * <p>A transaction that lost a write conflict through every attempt arrives as a data integrity
    * violation, because that is what the mapping layer makes of one. A duplicate key on a create is
@@ -270,16 +283,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * A lifecycle operation on a match whose state does not allow it.
+   * An action refused because the data would contradict itself.
    *
-   * <p>409 rather than 400: the request was syntactically fine and the match exists — it is the
-   * resource's current state that forbids the operation, which is exactly what Conflict means. The
-   * detail is echoed because the message is written by this project's own guard and names the
-   * current state and the attempted transition, which is what the caller needs to recover.
+   * <p>409 rather than 400: the request was well formed and the game exists, and it is what the
+   * game already holds that forbids it. The detail is echoed because this project wrote it, and it
+   * names what conflicts.
    */
-  @ExceptionHandler(IllegalStateTransitionException.class)
-  public ProblemDetail handleIllegalStateTransition(IllegalStateTransitionException ex) {
-    return clientError(HttpStatus.CONFLICT, "Illegal match-state transition", ex);
+  @ExceptionHandler(ActionRefusedException.class)
+  public ProblemDetail handleActionRefused(ActionRefusedException ex) {
+    return clientError(HttpStatus.CONFLICT, "Action refused", ex);
   }
 
   /**
@@ -306,6 +318,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail.forStatusAndDetail(
             HttpStatus.BAD_REQUEST, "The request contained an invalid value.");
     problem.setTitle("Invalid request");
+    return problem;
+  }
+
+  /** A write that lost to another: 409, with what it lost to in {@code current}. */
+  private static ProblemDetail changed(Exception ex, String noun, Object current) {
+    log.debug("Concurrent update (409): {}", ex.getMessage());
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "Someone else changed this "
+                + noun
+                + " at the same moment. It is returned as it now stands.");
+    problem.setTitle("Concurrent update");
+    problem.setProperty("current", current);
     return problem;
   }
 

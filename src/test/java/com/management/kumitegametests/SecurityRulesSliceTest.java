@@ -7,8 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.athlete.service.PlayerService;
-import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.FeatureWeb;
 import com.management.testsupport.WebSliceTestBase;
 import java.util.List;
@@ -23,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpMethod;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,30 +45,30 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   private static final String PUBLIC = "PUBLIC";
   private static final String SCOREKEEPER = "SCOREKEEPER";
   private static final String ADMIN = "ADMIN";
-  private static final String GAME = "/api/v1/kumitegame";
-  private static final String ONE_GAME = GAME + "/{gameId}";
-  private static final String PLAYERS = "/api/v1/players";
-  private static final String ONE_PLAYER = PLAYERS + "/{playerId}";
+  private static final String GAMES = "/api/v1/kumite-games";
+  private static final String ONE_GAME = GAMES + "/{gameId}";
+  private static final String ATHLETES = "/api/v1/athletes";
+  private static final String ONE_ATHLETE = ATHLETES + "/{athleteId}";
   private static final String REFEREES = "/api/v1/referees";
   private static final String ONE_REFEREE = REFEREES + "/{refereeId}";
 
+  /** A game is read by a Scorekeeper until the public view exists. */
   private static final Map<String, String> TABLE =
       Map.ofEntries(
-          Map.entry("GET " + ONE_GAME, PUBLIC),
-          Map.entry("GET " + ONE_PLAYER, PUBLIC),
+          Map.entry("GET " + ONE_ATHLETE, PUBLIC),
           Map.entry("GET " + ONE_REFEREE, PUBLIC),
-          Map.entry("POST " + GAME, SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/add-point", SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/remove-point", SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/add-foul", SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/remove-foul", SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/kiken/{color}", SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/add-time", SCOREKEEPER),
-          Map.entry("PUT " + ONE_GAME + "/disqualify/{color}", ADMIN),
-          Map.entry("PUT " + ONE_GAME + "/override-winner", ADMIN),
-          Map.entry("PUT " + ONE_GAME + "/update-winner/{color}", ADMIN),
-          Map.entry("POST " + PLAYERS, ADMIN),
-          Map.entry("DELETE " + ONE_PLAYER, ADMIN),
+          Map.entry("POST " + GAMES, SCOREKEEPER),
+          Map.entry("GET " + ONE_GAME, SCOREKEEPER),
+          Map.entry("PUT " + ONE_GAME + "/settings", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/scores", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/penalties", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/clock-actions", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/assignments", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/amendments", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/results", SCOREKEEPER),
+          Map.entry("POST " + ATHLETES, ADMIN),
+          Map.entry("PUT " + ONE_ATHLETE, ADMIN),
+          Map.entry("DELETE " + ONE_ATHLETE, ADMIN),
           Map.entry("POST " + REFEREES, ADMIN),
           Map.entry("PUT " + ONE_REFEREE, ADMIN),
           Map.entry("DELETE " + ONE_REFEREE, ADMIN),
@@ -83,10 +80,6 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   @Autowired
   @Qualifier("requestMappingHandlerMapping")
   private RequestMappingHandlerMapping handlerMapping;
-
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
 
   private static Stream<String> endpointsAt(String... levels) {
     Set<String> wanted = Set.of(levels);
@@ -114,7 +107,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   /** Each row as a request, with every path variable filled in. */
   private static MockHttpServletRequestBuilder call(String endpoint) {
     List<String> parts = List.of(endpoint.split(" "));
-    return request(HttpMethod.valueOf(parts.get(0)), parts.get(1).replaceAll("\\{[^}]+}", "RED"));
+    return request(HttpMethod.valueOf(parts.get(0)), parts.get(1).replaceAll("\\{[^}]+}", "id-1"));
   }
 
   @Test
@@ -137,7 +130,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   void noCredentials_isRefusedBeforeAnythingRuns(String endpoint) throws Exception {
     mockMvc.perform(call(endpoint)).andExpect(status().isUnauthorized());
 
-    verifyNoInteractions(kumiteGameService, playerService, refereeService());
+    verifyNoInteractions(kumiteGameService(), athleteService(), refereeService());
   }
 
   @ParameterizedTest
@@ -153,7 +146,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
         .perform(call(endpoint).with(user("someone").roles(SCOREKEEPER)))
         .andExpect(status().isForbidden());
 
-    verifyNoInteractions(kumiteGameService, playerService, refereeService());
+    verifyNoInteractions(kumiteGameService(), athleteService(), refereeService());
   }
 
   /** No stored role fails a Scorekeeper rule, so the wrong role here is one nothing admits. */
@@ -164,7 +157,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
         .perform(call(endpoint).with(user("someone").roles("SPECTATOR")))
         .andExpect(status().isForbidden());
 
-    verifyNoInteractions(kumiteGameService, playerService, refereeService());
+    verifyNoInteractions(kumiteGameService(), athleteService(), refereeService());
   }
 
   @ParameterizedTest

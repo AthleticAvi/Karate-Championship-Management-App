@@ -27,10 +27,10 @@ twice is a bug in this setup, not thoroughness.
 | **Spotless** + google-java-format | Layout | `pom.xml`, `spotless-maven-plugin` | **Enforced.** `mvn spotless:apply` fixes | 0 |
 | **Checkstyle** (published) | Conventions: naming, structure, braces, star imports | `config/checkstyle/google-checks-vendored.xml` | **Enforced** | 0 |
 | **Checkstyle** (project) | The language standard's own rules: logger naming, `printStackTrace`, `Optional` misuse | `config/checkstyle/project-standards.xml` | Ratchet | **3** |
-| **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **56** across main and test (39 NullAway) |
+| **Error Prone + NullAway** | Correctness: null analysis, API misuse, time and locale bugs | `pom.xml`, `maven-compiler-plugin` | Report only | **0** across main and test |
 | **javac** | Compiler warnings | `pom.xml`, `-Xlint:all,-serial` | Report only | 0 |
 | **JaCoCo** | Coverage, merged across both suites | `pom.xml`, `jacoco-maven-plugin` | **Enforced floor** | LINE **90%**, BRANCH **80%** |
-| **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, plus frozen ratchet | 2 frozen rules |
+| **ArchUnit** | Layer boundaries and cycles | `ArchitectureTest`, `config/archunit/frozen` | Strict, a frozen ratchet when needed | 0 frozen rules |
 | **Docs tests** | Indexes, scaffold, generic workflow, em dashes, Java version in step | `RepositoryDocsTest` | **Enforced** | 0 |
 | **Enforcer** | The JDK running the build | `pom.xml`, `maven-enforcer-plugin` | **Enforced**, exact major | n/a |
 
@@ -57,8 +57,7 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 - **Correctness:** toggle Error Prone checks with `-Xep:CheckName:OFF|WARN|ERROR` in compiler args.
 - **Null marking:** every main package has `@NullMarked` in `package-info.java`, except each
   feature's `data` package, which is `@NullUnmarked`: see
-  `src/main/java/com/management/kumitegame/data/README.md`. `util` marks its class instead, because
-  the frozen `noUtilityPackage` rule would count a new `package-info` as a violation.
+  `src/main/java/com/management/kumitegame/data/README.md`.
 - **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason. One entry today: the
   framework's retry interface names `shouldRetry`, which the boolean accessor rule cannot allow.
 - **Layer rules:** `ArchitectureTest`. To change the store, see `[boundaries]` in

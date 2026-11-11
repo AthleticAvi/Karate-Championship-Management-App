@@ -1,33 +1,54 @@
 package com.management.kumitegame.web;
 
-import com.management.athlete.domain.Player;
-import com.management.athlete.web.PlayerSummary;
-import com.management.kumitegame.domain.GameWithFighters;
+import com.management.athlete.domain.Athlete;
+import com.management.kumitegame.domain.Amendment;
+import com.management.kumitegame.domain.Assignment;
+import com.management.kumitegame.domain.ClockAction;
+import com.management.kumitegame.domain.ClockState;
+import com.management.kumitegame.domain.EntryMeta;
+import com.management.kumitegame.domain.GameRead;
+import com.management.kumitegame.domain.GameState;
 import com.management.kumitegame.domain.KumiteGame;
-import com.management.kumitegame.domain.NewClockAdjustment;
-import com.management.kumitegame.domain.NewMatch;
-import com.management.kumitegame.domain.NewOverride;
-import com.management.kumitegame.domain.PlayerColor;
-import com.management.kumitegame.domain.Referee;
+import com.management.kumitegame.domain.NewAmendment;
+import com.management.kumitegame.domain.NewAssignment;
+import com.management.kumitegame.domain.NewClockAction;
+import com.management.kumitegame.domain.NewGame;
+import com.management.kumitegame.domain.NewPenalty;
+import com.management.kumitegame.domain.NewResult;
+import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewSettings;
+import com.management.kumitegame.domain.PanelMember;
+import com.management.kumitegame.domain.Penalty;
+import com.management.kumitegame.domain.Recording;
+import com.management.kumitegame.domain.Result;
+import com.management.kumitegame.domain.Score;
+import com.management.kumitegame.domain.Settings;
+import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.SideState;
+import com.management.kumitegame.web.KumiteGameResponse.AmendmentResponse;
+import com.management.kumitegame.web.KumiteGameResponse.AssignmentResponse;
+import com.management.kumitegame.web.KumiteGameResponse.ClockActionResponse;
+import com.management.kumitegame.web.KumiteGameResponse.ClockResponse;
+import com.management.kumitegame.web.KumiteGameResponse.EntryMetaResponse;
+import com.management.kumitegame.web.KumiteGameResponse.GameWarningResponse;
+import com.management.kumitegame.web.KumiteGameResponse.PanelMemberResponse;
+import com.management.kumitegame.web.KumiteGameResponse.ParticipantResponse;
+import com.management.kumitegame.web.KumiteGameResponse.PenaltyResponse;
+import com.management.kumitegame.web.KumiteGameResponse.ResultResponse;
+import com.management.kumitegame.web.KumiteGameResponse.ScoreResponse;
+import com.management.kumitegame.web.KumiteGameResponse.SettingsResponse;
+import com.management.kumitegame.web.KumiteGameResponse.SideResponse;
+import com.management.referee.domain.Referee;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * Turns a stored match into the match the API reports, and a request into domain input.
+ * Turns a game as read into the game the API reports, and each request into domain input.
  *
- * <p>This is the boundary the epic exists to create. Nothing on the far side of it is a persistence
- * type, so a field added to {@link KumiteGame} — orchestrator state, audit columns, scheduling data
- * — joins the public contract only when someone adds it here on purpose.
- *
- * <p>Takes the composed {@link GameWithFighters} rather than the match alone: since #49 the match
- * stores fighter ids, not fighters, and the names and scores this response carries live on the
- * {@link Player} documents.
- *
- * <p>Hand-written rather than generated. Two response types with seven fields between them do not
- * justify an annotation processor, and adding one is a project-wide decision rather than something
- * a single change adopts (see {@code context/workflow/languages/java/standards/standards.md}).
- *
- * <p>Static rather than a bean, so the slice tests exercise the real mapping instead of importing
- * one more thing into every web-slice context.
+ * <p>The colour each side is shown in is configuration, passed in: rules and storage know only the
+ * side. An athlete or referee the game names that no longer exists reads as unknown.
  */
 public final class KumiteGameMapper {
 
@@ -35,64 +56,232 @@ public final class KumiteGameMapper {
     throw new IllegalStateException("Utility class cannot be instantiated");
   }
 
-  public static NewMatch toNewMatch(KumiteGameRequest request) {
-    return new NewMatch(
-        request.playersMap().values().stream()
-            .map(fighter -> new NewMatch.Fighter(fighter.name(), fighter.color()))
-            .toList(),
-        request.refereeList(),
-        request.gameDuration());
+  public static RecordedResponse toResponse(Recording recording, Map<Side, String> colours) {
+    return new RecordedResponse(toResponse(recording.game(), colours), recording.raisedWarnings());
   }
 
-  public static NewOverride toNewOverride(WinnerOverrideRequest request, String operator) {
-    return new NewOverride(request.winner(), request.reason(), request.referee(), operator);
-  }
-
-  public static NewClockAdjustment toNewClockAdjustment(
-      ClockAdjustmentRequest request, String operator) {
-    return new NewClockAdjustment(request.seconds(), operator);
-  }
-
-  public static KumiteGameResponse toResponse(GameWithFighters gameWithFighters) {
-    KumiteGame game = gameWithFighters.game();
+  public static KumiteGameResponse toResponse(GameRead read, Map<Side, String> colours) {
+    KumiteGame game = read.game();
+    GameState state = read.state();
+    Instant now = read.serverTime();
+    Result current = state.currentResult();
     return new KumiteGameResponse(
-        game.getId(),
-        game.getGameState(),
-        (int) game.getRemainingTime().toSeconds(),
-        toSummary(fighter(gameWithFighters, PlayerColor.RED)),
-        toSummary(fighter(gameWithFighters, PlayerColor.BLUE)),
-        game.getReferees().stream().map(Referee::name).toList(),
-        game.getWinner(),
-        game.getEndReason().orElse(null),
-        game.isDecidedByReferee());
+        game.id(),
+        game.format(),
+        game.isMedalGame(),
+        game.isExtraGame(),
+        settings(game.settings()),
+        state.status(),
+        state.exchange(),
+        clock(state.mainClock(), now),
+        side(Side.AKA, read, colours),
+        side(Side.AO, read, colours),
+        state.panel().stream()
+            .map(member ->
+                new PanelMemberResponse(
+                    referee(member.refereeId(), read.referees()), member.role()))
+            .toList(),
+        game.assignments().stream().map(KumiteGameMapper::assignment).toList(),
+        game.clockActions().stream().map(KumiteGameMapper::clockAction).toList(),
+        game.amendments().stream().map(KumiteGameMapper::amendment).toList(),
+        game.results().stream().map(KumiteGameMapper::result).toList(),
+        current == null ? null : result(current),
+        state.warnings().stream()
+            .map(warning -> new GameWarningResponse(warning.code(), warning.entryId()))
+            .toList(),
+        now);
   }
 
-  private static PlayerSummary toSummary(Player player) {
-    return new PlayerSummary(
-        player.getId(),
-        player.getName(),
-        player.getPoints().getNumOfPoints(),
-        player.getFouls().getNumOfFouls());
+  public static NewGame toNewGame(KumiteGameRequest request) {
+    List<PanelMemberRequest> panel = request.panel();
+    return new NewGame(
+        request.format(),
+        request.medalGame(),
+        request.extraGame(),
+        request.akaAthleteId(),
+        request.aoAthleteId(),
+        panel == null
+            ? List.of()
+            : panel.stream()
+                .map(member -> new PanelMember(member.refereeId(), member.role()))
+                .toList());
   }
 
-  /**
-   * A match has exactly one RED fighter and exactly one BLUE fighter — a settled domain rule, not a
-   * request-time option. A stored match missing one is data that violates the system's own
-   * invariant, which is a server fault and reported as one. The guard that stops such a match being
-   * created in the first place is #28.
-   */
-  private static Player fighter(GameWithFighters gameWithFighters, PlayerColor color) {
-    List<PlayerColor> present = List.copyOf(gameWithFighters.fighters().keySet());
-    Player player = gameWithFighters.fighters().get(color);
-    if (player == null) {
-      throw new IllegalStateException(
-          "Stored match "
-              + gameWithFighters.game().getId()
-              + " has no "
-              + color
-              + " fighter; it holds "
-              + present);
-    }
-    return player;
+  public static NewSettings toNewSettings(SettingsRequest request) {
+    return new NewSettings(
+        request.durationMs(),
+        request.durationsOfferedMs(),
+        request.pointValues(),
+        request.leadToWin(),
+        request.finalWindowMs(),
+        request.lateScoreWindowMs(),
+        request.chuiLimit(),
+        request.roundRobinForfeitPoints(),
+        request.addTimeStepsMs(),
+        request.medicalTimeMs(),
+        request.timeShownToleranceMs());
+  }
+
+  public static NewScore toNewScore(ScoreRequest request) {
+    return new NewScore(
+        request.id(),
+        request.side(),
+        request.level(),
+        request.source(),
+        request.exchange(),
+        request.clockRemainingMs());
+  }
+
+  public static NewPenalty toNewPenalty(PenaltyRequest request) {
+    return new NewPenalty(
+        request.id(),
+        request.side(),
+        request.level(),
+        request.infraction(),
+        request.exchange(),
+        request.clockRemainingMs());
+  }
+
+  public static NewClockAction toNewClockAction(ClockActionRequest request) {
+    return new NewClockAction(
+        request.id(),
+        request.timer(),
+        request.side(),
+        request.action(),
+        request.timeShownMs(),
+        request.amountMs(),
+        request.pauseReason());
+  }
+
+  public static NewAssignment toNewAssignment(AssignmentRequest request) {
+    return new NewAssignment(
+        request.id(),
+        request.kind(),
+        request.side(),
+        request.athleteId(),
+        request.refereeId(),
+        request.role());
+  }
+
+  public static NewAmendment toNewAmendment(AmendmentRequest request) {
+    return new NewAmendment(request.id(), request.kind(), request.targetId(), request.reason());
+  }
+
+  public static NewResult toNewResult(ResultRequest request) {
+    return new NewResult(
+        request.id(),
+        request.outcome(),
+        request.winner(),
+        request.reason(),
+        request.reasonDetail(),
+        request.bothDisqualified());
+  }
+
+  private static SettingsResponse settings(Settings settings) {
+    return new SettingsResponse(
+        settings.durationMs(),
+        settings.durationsOfferedMs(),
+        settings.pointValues(),
+        settings.leadToWin(),
+        settings.finalWindowMs(),
+        settings.lateScoreWindowMs(),
+        settings.chuiLimit(),
+        settings.roundRobinForfeitPoints(),
+        settings.addTimeStepsMs(),
+        settings.medicalTimeMs(),
+        settings.timeShownToleranceMs(),
+        settings.rulebookVersion());
+  }
+
+  private static ClockResponse clock(ClockState clock, Instant now) {
+    return new ClockResponse(clock.running(), clock.remainingAt(now));
+  }
+
+  private static SideResponse side(Side side, GameRead read, Map<Side, String> colours) {
+    GameState state = read.state();
+    SideState tally = state.side(side);
+    String athleteId = tally.athleteId();
+    return new SideResponse(
+        Objects.requireNonNull(colours.get(side), "every side has a colour"),
+        athleteId == null ? null : athlete(athleteId, read.athletes()),
+        clock(state.medicalClock(side), read.serverTime()),
+        tally.total(),
+        tally.ipponCount(),
+        tally.wazaAriCount(),
+        tally.chuiCount(),
+        tally.hansokuChuiCount(),
+        read.game().scores(side).stream().map(score -> score(score, state)).toList(),
+        read.game().penalties(side).stream().map(penalty -> penalty(penalty, state)).toList());
+  }
+
+  private static ParticipantResponse athlete(String id, Map<String, Athlete> athletes) {
+    Athlete athlete = athletes.get(id);
+    return new ParticipantResponse(id, athlete == null ? null : athlete.name(), athlete != null);
+  }
+
+  private static ParticipantResponse referee(String id, Map<String, Referee> referees) {
+    Referee referee = referees.get(id);
+    return new ParticipantResponse(id, referee == null ? null : referee.name(), referee != null);
+  }
+
+  private static EntryMetaResponse meta(EntryMeta meta) {
+    return new EntryMetaResponse(
+        meta.id(), meta.order(), meta.recordedAt(), meta.recordedBy(), meta.raisedWarnings());
+  }
+
+  private static ScoreResponse score(Score score, GameState state) {
+    return new ScoreResponse(
+        score.level(),
+        score.source(),
+        score.exchange(),
+        score.clockRemainingMs(),
+        state.isCancelled(score.id()),
+        meta(score.meta()));
+  }
+
+  private static PenaltyResponse penalty(Penalty penalty, GameState state) {
+    return new PenaltyResponse(
+        penalty.level(),
+        penalty.infraction(),
+        penalty.exchange(),
+        penalty.clockRemainingMs(),
+        state.isCancelled(penalty.id()),
+        meta(penalty.meta()));
+  }
+
+  private static AssignmentResponse assignment(Assignment assignment) {
+    return new AssignmentResponse(
+        assignment.kind(),
+        assignment.side(),
+        assignment.athleteId(),
+        assignment.refereeId(),
+        assignment.role(),
+        meta(assignment.meta()));
+  }
+
+  private static ClockActionResponse clockAction(ClockAction action) {
+    return new ClockActionResponse(
+        action.timer(),
+        action.side(),
+        action.action(),
+        action.timeShownMs(),
+        action.amountMs(),
+        action.pauseReason(),
+        meta(action.meta()));
+  }
+
+  private static AmendmentResponse amendment(Amendment amendment) {
+    return new AmendmentResponse(
+        amendment.kind(), amendment.targetId(), amendment.reason(), meta(amendment.meta()));
+  }
+
+  private static ResultResponse result(Result result) {
+    return new ResultResponse(
+        result.outcome(),
+        result.winner(),
+        result.reason(),
+        result.reasonDetail(),
+        result.bothDisqualified(),
+        meta(result.meta()));
   }
 }

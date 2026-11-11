@@ -1,50 +1,167 @@
 package com.management.kumitegame.web;
 
-import com.management.athlete.web.PlayerSummary;
-import com.management.kumitegame.domain.GameState;
-import com.management.kumitegame.domain.MatchEndReason;
-import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.domain.AmendmentKind;
+import com.management.kumitegame.domain.AssignmentKind;
+import com.management.kumitegame.domain.ClockActionKind;
+import com.management.kumitegame.domain.GameFormat;
+import com.management.kumitegame.domain.GameStatus;
+import com.management.kumitegame.domain.Infraction;
+import com.management.kumitegame.domain.Outcome;
+import com.management.kumitegame.domain.PanelRole;
+import com.management.kumitegame.domain.PauseReason;
+import com.management.kumitegame.domain.PenaltyLevel;
+import com.management.kumitegame.domain.ResultReason;
+import com.management.kumitegame.domain.ScoreLevel;
+import com.management.kumitegame.domain.ScoreSource;
+import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.Timer;
+import com.management.kumitegame.domain.Warning;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A match as the API reports it: everything a scoreboard needs to render, and nothing else.
+ * A game as the scorekeeper sees it: every entry, and everything derived from them.
  *
- * <p><strong>Colour vocabulary, not positions.</strong> {@code red} and {@code blue} name the two
- * roles the rest of the codebase, the WKF rulebook and the stored document all use. The shape this
- * replaces described a match as {@code player1} / {@code player2}, which mapped onto nothing and
- * forced every consumer to learn a private convention.
+ * <p>Durations are whole milliseconds, instants ISO-8601 in UTC. A running clock's {@code
+ * remainingMs} is the time left at {@code serverTime}: a screen counts down from there, and resyncs
+ * on every answer.
  *
- * <p><strong>Named fields rather than a map keyed by colour.</strong> A map serialises to a JSON
- * object whose keys a client has to know anyway, so it buys symmetry with the stored form at the
- * cost of self-documentation. Chosen deliberately; the alternative was defensible.
- *
- * <p><strong>Absence of a winner is {@code null}</strong>, never a sentence. The field is always
- * present so a client can test it directly rather than checking for a missing key, and it is a
- * colour rather than a display string so the client renders the sentence in its own language.
- *
- * <p><strong>{@code remainingSeconds} is a whole number of seconds</strong>, not a duration object.
- * See {@code context/workflow/design/service-exposure.md}: a field whose format cannot be misread
- * needs no format policy. {@code startTime} is deliberately absent — it is internal bookkeeping
- * used to compute elapsed time, and a client holding {@code remainingSeconds} has no use for it.
- *
- * <p><strong>The result explains itself.</strong> A colour alone does not say whether a match was
- * won on points, forfeited, or set aside by a referee, and those read very differently on a
- * scoreboard. {@code endReason} says why the match ended and {@code overridden} says whether the
- * rules engine or a human produced the result; both are {@code null}/{@code false} while the match
- * is still being fought. The rule that decided it stays internal — it is audit detail, not
- * something a scoreboard renders.
- *
- * @param endReason why the match ended, or {@code null} while it is open
- * @param overridden whether a referee set this result rather than the rules engine
+ * @param exchange the number of main-clock starts so far
+ * @param currentResult the latest result; empty while none is recorded
+ * @param warnings what the game itself shows: its format, or stored history skipped while folding
+ * @param serverTime the server's time when this was read
  */
 public record KumiteGameResponse(
     String id,
-    GameState gameState,
-    int remainingSeconds,
-    PlayerSummary red,
-    PlayerSummary blue,
-    List<String> referees,
-    @Nullable PlayerColor winner,
-    @Nullable MatchEndReason endReason,
-    boolean overridden) {}
+    GameFormat format,
+    boolean medalGame,
+    boolean extraGame,
+    SettingsResponse settings,
+    GameStatus status,
+    int exchange,
+    ClockResponse mainClock,
+    SideResponse aka,
+    SideResponse ao,
+    List<PanelMemberResponse> panel,
+    List<AssignmentResponse> assignments,
+    List<ClockActionResponse> clockActions,
+    List<AmendmentResponse> amendments,
+    List<ResultResponse> results,
+    @Nullable ResultResponse currentResult,
+    List<GameWarningResponse> warnings,
+    Instant serverTime) {
+
+  /** The rule values the game runs under. */
+  public record SettingsResponse(
+      long durationMs,
+      List<Long> durationsOfferedMs,
+      Map<ScoreLevel, Integer> pointValues,
+      int leadToWin,
+      long finalWindowMs,
+      long lateScoreWindowMs,
+      int chuiLimit,
+      int roundRobinForfeitPoints,
+      List<Long> addTimeStepsMs,
+      long medicalTimeMs,
+      long timeShownToleranceMs,
+      String rulebookVersion) {}
+
+  /** A clock: whether it runs, and the time left at {@code serverTime}. */
+  public record ClockResponse(boolean running, long remainingMs) {}
+
+  /**
+   * One side.
+   *
+   * @param colour how the side is shown, from configuration
+   * @param athlete the latest athlete put on this side; empty only in history that names none
+   */
+  public record SideResponse(
+      String colour,
+      @Nullable ParticipantResponse athlete,
+      ClockResponse medicalClock,
+      int total,
+      int ipponCount,
+      int wazaAriCount,
+      int chuiCount,
+      int hansokuChuiCount,
+      List<ScoreResponse> scores,
+      List<PenaltyResponse> penalties) {}
+
+  /**
+   * An athlete or referee the game names, looked up when it is read.
+   *
+   * @param name empty when it no longer exists
+   * @param known false when it no longer exists
+   */
+  public record ParticipantResponse(String id, @Nullable String name, boolean known) {}
+
+  /** A referee on the panel now. */
+  public record PanelMemberResponse(ParticipantResponse referee, PanelRole role) {}
+
+  /** What every entry carries. */
+  public record EntryMetaResponse(
+      String id, int order, Instant recordedAt, String recordedBy, List<Warning> raisedWarnings) {}
+
+  /**
+   * A score as given.
+   *
+   * @param cancelled whether a CANCEL took it back
+   */
+  public record ScoreResponse(
+      ScoreLevel level,
+      ScoreSource source,
+      @Nullable Integer exchange,
+      @Nullable Long clockRemainingMs,
+      boolean cancelled,
+      EntryMetaResponse meta) {}
+
+  /**
+   * A penalty as given.
+   *
+   * @param cancelled whether a CANCEL took it back
+   */
+  public record PenaltyResponse(
+      PenaltyLevel level,
+      @Nullable Infraction infraction,
+      @Nullable Integer exchange,
+      @Nullable Long clockRemainingMs,
+      boolean cancelled,
+      EntryMetaResponse meta) {}
+
+  public record AssignmentResponse(
+      AssignmentKind kind,
+      @Nullable Side side,
+      @Nullable String athleteId,
+      @Nullable String refereeId,
+      @Nullable PanelRole role,
+      EntryMetaResponse meta) {}
+
+  public record ClockActionResponse(
+      Timer timer,
+      @Nullable Side side,
+      ClockActionKind action,
+      long timeShownMs,
+      @Nullable Long amountMs,
+      @Nullable PauseReason pauseReason,
+      EntryMetaResponse meta) {}
+
+  public record AmendmentResponse(
+      AmendmentKind kind, String targetId, @Nullable String reason, EntryMetaResponse meta) {}
+
+  public record ResultResponse(
+      Outcome outcome,
+      @Nullable Side winner,
+      ResultReason reason,
+      @Nullable String reasonDetail,
+      boolean bothDisqualified,
+      EntryMetaResponse meta) {}
+
+  /**
+   * A warning the game itself shows.
+   *
+   * @param entryId the entry it concerns; empty when it concerns the game
+   */
+  public record GameWarningResponse(Warning code, @Nullable String entryId) {}
+}

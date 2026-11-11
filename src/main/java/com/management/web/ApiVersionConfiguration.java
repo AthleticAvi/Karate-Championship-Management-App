@@ -1,7 +1,7 @@
 package com.management.web;
 
 import com.management.account.web.AccountController;
-import com.management.athlete.web.PlayerController;
+import com.management.athlete.web.AthleteController;
 import com.management.kumitegame.web.KumiteGameController;
 import com.management.referee.web.RefereeController;
 import org.springframework.context.annotation.Configuration;
@@ -28,7 +28,7 @@ public class ApiVersionConfiguration implements WebMvcConfigurer {
         PREFIX,
         HandlerTypePredicate.forBasePackageClass(
             KumiteGameController.class,
-            PlayerController.class,
+            AthleteController.class,
             RefereeController.class,
             AccountController.class));
   }

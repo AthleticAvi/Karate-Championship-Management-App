@@ -4,8 +4,8 @@ import static com.management.testsupport.IntegrationTestBase.request;
 import static com.management.testsupport.IntegrationTestBase.send;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.athlete.domain.PointsType;
-import com.management.kumitegame.domain.PlayerColor;
+import com.management.kumitegame.domain.ScoreLevel;
+import com.management.kumitegame.domain.Side;
 import com.management.testsupport.FeatureWeb;
 import com.management.testsupport.IntegrationTestBase;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -46,21 +46,11 @@ class ApiDescriptionIT {
   private static final String DESCRIPTION = "/v3/api-docs";
   private static final String PROBLEM_JSON = "application/problem+json";
   private static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
-  private static final String PLAYERS = "/api/v1/players";
-  private static final String MATCHES = "/api/v1/kumitegame";
-  private static final String MATCH = MATCHES + "/{gameId}";
-  private static final String PLAYER = PLAYERS + "/{playerId}";
+  private static final String ATHLETES = "/api/v1/athletes";
+  private static final String GAMES = "/api/v1/kumite-games";
+  private static final String GAME = GAMES + "/{gameId}";
+  private static final String ATHLETE = ATHLETES + "/{athleteId}";
   private static final String REFEREE = "/api/v1/referees/{refereeId}";
-  private static final String NEW_MATCH =
-      """
-      {
-        "playersMap": {
-          "first": {"name": "Aka", "color": "RED"},
-          "second": {"name": "Ao", "color": "BLUE"}
-        },
-        "refereeList": ["Sato"]
-      }
-      """;
 
   private static final String ACCOUNTS = "/api/v1/accounts";
 
@@ -88,7 +78,7 @@ class ApiDescriptionIT {
   void description_listsExactlyTheRealEndpoints() {
     Set<String> real = realEndpoints();
 
-    assertThat(real).contains("GET " + PLAYER, "PUT " + MATCH + "/add-time");
+    assertThat(real).contains("GET " + ATHLETE, "POST " + GAME + "/scores");
     assertThat(describedEndpoints()).containsExactlyInAnyOrderElementsOf(real);
   }
 
@@ -113,15 +103,22 @@ class ApiDescriptionIT {
 
   @Test
   void failures_matchWhatEachKindOfOperationCanMeet() {
-    assertThat(statusesOf(operation("post", PLAYERS)))
+    assertThat(statusesOf(operation("post", ATHLETES)))
         .containsExactly("201", "400", "401", "403", "413", "415", "500");
-    assertThat(statusesOf(operation("get", PLAYER))).containsExactly("200", "401", "404", "500");
-    assertThat(statusesOf(operation("delete", PLAYER)))
+    assertThat(statusesOf(operation("get", ATHLETE))).containsExactly("200", "401", "404", "500");
+    assertThat(statusesOf(operation("delete", ATHLETE)))
         .containsExactly("204", "401", "403", "404", "409", "500");
-    assertThat(statusesOf(operation("put", MATCH + "/add-foul")))
-        .containsExactly("200", "400", "401", "404", "409", "500");
-    assertThat(statusesOf(operation("put", MATCH + "/add-time")))
+    assertThat(statusesOf(operation("get", GAME))).containsExactly("200", "401", "404", "500");
+    assertThat(statusesOf(operation("post", GAMES)))
+        .containsExactly("201", "400", "401", "413", "415", "500");
+    assertThat(statusesOf(operation("post", GAME + "/scores")))
         .containsExactly("200", "400", "401", "404", "409", "413", "415", "500");
+    assertThat(response("put", GAME + "/settings", "409").get("description").asString())
+        .contains("current");
+    assertThat(response("post", GAME + "/clock-actions", "409").get("description").asString())
+        .contains("current");
+    assertThat(response("post", GAME + "/results", "409").get("description").asString())
+        .contains("current");
     assertThat(statusesOf(operation("get", REFEREE))).containsExactly("200", "401", "404", "500");
     assertThat(statusesOf(operation("put", REFEREE)))
         .containsExactly("200", "400", "401", "403", "404", "409", "413", "415", "500");
@@ -138,10 +135,10 @@ class ApiDescriptionIT {
 
   @Test
   void everyOperationButPublicReads_needsTheScheme() {
-    assertThat(operation("get", PLAYER).has("security")).isFalse();
-    assertThat(operation("get", MATCH).has("security")).isFalse();
-    assertThat(operation("post", PLAYERS).get("security").toString()).contains("basicAuth");
-    assertThat(operation("put", MATCH + "/add-foul").get("security").toString())
+    assertThat(operation("get", ATHLETE).has("security")).isFalse();
+    assertThat(operation("get", GAME).get("security").toString()).contains("basicAuth");
+    assertThat(operation("post", ATHLETES).get("security").toString()).contains("basicAuth");
+    assertThat(operation("post", GAME + "/scores").get("security").toString())
         .contains("basicAuth");
   }
 
@@ -153,17 +150,17 @@ class ApiDescriptionIT {
     String scorekeeper =
         IntegrationTestBase.basic(IntegrationTestBase.SCOREKEEPER, IntegrationTestBase.PASSWORD);
     HttpResponse<String> publicRead =
-        send(request(dev, PLAYERS + "/none").header("Authorization", wrong).GET());
-    HttpResponse<String> write = send(request(dev, PLAYERS).POST(BodyPublishers.ofString("{}")));
+        send(request(dev, ATHLETES + "/none").header("Authorization", wrong).GET());
+    HttpResponse<String> write = send(request(dev, ATHLETES).POST(BodyPublishers.ofString("{}")));
     HttpResponse<String> refused =
         send(
-            request(dev, PLAYERS)
+            request(dev, ATHLETES)
                 .header("Authorization", scorekeeper)
                 .POST(BodyPublishers.ofString("{}")));
 
-    assertThat(statusesOf(operation("get", PLAYER)))
+    assertThat(statusesOf(operation("get", ATHLETE)))
         .contains(String.valueOf(publicRead.statusCode()));
-    assertThat(statusesOf(operation("post", PLAYERS)))
+    assertThat(statusesOf(operation("post", ATHLETES)))
         .contains(String.valueOf(write.statusCode()), String.valueOf(refused.statusCode()));
     assertThat(publicRead.statusCode()).isEqualTo(401);
     assertThat(write.statusCode()).isEqualTo(401);
@@ -176,17 +173,17 @@ class ApiDescriptionIT {
 
   @Test
   void successes_matchTheRealAnswers() throws Exception {
-    HttpResponse<String> created = createPlayer();
+    HttpResponse<String> created = createAthlete();
     String location = created.headers().firstValue("Location").orElseThrow();
 
-    assertThat(statusesOf(operation("post", PLAYERS)))
+    assertThat(statusesOf(operation("post", ATHLETES)))
         .contains(String.valueOf(created.statusCode()));
-    assertThat(statusesOf(operation("get", PLAYER)))
+    assertThat(statusesOf(operation("get", ATHLETE)))
         .contains(String.valueOf(send(request(dev, location).GET()).statusCode()));
-    assertThat(statusesOf(operation("delete", PLAYER)))
+    assertThat(statusesOf(operation("delete", ATHLETE)))
         .contains(String.valueOf(send(asAdmin(request(dev, location)).DELETE()).statusCode()));
-    assertThat(response("delete", PLAYER, "204").has("content")).isFalse();
-    assertThat(response("get", PLAYER, "200").get("content").propertyNames())
+    assertThat(response("delete", ATHLETE, "204").has("content")).isFalse();
+    assertThat(response("get", ATHLETE, "200").get("content").propertyNames())
         .containsExactly("application/json");
   }
 
@@ -212,17 +209,25 @@ class ApiDescriptionIT {
   /** Who recorded a change comes from the signed-in account, so no body has room for it. */
   @Test
   void requests_haveNoRoomForTheOperator() {
-    assertThat(schema("WinnerOverrideRequest").get("properties").propertyNames())
-        .containsExactlyInAnyOrder("winner", "reason", "referee");
-    assertThat(schema("ClockAdjustmentRequest").get("properties").propertyNames())
-        .containsExactly("seconds");
+    for (String request :
+        List.of(
+            "ScoreRequest",
+            "PenaltyRequest",
+            "ClockActionRequest",
+            "AssignmentRequest",
+            "AmendmentRequest",
+            "ResultRequest",
+            "KumiteGameRequest")) {
+      assertThat(schema(request).get("properties").propertyNames())
+          .doesNotContain("recordedBy", "recordedAt", "order");
+    }
   }
 
   @Test
   void signedInIdentity_staysOutOfTheParameters() {
-    for (String path : List.of(MATCH + "/add-time", MATCH + "/override-winner")) {
+    for (String path : List.of(GAME + "/scores", GAME + "/results")) {
       List<String> names = new ArrayList<>();
-      operation("put", path).get("parameters").forEach(p -> names.add(p.get("name").asString()));
+      operation("post", path).get("parameters").forEach(p -> names.add(p.get("name").asString()));
 
       assertThat(names).containsExactly("gameId");
     }
@@ -230,18 +235,18 @@ class ApiDescriptionIT {
 
   @Test
   void headers_areDescribed() {
-    assertThat(response("post", MATCHES, "201").get("headers").propertyNames())
+    assertThat(response("post", GAMES, "201").get("headers").propertyNames())
         .contains("Location", "X-Correlation-ID");
-    assertThat(response("get", PLAYER, "404").get("headers").propertyNames())
+    assertThat(response("get", ATHLETE, "404").get("headers").propertyNames())
         .containsExactly("X-Correlation-ID");
   }
 
   @Test
   void problemSchema_listsWhatRealFailuresSend() throws Exception {
-    HttpResponse<String> missing = send(request(dev, PLAYERS + "/none").GET());
+    HttpResponse<String> missing = send(request(dev, ATHLETES + "/none").GET());
     HttpResponse<String> invalid =
         send(
-            asAdmin(request(dev, PLAYERS))
+            asAdmin(request(dev, ATHLETES))
                 .header("Content-Type", "application/json")
                 .POST(BodyPublishers.ofString("{}")));
 
@@ -266,55 +271,51 @@ class ApiDescriptionIT {
                 .map(JavaClass::getSimpleName)
                 .collect(Collectors.toSet());
 
-    assertThat(shapes).contains("PlayerRequest", "KumiteGameResponse");
+    assertThat(shapes).contains("AthleteRequest", "KumiteGameResponse", "ScoreResponse");
     assertThat(description.get("components").get("schemas").propertyNames())
         .containsExactlyInAnyOrderElementsOf(
             Stream.concat(shapes.stream(), Stream.of("ProblemDetail")).toList());
   }
 
   @Test
-  void matchSchema_describesRealMatches() throws Exception {
+  void gameSchema_describesRealGames() throws Exception {
+    String aka = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
+    String ao = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
     HttpResponse<String> created =
         send(
-            asAdmin(request(dev, MATCHES))
+            asAdmin(request(dev, GAMES))
                 .header("Content-Type", "application/json")
-                .POST(BodyPublishers.ofString(NEW_MATCH)));
-    JsonNode match = JsonMapper.shared().readTree(created.body());
-    JsonNode schema = schema("KumiteGameResponse");
+                .POST(
+                    BodyPublishers.ofString(
+                        """
+                        {"format": "ELIMINATION", "medalGame": false, "extraGame": false,
+                         "akaAthleteId": "%s", "aoAthleteId": "%s"}
+                        """
+                            .formatted(aka, ao))));
+    JsonNode game = JsonMapper.shared().readTree(created.body()).get("game");
 
     assertThat(created.statusCode()).isEqualTo(201);
     assertThat(fieldsOf(created.body()))
-        .containsExactlyInAnyOrderElementsOf(namesOf(schema.get("required")));
-    assertThat(match.get("winner").isNull()).isTrue();
-    assertThat(match.get("endReason").isNull()).isTrue();
-    assertThat(namesOf(schema.get("properties").get("winner").get("enum"))).contains("null");
-    assertThat(namesOf(schema.get("properties").get("endReason").get("enum"))).contains("null");
-    assertThat(fieldsOf(match.get("red").toString()))
-        .containsExactlyInAnyOrderElementsOf(namesOf(schema("PlayerSummary").get("required")));
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("RecordedResponse").get("required")));
+    assertThat(fieldsOf(game.toString()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("KumiteGameResponse").get("required")));
+    assertThat(fieldsOf(game.get("aka").toString()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("SideResponse").get("required")));
+    assertThat(fieldsOf(game.get("assignments").get(0).get("meta").toString()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("EntryMetaResponse").get("required")));
+    assertThat(game.get("currentResult").isNull()).isTrue();
   }
 
   @Test
-  void colourAndPointType_listTheirValues() {
-    List<String> colours = names(PlayerColor.values());
-    List<String> pointTypes = names(PointsType.values());
+  void sideAndScoreLevel_listTheirValues() {
+    JsonNode score = schema("ScoreRequest").get("properties");
 
-    List<JsonNode> parameters = new ArrayList<>();
-    operations().forEach(operation -> operation.path("parameters").forEach(parameters::add));
-
-    assertThat(parameters.stream().filter(parameter -> named(parameter, "color")))
-        .hasSize(7)
-        .allSatisfy(colour ->
-            assertThat(namesOf(colour.get("schema").get("enum")))
-                .containsExactlyElementsOf(colours));
-    assertThat(parameters.stream().filter(parameter -> named(parameter, "pointType")))
-        .hasSize(2)
-        .allSatisfy(type ->
-            assertThat(namesOf(type.get("schema").get("enum")))
-                .containsExactlyElementsOf(pointTypes));
-    assertThat(namesOf(schema("MatchFighterRequest").get("properties").get("color").get("enum")))
-        .containsExactlyElementsOf(colours);
-    assertThat(namesOf(schema("WinnerOverrideRequest").get("properties").get("winner").get("enum")))
-        .containsAll(colours)
+    assertThat(namesOf(score.get("side").get("enum")))
+        .containsExactlyElementsOf(names(Side.values()));
+    assertThat(namesOf(score.get("level").get("enum")))
+        .containsExactlyElementsOf(names(ScoreLevel.values()));
+    assertThat(namesOf(schema("ResultRequest").get("properties").get("winner").get("enum")))
+        .containsAll(names(Side.values()))
         .contains("null");
   }
 
@@ -396,10 +397,6 @@ class ApiDescriptionIT {
     return operation.get("responses").propertyNames().stream().sorted().toList();
   }
 
-  private static boolean named(JsonNode parameter, String name) {
-    return name.equals(parameter.get("name").asString());
-  }
-
   private static List<String> namesOf(JsonNode array) {
     List<String> names = new ArrayList<>();
     array.forEach(value -> names.add(value.isNull() ? "null" : value.asString()));
@@ -414,9 +411,9 @@ class ApiDescriptionIT {
     return Set.copyOf(JsonMapper.shared().readTree(body).propertyNames());
   }
 
-  private static HttpResponse<String> createPlayer() throws IOException, InterruptedException {
+  private static HttpResponse<String> createAthlete() throws IOException, InterruptedException {
     return send(
-        asAdmin(request(dev, PLAYERS))
+        asAdmin(request(dev, ATHLETES))
             .header("Content-Type", "application/json")
             .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}")));
   }

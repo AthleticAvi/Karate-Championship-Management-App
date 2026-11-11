@@ -1,15 +1,11 @@
 package com.management.architecture;
 
 import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
-import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
 import static com.tngtech.archunit.core.domain.properties.HasName.AndFullName.Predicates.fullNameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
-import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.kumitegame.data.converters.LegacyWinnerConverter;
-import com.management.kumitegame.domain.KumiteGame;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -29,9 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The layer boundaries: gateways, business and data stay apart, inside every feature.
  *
- * <p>Rules the code already passes are strict. Rules it does not yet pass are frozen: recorded
- * violations in {@code config/archunit/frozen} are tolerated and new ones fail the build. See
- * {@code src/main/java/com/management/README.md}.
+ * <p>Every rule is strict. A rule the code cannot yet pass may be frozen, its known violations
+ * recorded in {@code config/archunit/frozen}: none is today. See {@code
+ * src/main/java/com/management/README.md}.
  */
 class ArchitectureTest {
 
@@ -162,15 +158,20 @@ class ArchitectureTest {
         .check(CLASSES);
   }
 
-  /** {@code kumitegame} may use {@code athlete}. No other feature uses another. */
+  /**
+   * {@code kumitegame} may use {@code athlete} and {@code referee}, the identities a game names. No
+   * other feature uses another: a check that needs the games, such as refusing to delete an athlete
+   * a game names, is an interface the athlete feature owns and the game feature implements.
+   */
   @Test
-  void features_dependOnlyKumiteGameOnAthlete() {
-    assertThat(FEATURES).contains("kumitegame", "athlete", "account");
+  void features_dependOnlyKumiteGameOnAthleteAndReferee() {
+    assertThat(FEATURES).contains("kumitegame", "athlete", "referee", "account");
     CompositeArchRule.of(
             FEATURES.stream()
                 .map(feature ->
                     featureUsesNoOtherFeature(
-                        feature, feature.equals("kumitegame") ? Set.of("athlete") : Set.of()))
+                        feature,
+                        feature.equals("kumitegame") ? Set.of("athlete", "referee") : Set.of()))
                 .toList())
         .check(CLASSES);
   }
@@ -226,24 +227,13 @@ class ArchitectureTest {
         .callMethodWhere(target(fullNameMatching(READS_THE_CURRENT_TIME)))
         .orShould()
         .callConstructor(Date.class)
-        .because("one injected clock is what keeps match time the same on every instance")
+        .because("one injected clock is what keeps game time the same on every instance")
         .check(CLASSES);
   }
 
-  /**
-   * Strict rather than frozen, with the one known edge named: a frozen cycle is stored as a single
-   * message that counts its dependencies, so any edit to either layer would read as a new cycle.
-   * {@code KumiteGame} names its stored-form converter in its mapping, part of the frozen
-   * persistence mapping below.
-   */
   @Test
-  void layers_areFreeOfCyclesBeyondTheStoredWinner() {
-    slices()
-        .assignedFrom(LAYERS)
-        .should()
-        .beFreeOfCycles()
-        .ignoreDependency(equivalentTo(KumiteGame.class), equivalentTo(LegacyWinnerConverter.class))
-        .check(CLASSES);
+  void layers_areFreeOfCycles() {
+    slices().assignedFrom(LAYERS).should().beFreeOfCycles().check(CLASSES);
   }
 
   @Test
@@ -257,30 +247,12 @@ class ArchitectureTest {
         .check(CLASSES);
   }
 
+  /** Every feature's domain is apart from its stored form: see {@code [pattern]} there. */
   @Test
   void domainTypes_carryNoPersistenceMapping() {
-    freeze(
-            noClasses()
-                .that()
-                .resideInAPackage(DOMAIN)
-                .should()
-                .dependOnClassesThat()
-                .resideInAPackage("org.springframework.data.."))
-        .check(CLASSES);
-  }
-
-  /**
-   * The same rule, strict, for every feature whose domain is already apart from its stored form.
-   * Only {@code kumitegame} and {@code athlete} are held by the frozen rule above, so a new feature
-   * is checked strictly without editing this test.
-   */
-  @Test
-  void domainTypes_ofSeparatedFeatures_carryNoPersistenceMapping() {
     noClasses()
         .that()
         .resideInAPackage(DOMAIN)
-        .and()
-        .resideOutsideOfPackages(ROOT + ".kumitegame..", ROOT + ".athlete..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("org.springframework.data..")
@@ -289,7 +261,7 @@ class ArchitectureTest {
 
   @Test
   void noUtilityPackage() {
-    freeze(noClasses().should().resideInAPackage("..util..")).check(CLASSES);
+    noClasses().should().resideInAPackage("..util..").check(CLASSES);
   }
 
   private static List<String> packagePath(JavaClass type) {

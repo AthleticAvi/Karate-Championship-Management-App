@@ -70,6 +70,11 @@ Store an instant, never a local date-time. A local value is converted through th
 
 Expose the identifier deliberately as a named field on the response type. Never let the storage identifier reach a client incidentally through direct serialisation of a document.
 
+**A nested field named `id` can be stored as `_id`.** Object mappers commonly treat a property
+named `id` as the identifier in an embedded document too, so an entry's own id lands in `_id` of
+the sub-document, silently. Name a nested id for what it is, such as `entryId`, and pin the stored
+shape with a test that reads the raw document.
+
 ## [optimistic-locking] Optimistic locking
 
 A version field on a document makes the mapping layer include the current version in every update. A write against a stale version matches no document and raises a conflict rather than silently overwriting.

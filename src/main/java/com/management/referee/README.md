@@ -10,34 +10,31 @@
 
 ## [purpose] Purpose
 
-A referee, kept once and outside any match, so a match can refer to one by id. The first feature
-whose domain type is apart from its stored document. `kumitegame` and `athlete` are not parted
-yet, and are to follow the same split.
-
-`kumitegame.domain.Referee` is a different type: today's name embedded in a match. It stays until
-match assignments replace it.
+A referee, kept once and outside any game, so a game can refer to one by id. The first feature
+whose domain type was apart from its stored document; `kumitegame` and `athlete` now follow the same
+split.
 
 ## [owns] Owns
 
 | Layer | Types |
 |---|---|
 | `web` | `RefereeController` at `/api/v1/referees`, `RefereeRequest`, `RefereeResponse`, `RefereeMapper` |
-| `service` | `RefereeService` |
-| `domain` | `Referee`, `RefereeNotFoundException`, `RefereeChangedException` |
+| `service` | `RefereeService`, `RefereeReferences` |
+| `domain` | `Referee`, `RefereeNotFoundException`, `RefereeChangedException`, `RefereeInUseException` |
 | `data` | `RefereeDocument`, `RefereeRepository`, `RefereeDocumentMapper` |
 
 ## [may-call] May call
 
-No other feature. Inside the feature, each layer as `src/main/java/com/management/README.md`
-states.
+No other feature. Whether a game names a referee comes through `RefereeReferences`, which this
+feature owns and `kumitegame.service.GameReferences` implements. Inside the feature, each layer as
+`src/main/java/com/management/README.md` states.
 
 ## [pattern] Domain, document and mapper
 
 The pattern to follow when a domain type is parted from its stored form.
 
 - **The domain type holds what the business owns,** with no Spring Data type in it: `Referee` is
-  `id` and `name`. A strict rule in `ArchitectureTest` holds every feature's `domain` to that, except
-  the two still frozen.
+  `id` and `name`. A strict rule in `ArchitectureTest` holds every feature's `domain` to that.
 - **The document holds the stored shape:** the domain fields, plus `version`, `schemaVersion`, and
   the `createdAt` and `modifiedAt` instants. It knows nothing of the business. Its creator is marked
   `@PersistenceCreator`: see `[object-construction-on-read]` in
@@ -63,7 +60,7 @@ the round trip.
 | Operation | Atomic unit | Invariants | Guard | Acknowledgement |
 |---|---|---|---|---|
 | Create, rename | One document | Domain type | Version | `w=majority` |
-| Delete | One document | None yet | None | `w=majority` |
+| Delete | One document | No game names it, read first | None | `w=majority` |
 
 **A rename is not retried.** It sets a value, so a retry would overwrite a name the caller never
 saw. A rename that loses to another write answers 409 with the referee as it now stands, in a
@@ -72,4 +69,9 @@ saw. A rename that loses to another write answers 409 with the referee as it now
 **A rename to the name already stored writes nothing** and answers the referee as it is.
 
 **A delete has no version check.** It goes by id in one call, because removing a referee does not
-depend on the name, and the count it returns tells a miss apart. Deleting a referee a match refers to is refused once matches refer to referees by id.
+depend on the name, and the count it returns tells a miss apart.
+
+**Deleting a referee a game names is refused** with 409, by a read of the games before the delete.
+Any assignment counts, a removed one included, so every game a read can show still finds the name.
+A game created between the read and the delete is the accepted residual race: it reads the referee
+as unknown.

@@ -13,8 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.athlete.service.PlayerService;
-import com.management.kumitegame.service.KumiteGameService;
 import com.management.referee.domain.Referee;
 import com.management.referee.domain.RefereeChangedException;
 import com.management.referee.domain.RefereeNotFoundException;
@@ -24,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -45,10 +42,6 @@ class RefereeControllerSliceTest extends WebSliceTestBase {
       """;
 
   @Autowired private MockMvc mockMvc;
-
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
 
   @Test
   void create_returns201WithLocationAndExactlyTheReferee() throws Exception {

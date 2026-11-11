@@ -26,7 +26,7 @@ import org.springframework.web.multipart.MultipartResolver;
  */
 class RequestLimitsIT extends IntegrationTestBase {
 
-  private static final String PLAYERS = "/api/v1/players";
+  private static final String ATHLETES = "/api/v1/athletes";
 
   @Autowired private TestRestTemplate rest;
   @Autowired private ApplicationContext context;
@@ -78,7 +78,7 @@ class RequestLimitsIT extends IntegrationTestBase {
     headers.set("X-Oversized", "x".repeat(16 * 1024));
 
     ResponseEntity<String> response =
-        rest.exchange(PLAYERS, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        rest.exchange(ATHLETES, HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
   }
@@ -93,7 +93,7 @@ class RequestLimitsIT extends IntegrationTestBase {
   private ResponseEntity<String> post(String body) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    return asAdmin().postForEntity(PLAYERS, new HttpEntity<>(body, headers), String.class);
+    return asAdmin().postForEntity(ATHLETES, new HttpEntity<>(body, headers), String.class);
   }
 
   private static String padded(int length) {

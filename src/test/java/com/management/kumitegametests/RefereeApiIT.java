@@ -199,7 +199,7 @@ class RefereeApiIT extends IntegrationTestBase {
         .given(racing)
         .save(any(RefereeDocument.class));
 
-    assertThatThrownBy(() -> new RefereeService(racing).rename(id, "Tanaka"))
+    assertThatThrownBy(() -> new RefereeService(racing, refereeId -> false).rename(id, "Tanaka"))
         .isInstanceOfSatisfying(
             RefereeChangedException.class,
             changed -> assertThat(changed.current()).isEqualTo(new Referee(id, "Suzuki")));

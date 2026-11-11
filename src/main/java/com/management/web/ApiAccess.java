@@ -1,7 +1,7 @@
 package com.management.web;
 
 import com.management.account.web.AccountController;
-import com.management.athlete.web.PlayerController;
+import com.management.athlete.web.AthleteController;
 import com.management.kumitegame.web.KumiteGameController;
 import com.management.referee.web.RefereeController;
 import java.util.List;
@@ -27,31 +27,34 @@ public final class ApiAccess {
   /** One endpoint. The path is the mapped pattern, as the description also names it. */
   public record Rule(HttpMethod method, String path, Level level) {}
 
-  private static final String GAME = ApiVersionConfiguration.PREFIX + KumiteGameController.PATH;
-  private static final String ONE_GAME = GAME + "/{gameId}";
-  private static final String PLAYERS = ApiVersionConfiguration.PREFIX + PlayerController.PATH;
-  private static final String ONE_PLAYER = PLAYERS + "/{playerId}";
+  private static final String GAMES = ApiVersionConfiguration.PREFIX + KumiteGameController.PATH;
+  private static final String ONE_GAME = GAMES + "/{gameId}";
+  private static final String ATHLETES = ApiVersionConfiguration.PREFIX + AthleteController.PATH;
+  private static final String ONE_ATHLETE = ATHLETES + "/{athleteId}";
   private static final String REFEREES = ApiVersionConfiguration.PREFIX + RefereeController.PATH;
   private static final String ONE_REFEREE = REFEREES + "/{refereeId}";
   private static final String ACCOUNTS = ApiVersionConfiguration.PREFIX + AccountController.PATH;
 
+  /**
+   * A game is read by a Scorekeeper or an Admin: the public view of a game is a later addition.
+   * Athletes follow the referee levels.
+   */
   public static final List<Rule> RULES =
       List.of(
-          new Rule(HttpMethod.GET, ONE_GAME, Level.PUBLIC),
-          new Rule(HttpMethod.GET, ONE_PLAYER, Level.PUBLIC),
+          new Rule(HttpMethod.GET, ONE_ATHLETE, Level.PUBLIC),
           new Rule(HttpMethod.GET, ONE_REFEREE, Level.PUBLIC),
-          new Rule(HttpMethod.POST, GAME, Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/add-point", Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/remove-point", Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/add-foul", Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/remove-foul", Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/kiken/{color}", Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/add-time", Level.SCOREKEEPER),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/disqualify/{color}", Level.ADMIN),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/override-winner", Level.ADMIN),
-          new Rule(HttpMethod.PUT, ONE_GAME + "/update-winner/{color}", Level.ADMIN),
-          new Rule(HttpMethod.POST, PLAYERS, Level.ADMIN),
-          new Rule(HttpMethod.DELETE, ONE_PLAYER, Level.ADMIN),
+          new Rule(HttpMethod.POST, GAMES, Level.SCOREKEEPER),
+          new Rule(HttpMethod.GET, ONE_GAME, Level.SCOREKEEPER),
+          new Rule(HttpMethod.PUT, ONE_GAME + "/settings", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/scores", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/penalties", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/clock-actions", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/assignments", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/amendments", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/results", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ATHLETES, Level.ADMIN),
+          new Rule(HttpMethod.PUT, ONE_ATHLETE, Level.ADMIN),
+          new Rule(HttpMethod.DELETE, ONE_ATHLETE, Level.ADMIN),
           new Rule(HttpMethod.POST, REFEREES, Level.ADMIN),
           new Rule(HttpMethod.PUT, ONE_REFEREE, Level.ADMIN),
           new Rule(HttpMethod.DELETE, ONE_REFEREE, Level.ADMIN),

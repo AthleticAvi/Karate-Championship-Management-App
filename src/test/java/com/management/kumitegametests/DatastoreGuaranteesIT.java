@@ -2,11 +2,11 @@ package com.management.kumitegametests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.management.athlete.data.PlayerRepository;
-import com.management.athlete.domain.Player;
+import com.management.athlete.data.AthleteDocument;
+import com.management.athlete.data.AthleteDocumentMapper;
+import com.management.athlete.data.AthleteRepository;
 import com.management.config.DatastoreProperties;
 import com.management.testsupport.IntegrationTestBase;
-import com.management.testsupport.PlayerBuilder;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.ReadPreference;
@@ -21,7 +21,7 @@ import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilder
 /** What the running connection really gives, read from the server and not from configuration. */
 class DatastoreGuaranteesIT extends IntegrationTestBase {
 
-  @Autowired private PlayerRepository players;
+  @Autowired private AthleteRepository athletes;
   @Autowired private DatastoreProperties properties;
   @Autowired private List<MongoClientSettingsBuilderCustomizer> customizers;
 
@@ -42,12 +42,12 @@ class DatastoreGuaranteesIT extends IntegrationTestBase {
     MongoDatabase database = mongoTemplate.getDb();
     database.runCommand(new Document("profile", 2));
     try {
-      Player player = players.save(PlayerBuilder.newPlayer().build());
+      AthleteDocument athlete = athletes.save(AthleteDocumentMapper.toNewDocument("Kenji", null));
 
       Document profiled =
           database
               .getCollection("system.profile")
-              .find(new Document("op", "insert").append("ns", namespaceOf(database, player)))
+              .find(new Document("op", "insert").append("ns", namespaceOf(database, athlete)))
               .first();
 
       assertThat(profiled).isNotNull();
@@ -91,7 +91,7 @@ class DatastoreGuaranteesIT extends IntegrationTestBase {
     return builder.build();
   }
 
-  private String namespaceOf(MongoDatabase database, Player player) {
-    return database.getName() + "." + mongoTemplate.getCollectionName(player.getClass());
+  private String namespaceOf(MongoDatabase database, AthleteDocument athlete) {
+    return database.getName() + "." + mongoTemplate.getCollectionName(athlete.getClass());
   }
 }

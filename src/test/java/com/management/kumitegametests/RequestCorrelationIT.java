@@ -64,7 +64,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
   @Test
   void request_returnsItsIdAndLogsItOnItsOneRequestLine() {
     ResponseEntity<String> response =
-        asAdmin().postForEntity("/api/v1/players", player("Kenji"), String.class);
+        asAdmin().postForEntity("/api/v1/athletes", athlete("Kenji"), String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     String id = idOf(response);
@@ -81,7 +81,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
 
     ResponseEntity<String> response =
         rest.exchange(
-            "/api/v1/players/missing", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            "/api/v1/athletes/missing", HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
     assertThat(response.getHeaders().getFirst(HEADER)).isEqualTo("from-the-caller");
     assertThat(linesFor("from-the-caller")).hasSize(1);
@@ -94,7 +94,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
 
     ResponseEntity<String> response =
         rest.exchange(
-            "/api/v1/players/missing", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            "/api/v1/athletes/missing", HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
     String id = idOf(response);
     assertThat(id).isNotEqualTo("not valid {id}");
@@ -105,7 +105,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
   /** A miss is normal traffic: one line, no error level, and the client's value is not repeated. */
   @Test
   void missingResource_logsOneInfoLineThatDoesNotRepeatTheId() {
-    ResponseEntity<String> response = rest.getForEntity("/api/v1/players/" + SECRET, String.class);
+    ResponseEntity<String> response = rest.getForEntity("/api/v1/athletes/" + SECRET, String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(linesFor(idOf(response)))
@@ -129,7 +129,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
   @Test
   void unknownMethod_logsOneLineThatDoesNotRepeatIt() throws Exception {
     HttpRequest request =
-        HttpRequest.newBuilder(URI.create(rest.getRootUri() + "/api/v1/players/none"))
+        HttpRequest.newBuilder(URI.create(rest.getRootUri() + "/api/v1/athletes/none"))
             .method("CLIENTWORD", BodyPublishers.noBody())
             .build();
 
@@ -151,7 +151,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
     ResponseEntity<String> response =
         asAdmin()
             .postForEntity(
-                "/api/v1/players?token=" + SECRET,
+                "/api/v1/athletes?token=" + SECRET,
                 new HttpEntity<>("{\"name\": \"" + SECRET + "\"}", headers),
                 String.class);
 
@@ -164,7 +164,7 @@ class RequestCorrelationIT extends IntegrationTestBase {
     return Objects.requireNonNull(response.getHeaders().getFirst(HEADER));
   }
 
-  private static HttpEntity<String> player(String name) {
+  private static HttpEntity<String> athlete(String name) {
     return new HttpEntity<>("{\"name\": \"" + name + "\"}", jsonHeaders());
   }
 

@@ -8,15 +8,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.athlete.service.PlayerService;
-import com.management.kumitegame.service.KumiteGameService;
-import com.management.testsupport.PlayerBuilder;
+import com.management.athlete.domain.Athlete;
 import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -29,29 +26,23 @@ class ApiMediaTypeSliceTest extends WebSliceTestBase {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
-
   @Test
   void yamlBody_isRefused() throws Exception {
     mockMvc
         .perform(
-            post("/api/v1/players").contentType(MediaType.APPLICATION_YAML).content("name: Kenji"))
+            post("/api/v1/athletes").contentType(MediaType.APPLICATION_YAML).content("name: Kenji"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
 
-    verifyNoInteractions(playerService);
+    verifyNoInteractions(athleteService());
   }
 
   @Test
   void yamlAnswer_isRefused() throws Exception {
-    given(playerService.getPlayer(anyString()))
-        .willReturn(
-            PlayerBuilder.newPlayer().alreadyPersistedAs("player-1").named("Kenji").build());
+    given(athleteService().get(anyString())).willReturn(new Athlete("athlete-1", "Kenji", null));
 
     mockMvc
-        .perform(get("/api/v1/players/player-1").accept(MediaType.APPLICATION_YAML))
+        .perform(get("/api/v1/athletes/athlete-1").accept(MediaType.APPLICATION_YAML))
         .andExpect(status().isNotAcceptable());
   }
 }

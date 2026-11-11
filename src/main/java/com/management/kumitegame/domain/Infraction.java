@@ -1,0 +1,22 @@
+package com.management.kumitegame.domain;
+
+/** The prohibited behaviour a penalty was given for, in the order of Article 9.1.1. Optional. */
+public enum Infraction {
+  EXCESSIVE_CONTACT,
+  ATTACK_TO_PROHIBITED_AREA,
+  OPEN_HAND_TO_FACE,
+  TECHNIQUE_AFTER_WAKARETE,
+  DANGEROUS_THROW,
+  FEIGNING_INJURY,
+  JOGAI,
+  MUBOBI,
+  AVOIDING_COMBAT,
+  PASSIVITY,
+  CLINCHING,
+  GRABBING_WITH_BOTH_HANDS,
+  GRABBING_WITH_ONE_HAND,
+  UNCONTROLLED_TECHNIQUE,
+  HEAD_KNEE_OR_ELBOW_ATTACK,
+  KICKING_DOWNED_OPPONENT,
+  DISCOURTESY
+}
