@@ -1,5 +1,6 @@
 package com.management.kumitegametests;
 
+import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -121,6 +122,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "senshu": true,
           "medicalClock": {"running": false, "remainingMs": 180000},
           "total": 2, "ipponCount": 0, "wazaAriCount": 1, "chuiCount": 0, "hansokuChuiCount": 0,
+          "effectiveScore": {"total": 2, "ipponCount": 0, "wazaAriCount": 1, "addedPoints": 0},
           "scores": [{
             "level": "WAZA_ARI", "source": "JUDGES", "exchange": 1, "clockRemainingMs": 118000,
             "cancelled": false,
@@ -135,6 +137,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "senshu": false,
           "medicalClock": {"running": false, "remainingMs": 180000},
           "total": 0, "ipponCount": 0, "wazaAriCount": 0, "chuiCount": 0, "hansokuChuiCount": 0,
+          "effectiveScore": {"total": 0, "ipponCount": 0, "wazaAriCount": 0, "addedPoints": 0},
           "scores": [], "penalties": []
         },
         "panel": [{"referee": {"id": "referee-1", "name": "Sato", "known": true}, "role": "REFEREE"}],
@@ -157,7 +160,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
            "meta": {"id": "k1", "order": 6, "recordedAt": "2026-01-01T12:00:02Z",
                     "recordedBy": "scorekeeper", "raisedWarnings": []}}
         ],
-        "amendments": [], "results": [], "currentResult": null, "statusChanges": [],
+        "amendments": [], "results": [], "currentResult": null, "suggestedResult": null,
+        "statusChanges": [],
         "warnings": [],
         "serverTime": "2026-01-01T12:00:02Z"
       }
@@ -173,6 +177,37 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(content().json(SCORED_GAME, JsonCompareMode.STRICT));
+  }
+
+  /**
+   * At time up, AKA ahead on points: the live suggestion, and the one a different result was
+   * recorded against, kept on it.
+   */
+  @Test
+  void get_showsTheSuggestion_andTheSuggestionEachResultWasRecordedAgainst() throws Exception {
+    GameRead read = scored();
+    KumiteGame game = read.game();
+    game.recordClockAction(
+        new NewClockAction("c2", Timer.MAIN, null, ClockActionKind.TIME_UP, 0, null, null),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordResult(
+        new NewResult("r1", Outcome.WIN, Side.AO, ResultReason.HANTEI, null, false),
+        TestGames.SCOREKEEPER,
+        LATER);
+    given(kumiteGameService().get("game-1"))
+        .willReturn(new GameRead(game, game.state(), Map.of(), Map.of(), LATER));
+
+    Map<String, Object> points =
+        Map.of("outcome", "WIN", "winner", "AKA", "reason", "POINTS", "bothDisqualified", false);
+    mockMvc
+        .perform(get(GAME, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.suggestedResult", equalTo(points)))
+        .andExpect(jsonPath("$.results[0].suggested", equalTo(points)))
+        .andExpect(
+            jsonPath("$.results[0].meta.raisedWarnings[0]")
+                .value("RESULT_DIFFERS_FROM_SUGGESTION"));
   }
 
   @Test

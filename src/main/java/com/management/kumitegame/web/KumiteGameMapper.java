@@ -5,6 +5,7 @@ import com.management.kumitegame.domain.Amendment;
 import com.management.kumitegame.domain.Assignment;
 import com.management.kumitegame.domain.ClockAction;
 import com.management.kumitegame.domain.ClockState;
+import com.management.kumitegame.domain.EffectiveScore;
 import com.management.kumitegame.domain.EntryMeta;
 import com.management.kumitegame.domain.GameRead;
 import com.management.kumitegame.domain.GameState;
@@ -29,10 +30,12 @@ import com.management.kumitegame.domain.Settings;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.SideState;
 import com.management.kumitegame.domain.StatusChange;
+import com.management.kumitegame.domain.SuggestedResult;
 import com.management.kumitegame.web.KumiteGameResponse.AmendmentResponse;
 import com.management.kumitegame.web.KumiteGameResponse.AssignmentResponse;
 import com.management.kumitegame.web.KumiteGameResponse.ClockActionResponse;
 import com.management.kumitegame.web.KumiteGameResponse.ClockResponse;
+import com.management.kumitegame.web.KumiteGameResponse.EffectiveScoreResponse;
 import com.management.kumitegame.web.KumiteGameResponse.EntryMetaResponse;
 import com.management.kumitegame.web.KumiteGameResponse.GameWarningResponse;
 import com.management.kumitegame.web.KumiteGameResponse.PanelMemberResponse;
@@ -44,11 +47,13 @@ import com.management.kumitegame.web.KumiteGameResponse.SenshuRecordResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SettingsResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SideResponse;
 import com.management.kumitegame.web.KumiteGameResponse.StatusChangeResponse;
+import com.management.kumitegame.web.KumiteGameResponse.SuggestedResultResponse;
 import com.management.referee.domain.Referee;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Turns a game as read into the game the API reports, and each request into domain input.
@@ -94,6 +99,7 @@ public final class KumiteGameMapper {
         game.amendments().stream().map(KumiteGameMapper::amendment).toList(),
         game.results().stream().map(KumiteGameMapper::result).toList(),
         current == null ? null : result(current),
+        suggested(state.suggested()),
         game.statusChanges().stream().map(KumiteGameMapper::statusChange).toList(),
         state.warnings().stream()
             .map(warning -> new GameWarningResponse(warning.code(), warning.entryId()))
@@ -234,6 +240,7 @@ public final class KumiteGameMapper {
         tally.wazaAriCount(),
         tally.chuiCount(),
         tally.hansokuChuiCount(),
+        effectiveScore(state.effectiveScore(side)),
         read.game().scores(side).stream().map(score -> score(score, state)).toList(),
         read.game().penalties(side).stream().map(penalty -> penalty(penalty, state)).toList());
   }
@@ -317,7 +324,23 @@ public final class KumiteGameMapper {
         result.reason(),
         result.reasonDetail(),
         result.bothDisqualified(),
+        suggested(result.suggested()),
         meta(result.meta()));
+  }
+
+  private static @Nullable SuggestedResultResponse suggested(@Nullable SuggestedResult suggested) {
+    return suggested == null
+        ? null
+        : new SuggestedResultResponse(
+            suggested.outcome(),
+            suggested.winner(),
+            suggested.reason(),
+            suggested.bothDisqualified());
+  }
+
+  private static EffectiveScoreResponse effectiveScore(EffectiveScore score) {
+    return new EffectiveScoreResponse(
+        score.total(), score.ipponCount(), score.wazaAriCount(), score.addedPoints());
   }
 
   private static StatusChangeResponse statusChange(StatusChange change) {
