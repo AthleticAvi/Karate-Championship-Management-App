@@ -47,9 +47,24 @@ public class RefereeService {
 
   /** The referees with these ids that exist, by id. A missing one is simply absent. */
   public Map<String, Referee> findAll(Collection<String> refereeIds) {
-    return refereeRepository.findAllById(refereeIds).stream()
-        .map(RefereeDocumentMapper::toDomain)
+    return findAllVersioned(refereeIds).values().stream()
+        .map(VersionedReferee::referee)
         .collect(Collectors.toMap(Referee::id, Function.identity()));
+  }
+
+  /**
+   * The referees with these ids that exist, by id, each with the version it is stored at. The
+   * referee and its version come from one read, so a tag built from them never pairs an old name
+   * with a newer version.
+   */
+  public Map<String, VersionedReferee> findAllVersioned(Collection<String> refereeIds) {
+    return refereeRepository.findAllById(refereeIds).stream()
+        .collect(
+            Collectors.toMap(
+                RefereeDocument::getId,
+                stored ->
+                    new VersionedReferee(
+                        RefereeDocumentMapper.toDomain(stored), stored.getVersion())));
   }
 
   /**

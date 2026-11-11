@@ -1,7 +1,10 @@
 package com.management.kumitegame.service;
 
+import com.management.athlete.domain.Athlete;
 import com.management.athlete.service.AthleteService;
+import com.management.athlete.service.VersionedAthlete;
 import com.management.config.KumiteGameProperties;
+import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
 import com.management.kumitegame.data.KumiteGameRepository;
 import com.management.kumitegame.domain.ActingRole;
@@ -11,7 +14,6 @@ import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameNotFoundException;
 import com.management.kumitegame.domain.GameRead;
-import com.management.kumitegame.domain.GameState;
 import com.management.kumitegame.domain.GameWarning;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.KumiteGame;
@@ -29,14 +31,18 @@ import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.Recorded;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultRules;
+import com.management.referee.domain.Referee;
 import com.management.referee.service.RefereeService;
+import com.management.referee.service.VersionedReferee;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -109,12 +115,29 @@ public class KumiteGameService {
   }
 
   public GameRead get(String gameId) {
-    return read(
-        KumiteGameDocumentMapper.toDomain(
-            kumiteGameRepository
-                .findById(gameId)
-                .orElseThrow(() -> new GameNotFoundException("No game has the id " + gameId)),
-            rules));
+    return read(KumiteGameDocumentMapper.toDomain(stored(gameId), rules));
+  }
+
+  /**
+   * The game as {@link #get} reads it, with the version of every stored record it shows, so a
+   * reader can tell whether anything it shows has changed. Each version is read with what it
+   * describes: the game's with the game, an athlete's or a referee's with its name.
+   */
+  public VersionedGameRead getVersioned(String gameId) {
+    KumiteGameDocument stored = stored(gameId);
+    KumiteGame game = KumiteGameDocumentMapper.toDomain(stored, rules);
+    Map<String, VersionedAthlete> athletes = athleteService.findAllVersioned(athleteIds(game));
+    Map<String, VersionedReferee> referees = refereeService.findAllVersioned(refereeIds(game));
+    GameRead read =
+        read(
+            game,
+            valuesOf(athletes, VersionedAthlete::athlete),
+            valuesOf(referees, VersionedReferee::referee));
+    return new VersionedGameRead(
+        read,
+        stored.getVersion(),
+        valuesOf(athletes, VersionedAthlete::version),
+        valuesOf(referees, VersionedReferee::version));
   }
 
   public Recording changeSettings(String gameId, NewSettings settings) {
@@ -189,22 +212,38 @@ public class KumiteGameService {
     }
   }
 
+  private static <T, R> Map<String, R> valuesOf(Map<String, T> byId, Function<T, R> value) {
+    return byId.entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> value.apply(entry.getValue())));
+  }
+
+  private KumiteGameDocument stored(String gameId) {
+    return kumiteGameRepository
+        .findById(gameId)
+        .orElseThrow(() -> new GameNotFoundException("No game has the id " + gameId));
+  }
+
   /** The game with the athletes and referees it names, as they now stand. */
   private GameRead read(KumiteGame game) {
-    GameState state = game.state();
-    List<Assignment> assignments = game.assignments();
-    Set<String> athleteIds =
-        Set.copyOf(
-            assignments.stream().map(Assignment::athleteId).filter(Objects::nonNull).toList());
-    Set<String> refereeIds =
-        Set.copyOf(
-            assignments.stream().map(Assignment::refereeId).filter(Objects::nonNull).toList());
-    return new GameRead(
-        game,
-        state,
-        athleteService.findAll(athleteIds),
-        refereeService.findAll(refereeIds),
-        clock.instant());
+    return read(
+        game, athleteService.findAll(athleteIds(game)), refereeService.findAll(refereeIds(game)));
+  }
+
+  private GameRead read(
+      KumiteGame game, Map<String, Athlete> athletes, Map<String, Referee> referees) {
+    return new GameRead(game, game.state(), athletes, referees, clock.instant());
+  }
+
+  /** Every athlete the game names, a replaced one included, so every entry still finds its name. */
+  private static Set<String> athleteIds(KumiteGame game) {
+    return Set.copyOf(
+        game.assignments().stream().map(Assignment::athleteId).filter(Objects::nonNull).toList());
+  }
+
+  /** Every referee the game names, a removed one included. */
+  private static Set<String> refereeIds(KumiteGame game) {
+    return Set.copyOf(
+        game.assignments().stream().map(Assignment::refereeId).filter(Objects::nonNull).toList());
   }
 
   private void requireAthletes(Collection<String> athleteIds) {

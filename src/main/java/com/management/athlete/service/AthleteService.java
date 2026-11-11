@@ -49,9 +49,24 @@ public class AthleteService {
 
   /** The athletes with these ids that exist, by id. A missing one is simply absent. */
   public Map<String, Athlete> findAll(Collection<String> athleteIds) {
-    return athleteRepository.findAllById(athleteIds).stream()
-        .map(AthleteDocumentMapper::toDomain)
+    return findAllVersioned(athleteIds).values().stream()
+        .map(VersionedAthlete::athlete)
         .collect(Collectors.toMap(Athlete::id, Function.identity()));
+  }
+
+  /**
+   * The athletes with these ids that exist, by id, each with the version it is stored at. The
+   * athlete and its version come from one read, so a tag built from them never pairs an old name
+   * with a newer version.
+   */
+  public Map<String, VersionedAthlete> findAllVersioned(Collection<String> athleteIds) {
+    return athleteRepository.findAllById(athleteIds).stream()
+        .collect(
+            Collectors.toMap(
+                AthleteDocument::getId,
+                stored ->
+                    new VersionedAthlete(
+                        AthleteDocumentMapper.toDomain(stored), stored.getVersion())));
   }
 
   /**
