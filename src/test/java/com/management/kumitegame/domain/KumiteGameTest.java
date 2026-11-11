@@ -94,6 +94,11 @@ class KumiteGameTest {
       case SCORE -> score(Side.AKA, ScoreLevel.YUKO, null, at);
       case PENALTY -> penalty(Side.AO, PenaltyLevel.CHUI, at);
       case CLOCK_ACTION -> medical(Side.AKA, ClockActionKind.START, 180_000, at);
+      case SENSHU_RECORD ->
+          game.recordSenshu(
+              new NewSenshuRecord(id(), Side.AKA, SenshuRecordKind.AWARDED, null, null, null),
+              SK,
+              at);
       case AMENDMENT ->
           game.recordAmendment(
               new NewAmendment(id(), AmendmentKind.ACKNOWLEDGE, "created-1", null), SK, at);
@@ -139,6 +144,10 @@ class KumiteGameTest {
     "CLOCK_ACTION, FIGHTING, APPLIED",
     "CLOCK_ACTION, TIME_UP, APPLIED",
     "CLOCK_ACTION, DECIDED, CLOCK_ACTION_AFTER_RESULT",
+    "SENSHU_RECORD, NOT_STARTED, SENSHU_BEFORE_START",
+    "SENSHU_RECORD, FIGHTING, APPLIED",
+    "SENSHU_RECORD, TIME_UP, APPLIED",
+    "SENSHU_RECORD, DECIDED, SENSHU_AFTER_RESULT",
     "AMENDMENT, NOT_STARTED, APPLIED",
     "AMENDMENT, FIGHTING, APPLIED",
     "AMENDMENT, TIME_UP, APPLIED",
@@ -610,6 +619,7 @@ class KumiteGameTest {
                           new EntryMeta("score-1", 8, T0, SK, List.of())))),
               Map.of(),
               TestGames.game().assignments(),
+              List.of(),
               List.of(),
               List.of(
                   new Amendment(

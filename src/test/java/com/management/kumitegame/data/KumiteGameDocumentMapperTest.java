@@ -15,6 +15,7 @@ import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewPenalty;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewSenshuRecord;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.PauseReason;
@@ -22,6 +23,7 @@ import com.management.kumitegame.domain.PenaltyLevel;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
+import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.Timer;
 import com.management.testsupport.TestClock;
@@ -63,6 +65,10 @@ class KumiteGameDocumentMapperTest {
         new NewPenalty("p1", Side.AO, PenaltyLevel.HANSOKU, Infraction.JOGAI, 1, 109_000L),
         SK,
         t.plusSeconds(13));
+    game.recordSenshu(
+        new NewSenshuRecord("k1", Side.AKA, SenshuRecordKind.AWARDED, "video review", 1, 109_000L),
+        SK,
+        t.plusSeconds(12));
     game.recordAssignment(
         new NewAssignment("a1", AssignmentKind.PANEL_ADD, null, null, "referee-2", PanelRole.KANSA),
         SK,
@@ -91,6 +97,7 @@ class KumiteGameDocumentMapperTest {
             fresh.getSides(),
             fresh.getAssignments(),
             fresh.getClockActions(),
+            fresh.getSenshuRecords(),
             fresh.getAmendments(),
             fresh.getResults(),
             CREATED,
@@ -162,6 +169,7 @@ class KumiteGameDocumentMapperTest {
             current.getSides(),
             current.getAssignments(),
             current.getClockActions(),
+            current.getSenshuRecords(),
             current.getAmendments(),
             current.getResults(),
             CREATED,
@@ -188,6 +196,7 @@ class KumiteGameDocumentMapperTest {
             current.getSides(),
             current.getAssignments(),
             current.getClockActions(),
+            current.getSenshuRecords(),
             current.getAmendments(),
             current.getResults(),
             CREATED,
@@ -217,6 +226,7 @@ class KumiteGameDocumentMapperTest {
             null,
             null,
             null,
+            null,
             CREATED,
             MODIFIED);
 
@@ -224,6 +234,7 @@ class KumiteGameDocumentMapperTest {
 
     assertThat(read.scores(Side.AKA)).isEmpty();
     assertThat(read.results()).isEqualTo(List.of());
+    assertThat(read.senshuRecords()).isEmpty();
     assertThat(read.state().side(Side.AO).athleteId()).isEqualTo(TestGames.AO_ATHLETE);
   }
 }

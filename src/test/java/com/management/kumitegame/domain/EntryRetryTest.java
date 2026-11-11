@@ -103,6 +103,25 @@ class EntryRetryTest {
   }
 
   @Test
+  void senshuRecord() {
+    KumiteGame game = TestGames.game();
+    NewSenshuRecord original =
+        new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 1, 100_000L);
+    provesRetries(
+        game,
+        original,
+        List.of(
+            new NewSenshuRecord("s", Side.AO, SenshuRecordKind.AWARDED, "judges", 1, 100_000L),
+            new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.WITHDRAWN, "judges", 1, 100_000L),
+            new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, null, 1, 100_000L),
+            new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 2, 100_000L),
+            new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 1, null)),
+        record -> game.recordSenshu(record, SK, T0));
+    assertThatThrownBy(() -> game.recordSenshu(original, "other", T0))
+        .isInstanceOf(ActionRefusedException.class);
+  }
+
+  @Test
   void assignment() {
     KumiteGame game = TestGames.game();
     NewAssignment original =

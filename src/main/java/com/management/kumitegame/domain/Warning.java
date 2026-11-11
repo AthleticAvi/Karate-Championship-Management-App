@@ -24,6 +24,24 @@ public enum Warning {
   RESULT_BEFORE_START,
   /** A result while one stands: it supersedes the current one. */
   RESULT_WHILE_DECIDED,
+  SENSHU_BEFORE_START,
+  SENSHU_AFTER_RESULT,
+  /**
+   * SENSHU awarded when the other side scored in the same exchange, or such a score recorded after
+   * the award (Articles 12.2.2, 12.2.9).
+   */
+  SENSHU_WHEN_BOTH_SCORED,
+  /** SENSHU withdrawn from a side that does not hold it: nothing changes. */
+  SENSHU_WITHDRAWN_NOT_HELD,
+  /** SENSHU awarded after a withdrawal in the final window closed it (Article 12.2.10). */
+  SENSHU_AFTER_CLOSED,
+  /**
+   * The holder penalised for avoiding combat in the final window, so SENSHU is forfeit (Articles
+   * 12.2.8, 10.4.16).
+   */
+  SENSHU_HOLDER_AVOIDING_COMBAT,
+  /** A cancelled score leaves the holder with no unopposed score (Article 12.2.2). */
+  SENSHU_HOLDER_WITHOUT_UNOPPOSED_SCORE,
   /** A medal game in round robin, or an extra game in elimination. */
   FORMAT_COMBINATION,
   /** Stored history this build cannot fold as written. The entry is skipped. */

@@ -41,6 +41,7 @@ public class KumiteGameDocument {
   private Map<String, StoredSide> sides;
   private List<StoredAssignment> assignments;
   private List<StoredClockAction> clockActions;
+  private List<StoredSenshuRecord> senshuRecords;
   private List<StoredAmendment> amendments;
   private List<StoredResult> results;
   @CreatedDate private Instant createdAt;
@@ -59,6 +60,7 @@ public class KumiteGameDocument {
       Map<String, StoredSide> sides,
       List<StoredAssignment> assignments,
       List<StoredClockAction> clockActions,
+      List<StoredSenshuRecord> senshuRecords,
       List<StoredAmendment> amendments,
       List<StoredResult> results,
       Instant createdAt,
@@ -73,6 +75,7 @@ public class KumiteGameDocument {
     this.sides = sides;
     this.assignments = assignments;
     this.clockActions = clockActions;
+    this.senshuRecords = senshuRecords;
     this.amendments = amendments;
     this.results = results;
     this.createdAt = createdAt;
@@ -128,6 +131,14 @@ public class KumiteGameDocument {
       String pauseReason,
       StoredMeta meta) {}
 
+  public record StoredSenshuRecord(
+      String side,
+      String kind,
+      String reason,
+      Integer exchange,
+      Long clockRemainingMs,
+      StoredMeta meta) {}
+
   public record StoredAmendment(String kind, String targetId, String reason, StoredMeta meta) {}
 
   public record StoredResult(
@@ -176,6 +187,10 @@ public class KumiteGameDocument {
 
   public List<StoredClockAction> getClockActions() {
     return clockActions;
+  }
+
+  public List<StoredSenshuRecord> getSenshuRecords() {
+    return senshuRecords;
   }
 
   public List<StoredAmendment> getAmendments() {

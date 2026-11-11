@@ -33,6 +33,8 @@ final class GameFold {
   private @Nullable Instant timeUpAt;
   private final Map<String, SidedEntry> seen = new HashMap<>();
   private final Set<String> cancelled = new HashSet<>();
+  private final List<SenshuRecord> senshuRecords = new ArrayList<>();
+  private final Set<String> senshuInFinalWindow = new HashSet<>();
   private final List<GameWarning> warnings = new ArrayList<>();
   private int lastOrder;
 
@@ -69,6 +71,7 @@ final class GameFold {
       case Penalty penalty -> skip(penalty);
       case Assignment assignment -> assign(assignment);
       case ClockAction action -> clock(action);
+      case SenshuRecord record -> senshu(record);
       case Amendment amendment -> amend(amendment);
       case Result result -> {
         currentResult = result;
@@ -148,6 +151,21 @@ final class GameFold {
     }
   }
 
+  /**
+   * Kept for the end of the fold, where SENSHU is replayed from the records still standing. Whether
+   * it came in the final window is decided here, where the main clock at its order is known.
+   */
+  private void senshu(SenshuRecord record) {
+    senshuRecords.add(record);
+    Long shown =
+        Objects.equals(record.exchange(), exchange == 0 ? null : exchange)
+            ? record.clockRemainingMs()
+            : null;
+    if (SenshuFold.inFinalWindow(shown, mainClock, record.meta().recordedAt(), settings)) {
+      senshuInFinalWindow.add(record.id());
+    }
+  }
+
   private void amend(Amendment amendment) {
     SidedEntry target = seen.get(amendment.targetId());
     if (target == null) {
@@ -165,6 +183,9 @@ final class GameFold {
     switch (target.entry()) {
       case Score score when targetSide != null -> tally(targetSide).removeScore(score, settings);
       case Penalty penalty when targetSide != null -> tally(targetSide).removePenalty(penalty);
+      case SenshuRecord _ -> {
+        // SENSHU is replayed from the standing records when the fold ends.
+      }
       default -> {
         skip(amendment);
         return;
@@ -178,6 +199,14 @@ final class GameFold {
   }
 
   private GameState state() {
+    SenshuFold.Replayed senshu =
+        SenshuFold.replay(
+            senshuRecords,
+            cancelled::contains,
+            record -> senshuInFinalWindow.contains(record.id()));
+    senshu
+        .conflicting()
+        .forEach(id -> warnings.add(new GameWarning(Warning.HISTORY_INCONSISTENT, id)));
     Map<Side, SideState> sides = new EnumMap<>(Side.class);
     tallies.forEach((side, tally) -> sides.put(side, tally.state()));
     List<PanelMember> members = new ArrayList<>();
@@ -191,6 +220,7 @@ final class GameFold {
         members,
         currentResult,
         status == GameStatus.TIME_UP ? timeUpAt : null,
+        senshu.state(),
         cancelled,
         warnings,
         lastOrder);

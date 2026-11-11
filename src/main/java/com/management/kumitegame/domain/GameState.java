@@ -13,7 +13,8 @@ import org.jspecify.annotations.Nullable;
  * @param exchange the number of main-clock starts so far
  * @param currentResult the latest result
  * @param timeUpAt when the main clock reached zero, while the game is TIME_UP
- * @param cancelledIds the scores and penalties a CANCEL took back
+ * @param senshu who holds SENSHU, and whether it is closed
+ * @param cancelledIds the scores, penalties and SENSHU records a CANCEL took back
  * @param warnings what the fold found: the format, or history it skipped
  * @param lastOrder the highest order used, so the next entry takes the one after
  */
@@ -26,6 +27,7 @@ public record GameState(
     List<PanelMember> panel,
     @Nullable Result currentResult,
     @Nullable Instant timeUpAt,
+    SenshuState senshu,
     Set<String> cancelledIds,
     List<GameWarning> warnings,
     int lastOrder) {

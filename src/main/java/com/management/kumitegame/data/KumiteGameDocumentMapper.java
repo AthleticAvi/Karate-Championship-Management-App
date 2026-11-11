@@ -7,6 +7,7 @@ import com.management.kumitegame.data.KumiteGameDocument.StoredMeta;
 import com.management.kumitegame.data.KumiteGameDocument.StoredPenalty;
 import com.management.kumitegame.data.KumiteGameDocument.StoredResult;
 import com.management.kumitegame.data.KumiteGameDocument.StoredScore;
+import com.management.kumitegame.data.KumiteGameDocument.StoredSenshuRecord;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSettings;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSide;
 import com.management.kumitegame.domain.Amendment;
@@ -29,6 +30,8 @@ import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.Score;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
+import com.management.kumitegame.domain.SenshuRecord;
+import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Settings;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.Timer;
@@ -98,6 +101,7 @@ public final class KumiteGameDocumentMapper {
         penalties,
         list(document.getAssignments(), KumiteGameDocumentMapper::assignment),
         list(document.getClockActions(), KumiteGameDocumentMapper::clockAction),
+        list(document.getSenshuRecords(), KumiteGameDocumentMapper::senshuRecord),
         list(document.getAmendments(), KumiteGameDocumentMapper::amendment),
         list(document.getResults(), KumiteGameDocumentMapper::result));
   }
@@ -143,6 +147,7 @@ public final class KumiteGameDocumentMapper {
         sides,
         game.assignments().stream().map(KumiteGameDocumentMapper::storedAssignment).toList(),
         game.clockActions().stream().map(KumiteGameDocumentMapper::storedClockAction).toList(),
+        game.senshuRecords().stream().map(KumiteGameDocumentMapper::storedSenshuRecord).toList(),
         game.amendments().stream().map(KumiteGameDocumentMapper::storedAmendment).toList(),
         game.results().stream().map(KumiteGameDocumentMapper::storedResult).toList(),
         createdAt,
@@ -281,6 +286,26 @@ public final class KumiteGameDocumentMapper {
         action.amountMs(),
         name(action.pauseReason()),
         storedMeta(action.meta()));
+  }
+
+  private static SenshuRecord senshuRecord(StoredSenshuRecord stored) {
+    return new SenshuRecord(
+        Side.valueOf(stored.side()),
+        SenshuRecordKind.valueOf(stored.kind()),
+        stored.reason(),
+        stored.exchange(),
+        stored.clockRemainingMs(),
+        meta(stored.meta()));
+  }
+
+  private static StoredSenshuRecord storedSenshuRecord(SenshuRecord record) {
+    return new StoredSenshuRecord(
+        record.side().name(),
+        record.kind().name(),
+        record.reason(),
+        record.exchange(),
+        record.clockRemainingMs(),
+        storedMeta(record.meta()));
   }
 
   private static Amendment amendment(StoredAmendment stored) {
