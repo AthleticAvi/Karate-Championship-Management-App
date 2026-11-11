@@ -21,7 +21,7 @@ It follows the referee's split of domain type, stored document and mapper: see `
 | Layer | Types |
 |---|---|
 | `web` | `AthleteController` at `/api/v1/athletes`, `AthleteRequest`, `AthleteResponse`, `AthleteMapper` |
-| `service` | `AthleteService`, `AthleteReferences` |
+| `service` | `AthleteService`, `AthleteReferences`, `VersionedAthlete`: an athlete with its stored version, for a game's tag |
 | `domain` | `Athlete`, `AthleteNotFoundException`, `AthleteChangedException`, `AthleteInUseException` |
 | `data` | `AthleteDocument`, `AthleteRepository`, `AthleteDocumentMapper` |
 

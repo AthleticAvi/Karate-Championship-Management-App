@@ -20,7 +20,9 @@ covers the `service` package of each feature.
 - `KumiteGameService`, in `kumitegame.service`: creates and reads games, and records every action
   on one. Reads the athletes and referees a game names, and composes `GameRead`. Builds every game
   with the `ResultRules` bean from `kumitegame.rules`, as `KumiteGameWriter` does, so each read and
-  action sees the suggestion.
+  action sees the suggestion. `getVersioned` adds, as `VersionedGameRead`, the version of the game
+  and of each athlete and referee it shows, each from the same read as what it describes: the
+  gateway builds the game's tag from them. See `[conditional-reads]` in the web README.
 - `KumiteGameWriter`, in `kumitegame.service`: reads a game, applies an action, saves it against the
   version it read. Appends retry; absolute actions do not. See `[writes]`.
 - `GameReferences`, in `kumitegame.service`: answers `AthleteReferences` and `RefereeReferences`,

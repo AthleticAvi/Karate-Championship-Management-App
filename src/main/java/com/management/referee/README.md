@@ -19,7 +19,7 @@ split.
 | Layer | Types |
 |---|---|
 | `web` | `RefereeController` at `/api/v1/referees`, `RefereeRequest`, `RefereeResponse`, `RefereeMapper` |
-| `service` | `RefereeService`, `RefereeReferences` |
+| `service` | `RefereeService`, `RefereeReferences`, `VersionedReferee`: a referee with its stored version, for a game's tag |
 | `domain` | `Referee`, `RefereeNotFoundException`, `RefereeChangedException`, `RefereeInUseException` |
 | `data` | `RefereeDocument`, `RefereeRepository`, `RefereeDocumentMapper` |
 
@@ -44,7 +44,9 @@ The pattern to follow when a domain type is parted from its stored form.
   up to `CURRENT_SCHEMA_VERSION`, refuses a newer one, and every write stores the current shape.
 - **A change carries the stored metadata through.** The service reads the document, maps it to the
   domain, applies the change there, and maps the result back onto that document. The domain never
-  sees the version, and the save is checked against the version that was read. A save replaces the
+  sees the version, and the save is checked against the version that was read. A reader that
+  needs the version, such as a game's tag, gets it beside the domain type from the service, in a
+  `Versioned*` record read with it. A save replaces the
   whole document, so the mapper must copy `createdAt` from the stored one: auditing sets it only
   on an insert.
 - **Instants come from auditing,** never set by hand: see `[auditing]` in the config README.

@@ -12,6 +12,7 @@
 - [mutations] Mutations return the new state
 - [validation] Validation at the boundary
 - [cors] Cross-origin calls
+- [conditional-reads] Two views of a game, and their tag
 - [description] API description
 - [shapes] Request and response records
 - [mappers] Mappers
@@ -31,9 +32,10 @@ and `account.web`.
 
 In the feature packages:
 
-- `KumiteGameController` at `/api/v1/kumite-games`: creates and reads games, and records each
-  action on one through a sub-resource that reads as a thing: `settings`, `scores`, `penalties`,
-  `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`, `status-changes`.
+- `KumiteGameController` at `/api/v1/kumite-games`: creates games, serves the public view and the
+  full view of one, and records each action on one through a sub-resource that reads as a thing:
+  `settings`, `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`,
+  `results`, `status-changes`. See `[conditional-reads]` for the two views.
 - `AthleteController` at `/api/v1/athletes`: creates, reads, updates and deletes athletes.
 - `RefereeController` at `/api/v1/referees`: creates, reads, renames and deletes referees.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
@@ -77,7 +79,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, and `warnings`. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `AthleteResponse` | `/api/v1/athletes`, and `current` in an update's 409 | `id`, `name`, `weightKg` |
 | `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
@@ -91,15 +93,16 @@ live in the web packages and `security` already depends on it, so the reverse wo
 
 | Level | Endpoints under `/api/v1` |
 |---|---|
-| Public | `GET /athletes/{athleteId}`, `GET /referees/{refereeId}` |
-| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`, `status-changes` |
+| Public | `GET /athletes/{athleteId}`, `GET /referees/{refereeId}`, `GET /kumite-games/{gameId}` |
+| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}/full-view`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`, `status-changes` |
 | Admin | `POST /athletes`, `PUT /athletes/{athleteId}`, `DELETE /athletes/{athleteId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
 Any Scorekeeper may act on any game: there is no assignment of scorekeepers. `status-changes` admits
 both roles because the role a move needs depends on the game's status: reopening an APPROVED game
 and voiding are an Admin's, and the game refuses them to a Scorekeeper with a 403. See `[status]`
-in `src/main/java/com/management/kumitegame/domain/README.md`. A game is read by a
-Scorekeeper or an Admin until the public view exists. Athletes follow the levels `/players` had,
+in `src/main/java/com/management/kumitegame/domain/README.md`. Anyone may read a game's public
+view; its full view, with who recorded what and the warnings, is a Scorekeeper's or an Admin's.
+Athletes follow the levels `/players` had,
 and the referees': listed for the owner to confirm. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
 compares it with the real mappings, so a new endpoint fails the build until someone decides. What
@@ -194,6 +197,43 @@ such as the actuator. Keep this the one such bean all the same, and keep the reg
 `apiCorsFilter`: Spring Security looks up a bean named `corsFilter` and expects a plain `CorsFilter`.
 A preflight on the actuator is plain `OPTIONS` there, so it gets the 401 of any unlisted method.
 
+## [conditional-reads] Two views of a game, and their tag
+
+| View | Path | Who | Leaves out |
+|---|---|---|---|
+| Public | `GET /api/v1/kumite-games/{gameId}` | Anyone | `recordedBy` and `raisedWarnings` in every `meta`, and `warnings` |
+| Full | `GET /api/v1/kumite-games/{gameId}/full-view` | Scorekeeper and Admin | Nothing |
+
+**Two paths, so a cache never mixes them.** The full view sits under the game as a sub-resource;
+the game's own path is the public one.
+
+**One record, two JSON views.** `KumiteGameResponse` serves both. A field marked
+`@JsonView(GameViews.Scorekeeper.class)` is left out by the public handler, which names
+`GameViews.Public`. A handler that names no view writes every field, so the full view, every
+mutation and the game in a 409 need no marking. Jackson 3 leaves out every unmarked field under a
+view by default, so `spring.jackson.mapper.default-view-inclusion=true` keeps them: without it the
+public view is `{}`, and the strict slice test fails.
+
+**Both reads carry a weak `ETag`.** The handler decides it before the body is built, with the
+framework's `WebRequest.checkNotModified`; a current `If-None-Match` answers 304 with no body and
+the tag. It is a digest over:
+
+- the application's start, because a redeploy can change what a stored game reads as, such as the
+  side colours or the suggested result. A restart costs each caller one full answer;
+- the game document's version;
+- the version of each athlete and referee the game names, by id, from `VersionedGameRead`. A rename
+  changes it, and so does one deleted in the accepted race, which drops out.
+
+Each version is read with what it describes, so the tag never pairs an old name with a new version.
+The tag is weak because `serverTime`, and a running clock's `remainingMs`, differ between two
+answers at the same versions. The 304 carries no `serverTime`: the caller keeps the answer it holds,
+with that answer's own time. The fold and the reads still run on a 304; only the mapping and the
+writing are saved, which this load allows.
+
+**Not built:** Spring Security sends `Cache-Control: no-cache, no-store` on every answer, so a
+browser's own cache keeps nothing to revalidate, and the CORS rules neither allow `If-None-Match`
+nor expose `ETag`. A browser on another origin cannot use the tag yet. See `[cors]`.
+
 ## [description] API description
 
 Generated from the code by springdoc, at `/v3/api-docs` and `/v3/api-docs.yaml`, under `dev` only:
@@ -229,6 +269,12 @@ on deleting an athlete or referee comes from the rules: a game names it.
 
 A game's `status-changes` states its 403 and its 409 too: its row is at Scorekeeper level, and the
 game refuses an Admin's move from a Scorekeeper.
+
+Both views of a game state their 200 and 304, each with the `ETag` header, and the 304 with no
+content. The public view's handler names a JSON view, so the generator writes a second schema for
+every record it reaches, named after the view: `KumiteGameResponse_Public`, `EntryMetaResponse_Public`
+and the rest. Those lack the fields the view leaves out, and `ApiDescriptionIT` compares them with
+a real public answer.
 
 `ApiDescriptionIT` pins these rules, and compares 400, 401, 404 and the success codes with real
 answers. A 401 is on public reads too, because wrong credentials are refused there. A 403 is on Admin
