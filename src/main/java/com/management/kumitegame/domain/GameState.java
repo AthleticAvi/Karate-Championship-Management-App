@@ -15,6 +15,10 @@ import org.jspecify.annotations.Nullable;
  *     after a void
  * @param timeUpAt when the main clock reached zero, while the game is TIME_UP
  * @param senshu who holds SENSHU, and whether it is closed
+ * @param suggested the result the rules point to now; empty while they point to none, and on a
+ *     VOIDED game
+ * @param effectiveScores each side's score as the format counts it: in round robin, after a
+ *     forfeit, not what it scored (Article 10.7.1)
  * @param cancelledIds the scores, penalties and SENSHU records a CANCEL took back
  * @param warnings what the fold found: the format, or history it skipped
  * @param lastOrder the highest order used, so the next entry takes the one after
@@ -29,6 +33,8 @@ public record GameState(
     @Nullable Result currentResult,
     @Nullable Instant timeUpAt,
     SenshuState senshu,
+    @Nullable SuggestedResult suggested,
+    Map<Side, EffectiveScore> effectiveScores,
     Set<String> cancelledIds,
     List<GameWarning> warnings,
     int lastOrder) {
@@ -36,6 +42,7 @@ public record GameState(
   public GameState {
     medicalClocks = Map.copyOf(medicalClocks);
     sides = Map.copyOf(sides);
+    effectiveScores = Map.copyOf(effectiveScores);
     panel = List.copyOf(panel);
     cancelledIds = Set.copyOf(cancelledIds);
     warnings = List.copyOf(warnings);
@@ -43,6 +50,10 @@ public record GameState(
 
   public SideState side(Side side) {
     return Objects.requireNonNull(sides.get(side));
+  }
+
+  public EffectiveScore effectiveScore(Side side) {
+    return Objects.requireNonNull(effectiveScores.get(side));
   }
 
   public ClockState medicalClock(Side side) {

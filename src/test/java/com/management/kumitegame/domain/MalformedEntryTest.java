@@ -109,7 +109,8 @@ class MalformedEntryTest {
             List.of(),
             List.of(
                 new StatusChange(StatusChangeKind.APPROVE, null, meta("z1", 10)),
-                new StatusChange(StatusChangeKind.REOPEN, null, meta("z2", 11))));
+                new StatusChange(StatusChangeKind.REOPEN, null, meta("z2", 11))),
+            TestGames.rules());
 
     GameState state = stored.state();
 

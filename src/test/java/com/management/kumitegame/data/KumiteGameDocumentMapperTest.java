@@ -28,6 +28,7 @@ import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.StatusChangeKind;
+import com.management.kumitegame.domain.SuggestedResult;
 import com.management.kumitegame.domain.Timer;
 import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGames;
@@ -80,6 +81,11 @@ class KumiteGameDocumentMapperTest {
         t.plusSeconds(14));
     game.recordAmendment(
         new NewAmendment("m1", AmendmentKind.CANCEL, "p1", "wrong side"), SK, t.plusSeconds(15));
+    // At time up, so the result keeps a suggestion: AKA on points.
+    game.recordClockAction(
+        new NewClockAction("c4", Timer.MAIN, null, ClockActionKind.TIME_UP, 0, null, null),
+        SK,
+        t.plusSeconds(16));
     game.recordResult(
         new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, "10-second rule", true),
         SK,
@@ -124,7 +130,7 @@ class KumiteGameDocumentMapperTest {
   void domainToDocumentToDomain_keepsEveryField() {
     KumiteGame game = everyEntry();
 
-    KumiteGame read = KumiteGameDocumentMapper.toDomain(stored(game));
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(stored(game), TestGames.rules());
 
     assertThat(read).usingRecursiveComparison().isEqualTo(game);
     assertThat(read.state()).isEqualTo(game.state());
@@ -136,7 +142,8 @@ class KumiteGameDocumentMapperTest {
     KumiteGameDocument stored = stored(everyEntry());
 
     KumiteGameDocument written =
-        KumiteGameDocumentMapper.toDocument(KumiteGameDocumentMapper.toDomain(stored), stored);
+        KumiteGameDocumentMapper.toDocument(
+            KumiteGameDocumentMapper.toDomain(stored, TestGames.rules()), stored);
 
     assertThat(written).usingRecursiveComparison().isEqualTo(stored);
     assertThat(written.getVersion()).isEqualTo(7);
@@ -164,7 +171,8 @@ class KumiteGameDocumentMapperTest {
                 TestGames.settings(),
                 TestGames.ids("x"),
                 SK,
-                TestClock.NOW));
+                TestClock.NOW,
+                TestGames.rules()));
 
     assertThatThrownBy(() -> KumiteGameDocumentMapper.toDocument(TestGames.game(), other))
         .isInstanceOf(IllegalArgumentException.class);
@@ -192,7 +200,7 @@ class KumiteGameDocumentMapperTest {
             CREATED,
             MODIFIED);
 
-    assertThatThrownBy(() -> KumiteGameDocumentMapper.toDomain(newer))
+    assertThatThrownBy(() -> KumiteGameDocumentMapper.toDomain(newer, TestGames.rules()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("schema version " + (KumiteGameDocument.CURRENT_SCHEMA_VERSION + 1));
   }
@@ -220,10 +228,60 @@ class KumiteGameDocumentMapperTest {
             CREATED,
             MODIFIED);
 
-    assertThatThrownBy(() -> KumiteGameDocumentMapper.toDomain(unknown))
+    assertThatThrownBy(() -> KumiteGameDocumentMapper.toDomain(unknown, TestGames.rules()))
         .isInstanceOf(IllegalStateException.class)
         .isNotInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("cannot read");
+  }
+
+  @Test
+  void resultKeepsItsSuggestion_throughTheStoredForm() {
+    KumiteGame game = everyEntry();
+    assertThat(game.results().getFirst().suggested())
+        .isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.POINTS));
+
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(stored(game), TestGames.rules());
+
+    assertThat(read.results().getFirst().suggested())
+        .isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.POINTS));
+  }
+
+  /** Shape 3 stored no suggestion on a result: it reads with none. */
+  @Test
+  void shapeThreeResult_readsWithNoSuggestion() {
+    KumiteGameDocument current = stored(everyEntry());
+    KumiteGameDocument.StoredResult result = current.getResults().getFirst();
+    KumiteGameDocument shapeThree =
+        new KumiteGameDocument(
+            current.getId(),
+            current.getVersion(),
+            3,
+            current.getFormat(),
+            current.isMedalGame(),
+            current.isExtraGame(),
+            current.getSettings(),
+            current.getSides(),
+            current.getAssignments(),
+            current.getClockActions(),
+            current.getSenshuRecords(),
+            current.getAmendments(),
+            List.of(
+                new KumiteGameDocument.StoredResult(
+                    result.outcome(),
+                    result.winner(),
+                    result.reason(),
+                    result.reasonDetail(),
+                    result.bothDisqualified(),
+                    null,
+                    result.meta())),
+            current.getStatusChanges(),
+            CREATED,
+            MODIFIED);
+
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(shapeThree, TestGames.rules());
+
+    assertThat(read.results().getFirst().suggested()).isNull();
+    assertThat(read.results().getFirst().reason()).isEqualTo(ResultReason.KIKEN);
   }
 
   /** A list stored as absent, such as one added to the shape later, reads as empty: shapes 1, 2. */
@@ -250,7 +308,7 @@ class KumiteGameDocumentMapperTest {
             CREATED,
             MODIFIED);
 
-    KumiteGame read = KumiteGameDocumentMapper.toDomain(sparse);
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(sparse, TestGames.rules());
 
     assertThat(read.scores(Side.AKA)).isEmpty();
     assertThat(read.results()).isEqualTo(List.of());

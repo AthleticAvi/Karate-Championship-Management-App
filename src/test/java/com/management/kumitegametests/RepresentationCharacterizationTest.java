@@ -7,7 +7,10 @@ import com.management.kumitegame.data.KumiteGameDocumentMapper;
 import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewClockAction;
+import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.Outcome;
+import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.Side;
@@ -62,7 +65,7 @@ class RepresentationCharacterizationTest {
     // The id is given before the insert; the version and the schema version are stored.
     assertThat(stored.get("_id")).isEqualTo(TestGames.GAME_ID);
     assertThat(stored.get("version")).isEqualTo(0L);
-    assertThat(stored.get("schemaVersion")).isEqualTo(3);
+    assertThat(stored.get("schemaVersion")).isEqualTo(4);
     // Spring Data writes a type hint alongside the data.
     assertThat(stored.get("_class")).isEqualTo("com.management.kumitegame.data.KumiteGameDocument");
     // Enums are stored as their names.
@@ -86,7 +89,8 @@ class RepresentationCharacterizationTest {
     assertThat(meta.getList("raisedWarnings", String.class)).isEmpty();
     // Nothing derived is stored: no status, clock state or total beside the entries.
     assertThat(stored.keySet())
-        .doesNotContain("status", "mainClock", "totals", "currentResult")
+        .doesNotContain(
+            "status", "mainClock", "totals", "currentResult", "suggestedResult", "effectiveScores")
         .containsAll(
             List.of(
                 "assignments",
@@ -97,6 +101,30 @@ class RepresentationCharacterizationTest {
                 "statusChanges",
                 "sides",
                 "settings"));
+  }
+
+  /** The suggestion a result was recorded against is stored on it, by name. */
+  @Test
+  void kumiteGame_storedResult_keepsItsSuggestion() {
+    KumiteGame game = scoredGame();
+    game.recordClockAction(
+        new NewClockAction("time-up", Timer.MAIN, null, ClockActionKind.TIME_UP, 0, null, null),
+        TestGames.SCOREKEEPER,
+        TestClock.NOW.plusSeconds(3));
+    game.recordResult(
+        new NewResult("result-1", Outcome.WIN, Side.AKA, ResultReason.POINTS, null, false),
+        TestGames.SCOREKEEPER,
+        TestClock.NOW.plusSeconds(4));
+
+    Document stored = asStoredDocument(KumiteGameDocumentMapper.toNewDocument(game));
+
+    Document result = stored.getList("results", Document.class).getFirst();
+    assertThat(result.get("suggested", Document.class))
+        .isEqualTo(
+            new Document("outcome", "WIN")
+                .append("winner", "AKA")
+                .append("reason", "POINTS")
+                .append("bothDisqualified", false));
   }
 
   @Test

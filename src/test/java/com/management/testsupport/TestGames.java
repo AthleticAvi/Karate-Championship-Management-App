@@ -5,12 +5,14 @@ import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.PanelRole;
+import com.management.kumitegame.domain.ResultRules;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.Settings;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 /**
  * Games for the fast suite, each built fresh: no test shares an instance with another.
@@ -25,6 +27,20 @@ public final class TestGames {
   public static final String AO_ATHLETE = "athlete-ao";
   public static final String REFEREE = "referee-1";
   public static final String SCOREKEEPER = "scorekeeper";
+
+  /**
+   * The real suggested-result chain, built by the container from the rules package, so its order is
+   * the {@code @Order} the beans declare, never a list written out here. Built once: it holds no
+   * state.
+   */
+  private static final ResultRules RULES;
+
+  static {
+    try (AnnotationConfigApplicationContext rules =
+        new AnnotationConfigApplicationContext("com.management.kumitegame.rules")) {
+      RULES = rules.getBean(ResultRules.class);
+    }
+  }
 
   private TestGames() {
     throw new IllegalStateException("Utility class cannot be instantiated");
@@ -61,15 +77,26 @@ public final class TestGames {
         List.of(new PanelMember(REFEREE, PanelRole.REFEREE)));
   }
 
+  /** The real result rules, ordered as the application orders them. */
+  public static ResultRules rules() {
+    return RULES;
+  }
+
   /** An elimination game, not started, with an athlete on each side and one referee. */
   public static KumiteGame game() {
+    return game(GameFormat.ELIMINATION, false, false);
+  }
+
+  /** A game of this format, not started, with an athlete on each side and one referee. */
+  public static KumiteGame game(GameFormat format, boolean medalGame, boolean extraGame) {
     return KumiteGame.create(
         GAME_ID,
-        newGame(GameFormat.ELIMINATION, false, false),
+        newGame(format, medalGame, extraGame),
         settings(),
         ids("created"),
         SCOREKEEPER,
-        TestClock.NOW);
+        TestClock.NOW,
+        RULES);
   }
 
   /** Ids that differ from each other and from every id a test names. */

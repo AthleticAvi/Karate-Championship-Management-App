@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -50,8 +51,13 @@ public final class KumiteGame {
   private final List<Amendment> amendments;
   private final List<Result> results;
   private final List<StatusChange> statusChanges;
+  private final ResultRules rules;
 
-  /** A game as stored. Any history loads: see {@link GameFold}. */
+  /**
+   * A game as stored. Any history loads: see {@link GameFold}.
+   *
+   * @param rules the result rules the game is folded with, so every read sees the suggestion
+   */
   public KumiteGame(
       String id,
       GameFormat format,
@@ -65,7 +71,8 @@ public final class KumiteGame {
       List<SenshuRecord> senshuRecords,
       List<Amendment> amendments,
       List<Result> results,
-      List<StatusChange> statusChanges) {
+      List<StatusChange> statusChanges,
+      ResultRules rules) {
     this.id = id;
     this.format = format;
     this.medalGame = medalGame;
@@ -81,6 +88,7 @@ public final class KumiteGame {
     this.amendments = new ArrayList<>(amendments);
     this.results = new ArrayList<>(results);
     this.statusChanges = new ArrayList<>(statusChanges);
+    this.rules = rules;
   }
 
   /**
@@ -95,7 +103,8 @@ public final class KumiteGame {
       Settings settings,
       Supplier<String> entryIds,
       String recordedBy,
-      Instant now) {
+      Instant now,
+      ResultRules rules) {
     if (newGame.akaAthleteId().equals(newGame.aoAthleteId())) {
       throw new InvalidGameRequestException(
           "An athlete cannot fight themselves: both sides were given athlete "
@@ -148,7 +157,8 @@ public final class KumiteGame {
         List.of(),
         List.of(),
         List.of(),
-        List.of());
+        List.of(),
+        rules);
   }
 
   /** Everything derived from the entries. */
@@ -188,15 +198,14 @@ public final class KumiteGame {
       ClockTolerance.checkClockRemaining(
           state.mainClock(), score.clockRemainingMs(), now, settings, raised);
     }
-    scoresOf(score.side())
-        .add(
-            new Score(
-                score.level(),
-                score.source(),
-                exchange,
-                score.clockRemainingMs(),
-                next(score.id(), state, recordedBy, now, raised)));
-    return Recorded.applied(raised);
+    return append(
+        scoresOf(score.side()),
+        meta -> new Score(score.level(), score.source(), exchange, score.clockRemainingMs(), meta),
+        score.id(),
+        state,
+        recordedBy,
+        now,
+        raised);
   }
 
   public Recorded recordPenalty(NewPenalty penalty, String recordedBy, Instant now) {
@@ -229,15 +238,16 @@ public final class KumiteGame {
           state.mainClock(), penalty.clockRemainingMs(), now, settings, raised);
     }
     Integer exchange = penalty.exchange() != null ? penalty.exchange() : state.currentExchange();
-    penaltiesOf(penalty.side())
-        .add(
+    return append(
+        penaltiesOf(penalty.side()),
+        meta ->
             new Penalty(
-                penalty.level(),
-                penalty.infraction(),
-                exchange,
-                penalty.clockRemainingMs(),
-                next(penalty.id(), state, recordedBy, now, raised)));
-    return Recorded.applied(raised);
+                penalty.level(), penalty.infraction(), exchange, penalty.clockRemainingMs(), meta),
+        penalty.id(),
+        state,
+        recordedBy,
+        now,
+        raised);
   }
 
   public Recorded recordClockAction(NewClockAction action, String recordedBy, Instant now) {
@@ -255,16 +265,22 @@ public final class KumiteGame {
     List<Warning> raised = admit(EntryKind.CLOCK_ACTION, state);
     ClockTolerance.checkTimeShown(
         state.clock(action.timer(), action.side()), action.timeShownMs(), now, settings, raised);
-    clockActions.add(
-        new ClockAction(
-            action.timer(),
-            action.side(),
-            action.action(),
-            action.timeShownMs(),
-            action.amountMs(),
-            action.pauseReason(),
-            next(action.id(), state, recordedBy, now, raised)));
-    return Recorded.applied(raised);
+    return append(
+        clockActions,
+        meta ->
+            new ClockAction(
+                action.timer(),
+                action.side(),
+                action.action(),
+                action.timeShownMs(),
+                action.amountMs(),
+                action.pauseReason(),
+                meta),
+        action.id(),
+        state,
+        recordedBy,
+        now,
+        raised);
   }
 
   /**
@@ -299,15 +315,21 @@ public final class KumiteGame {
     } else {
       SenshuWarnings.checkWithdrawal(state, record.side(), raised);
     }
-    senshuRecords.add(
-        new SenshuRecord(
-            record.side(),
-            record.kind(),
-            record.reason(),
-            exchange,
-            record.clockRemainingMs(),
-            next(record.id(), state, recordedBy, now, raised)));
-    return Recorded.applied(raised);
+    return append(
+        senshuRecords,
+        meta ->
+            new SenshuRecord(
+                record.side(),
+                record.kind(),
+                record.reason(),
+                exchange,
+                record.clockRemainingMs(),
+                meta),
+        record.id(),
+        state,
+        recordedBy,
+        now,
+        raised);
   }
 
   /**
@@ -343,15 +365,21 @@ public final class KumiteGame {
               + ".");
     }
     List<Warning> raised = admit(EntryKind.ASSIGNMENT, state);
-    assignments.add(
-        new Assignment(
-            assignment.kind(),
-            side,
-            assignment.athleteId(),
-            assignment.refereeId(),
-            assignment.role(),
-            next(assignment.id(), state, recordedBy, now, raised)));
-    return Recorded.applied(raised);
+    return append(
+        assignments,
+        meta ->
+            new Assignment(
+                assignment.kind(),
+                side,
+                assignment.athleteId(),
+                assignment.refereeId(),
+                assignment.role(),
+                meta),
+        assignment.id(),
+        state,
+        recordedBy,
+        now,
+        raised);
   }
 
   /**
@@ -412,16 +440,21 @@ public final class KumiteGame {
                   id -> !state.isCancelled(id) && !id.equals(amendment.targetId()),
                   raised));
     }
-    amendments.add(
-        new Amendment(
-            amendment.kind(),
-            amendment.targetId(),
-            amendment.reason(),
-            next(amendment.id(), state, recordedBy, now, raised)));
-    return Recorded.applied(raised);
+    return append(
+        amendments,
+        meta -> new Amendment(amendment.kind(), amendment.targetId(), amendment.reason(), meta),
+        amendment.id(),
+        state,
+        recordedBy,
+        now,
+        raised);
   }
 
-  /** Records a result as given. A later one supersedes it, and it stays on record. */
+  /**
+   * Records a result as given. A later one supersedes it, and it stays on record. The suggestion it
+   * was recorded against is kept on it, and a result that does not agree with it is recorded with a
+   * warning: see {@link SuggestedResult}.
+   */
   public Recorded recordResult(NewResult result, String recordedBy, Instant now) {
     Optional<Recorded> replay =
         replayOf(
@@ -442,6 +475,10 @@ public final class KumiteGame {
     if (state.status() != GameStatus.NOT_STARTED || !result.reason().isBeforeTheStart()) {
       raised = admit(EntryKind.RESULT, state);
     }
+    SuggestedResult suggested = state.suggested();
+    if (!SuggestedResult.agrees(suggested, result)) {
+      raised.add(Warning.RESULT_DIFFERS_FROM_SUGGESTION);
+    }
     results.add(
         new Result(
             result.outcome(),
@@ -449,6 +486,7 @@ public final class KumiteGame {
             result.reason(),
             result.reasonDetail(),
             result.bothDisqualified(),
+            suggested,
             next(result.id(), state, recordedBy, now, raised)));
     return Recorded.applied(raised);
   }
@@ -494,6 +532,35 @@ public final class KumiteGame {
         new StatusChange(
             change.kind(), change.reason(), next(change.id(), state, recordedBy, now, raised)));
     return Recorded.applied(raised);
+  }
+
+  /**
+   * Appends an entry. While DECIDED, an entry is a correction: when it changes the suggestion, or
+   * takes it away, and the result that stands no longer agrees with it, it carries a warning, and
+   * nothing reopens.
+   */
+  private <E extends Entry> Recorded append(
+      List<E> list,
+      Function<EntryMeta, E> entry,
+      String entryId,
+      GameState before,
+      String recordedBy,
+      Instant now,
+      List<Warning> raised) {
+    list.add(entry.apply(next(entryId, before, recordedBy, now, raised)));
+    if (before.status() == GameStatus.DECIDED && suggestionNowDiffers(before, state())) {
+      raised.add(Warning.SUGGESTION_DIFFERS_FROM_RESULT);
+      list.set(list.size() - 1, entry.apply(next(entryId, before, recordedBy, now, raised)));
+    }
+    return Recorded.applied(raised);
+  }
+
+  /** The suggestion changed, and the result that stands does not agree with it now. */
+  private static boolean suggestionNowDiffers(GameState before, GameState after) {
+    Result current = after.currentResult();
+    return current != null
+        && !Objects.equals(after.suggested(), before.suggested())
+        && !SuggestedResult.agrees(after.suggested(), current);
   }
 
   private static String verb(StatusChangeKind kind) {
@@ -719,6 +786,10 @@ public final class KumiteGame {
 
   public List<StatusChange> statusChanges() {
     return Collections.unmodifiableList(statusChanges);
+  }
+
+  ResultRules rules() {
+    return rules;
   }
 
   /** A stored game: equal only to the same game. */

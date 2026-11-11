@@ -6,6 +6,7 @@ import com.management.kumitegame.data.KumiteGameRepository;
 import com.management.kumitegame.domain.GameNotFoundException;
 import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.Recorded;
+import com.management.kumitegame.domain.ResultRules;
 import java.util.function.Function;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.resilience.annotation.Retryable;
@@ -30,9 +31,11 @@ import org.springframework.stereotype.Service;
 public class KumiteGameWriter {
 
   private final KumiteGameRepository kumiteGameRepository;
+  private final ResultRules rules;
 
-  public KumiteGameWriter(KumiteGameRepository kumiteGameRepository) {
+  public KumiteGameWriter(KumiteGameRepository kumiteGameRepository, ResultRules rules) {
     this.kumiteGameRepository = kumiteGameRepository;
+    this.rules = rules;
   }
 
   /** The game after the action, and what the action did. */
@@ -58,13 +61,13 @@ public class KumiteGameWriter {
         kumiteGameRepository
             .findById(gameId)
             .orElseThrow(() -> new GameNotFoundException("No game has the id " + gameId));
-    KumiteGame game = KumiteGameDocumentMapper.toDomain(stored);
+    KumiteGame game = KumiteGameDocumentMapper.toDomain(stored, rules);
     Recorded recorded = action.apply(game);
     if (recorded.replayed()) {
       return new Applied(game, recorded);
     }
     KumiteGameDocument saved =
         kumiteGameRepository.save(KumiteGameDocumentMapper.toDocument(game, stored));
-    return new Applied(KumiteGameDocumentMapper.toDomain(saved), recorded);
+    return new Applied(KumiteGameDocumentMapper.toDomain(saved, rules), recorded);
   }
 }

@@ -34,9 +34,10 @@ public class KumiteGameDocument {
    *   <li>1: the first shape.
    *   <li>2: adds {@code senshuRecords}. A shape 1 game reads with none.
    *   <li>3: adds {@code statusChanges}. A shape 2 game reads with none.
+   *   <li>4: adds {@code suggested} to each result. A shape 3 result reads with none.
    * </ul>
    */
-  public static final int CURRENT_SCHEMA_VERSION = 3;
+  public static final int CURRENT_SCHEMA_VERSION = 4;
 
   @Id private String id;
 
@@ -154,13 +155,24 @@ public class KumiteGameDocument {
 
   public record StoredAmendment(String kind, String targetId, String reason, StoredMeta meta) {}
 
+  /**
+   * A result as given.
+   *
+   * @param suggested what the rules suggested when it was recorded; absent when they suggested
+   *     nothing, and in a shape 3 game
+   */
   public record StoredResult(
       String outcome,
       String winner,
       String reason,
       String reasonDetail,
       boolean bothDisqualified,
+      StoredSuggestedResult suggested,
       StoredMeta meta) {}
+
+  /** A suggested result, kept on the result it was recorded against. */
+  public record StoredSuggestedResult(
+      String outcome, String winner, String reason, boolean bothDisqualified) {}
 
   public record StoredStatusChange(String kind, String reason, StoredMeta meta) {}
 

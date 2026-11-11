@@ -11,6 +11,7 @@ import com.management.kumitegame.data.KumiteGameDocument.StoredSenshuRecord;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSettings;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSide;
 import com.management.kumitegame.data.KumiteGameDocument.StoredStatusChange;
+import com.management.kumitegame.data.KumiteGameDocument.StoredSuggestedResult;
 import com.management.kumitegame.domain.Amendment;
 import com.management.kumitegame.domain.AmendmentKind;
 import com.management.kumitegame.domain.Assignment;
@@ -28,6 +29,7 @@ import com.management.kumitegame.domain.Penalty;
 import com.management.kumitegame.domain.PenaltyLevel;
 import com.management.kumitegame.domain.Result;
 import com.management.kumitegame.domain.ResultReason;
+import com.management.kumitegame.domain.ResultRules;
 import com.management.kumitegame.domain.Score;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
@@ -37,6 +39,7 @@ import com.management.kumitegame.domain.Settings;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.StatusChange;
 import com.management.kumitegame.domain.StatusChangeKind;
+import com.management.kumitegame.domain.SuggestedResult;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
 import java.time.Instant;
@@ -64,17 +67,19 @@ public final class KumiteGameDocumentMapper {
    * A stored value this build cannot read, such as an enum name it no longer has, is a fault in the
    * stored data, never the caller's: it surfaces as an {@link IllegalStateException}, a 500, and
    * not as the 400 an {@link IllegalArgumentException} would answer.
+   *
+   * @param rules the result rules the game is folded with
    */
-  public static KumiteGame toDomain(KumiteGameDocument document) {
+  public static KumiteGame toDomain(KumiteGameDocument document, ResultRules rules) {
     try {
-      return read(document);
+      return read(document, rules);
     } catch (IllegalArgumentException unreadable) {
       throw new IllegalStateException(
           "Game " + document.getId() + " is stored in a form this build cannot read", unreadable);
     }
   }
 
-  private static KumiteGame read(KumiteGameDocument document) {
+  private static KumiteGame read(KumiteGameDocument document, ResultRules rules) {
     if (document.getSchemaVersion() > KumiteGameDocument.CURRENT_SCHEMA_VERSION) {
       throw new IllegalStateException(
           "Game "
@@ -107,7 +112,8 @@ public final class KumiteGameDocumentMapper {
         list(document.getSenshuRecords(), KumiteGameDocumentMapper::senshuRecord),
         list(document.getAmendments(), KumiteGameDocumentMapper::amendment),
         list(document.getResults(), KumiteGameDocumentMapper::result),
-        list(document.getStatusChanges(), KumiteGameDocumentMapper::statusChange));
+        list(document.getStatusChanges(), KumiteGameDocumentMapper::statusChange),
+        rules);
   }
 
   /**
@@ -336,7 +342,28 @@ public final class KumiteGameDocumentMapper {
         ResultReason.valueOf(stored.reason()),
         stored.reasonDetail(),
         stored.bothDisqualified(),
+        suggested(stored.suggested()),
         meta(stored.meta()));
+  }
+
+  private static SuggestedResult suggested(StoredSuggestedResult stored) {
+    return stored == null
+        ? null
+        : new SuggestedResult(
+            Outcome.valueOf(stored.outcome()),
+            parse(Side.class, stored.winner()),
+            ResultReason.valueOf(stored.reason()),
+            stored.bothDisqualified());
+  }
+
+  private static StoredSuggestedResult storedSuggested(SuggestedResult suggested) {
+    return suggested == null
+        ? null
+        : new StoredSuggestedResult(
+            suggested.outcome().name(),
+            name(suggested.winner()),
+            suggested.reason().name(),
+            suggested.bothDisqualified());
   }
 
   private static StoredResult storedResult(Result result) {
@@ -346,6 +373,7 @@ public final class KumiteGameDocumentMapper {
         result.reason().name(),
         result.reasonDetail(),
         result.bothDisqualified(),
+        storedSuggested(result.suggested()),
         storedMeta(result.meta()));
   }
 
