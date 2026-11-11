@@ -18,7 +18,9 @@ covers the `service` package of each feature.
 ## [owns] Owns
 
 - `KumiteGameService`, in `kumitegame.service`: creates and reads games, and records every action
-  on one. Reads the athletes and referees a game names, and composes `GameRead`.
+  on one. Reads the athletes and referees a game names, and composes `GameRead`. Builds every game
+  with the `ResultRules` bean from `kumitegame.rules`, as `KumiteGameWriter` does, so each read and
+  action sees the suggestion.
 - `KumiteGameWriter`, in `kumitegame.service`: reads a game, applies an action, saves it against the
   version it read. Appends retry; absolute actions do not. See `[writes]`.
 - `GameReferences`, in `kumitegame.service`: answers `AthleteReferences` and `RefereeReferences`,
@@ -32,8 +34,8 @@ covers the `service` package of each feature.
 
 ## [may-call] May call
 
-Its own feature's `data` and `domain`, the `service` and `domain` of a feature it may use, and
-`config`. Never a `web` package: the gateway maps a request first, and a strict rule enforces it.
+Its own feature's `data`, `rules` and `domain`, the `service` and `domain` of a feature it may use,
+and `config`. Never a `web` package: the gateway maps a request first, and a strict rule enforces it.
 
 ## [dependencies] Dependencies are one way
 

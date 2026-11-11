@@ -77,7 +77,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `AthleteResponse` | `/api/v1/athletes`, and `current` in an update's 409 | `id`, `name`, `weightKg` |
 | `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
