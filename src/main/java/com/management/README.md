@@ -94,7 +94,7 @@ Exception types sit in the `domain` package of the feature that throws them, and
 
 ## [not-built] Not built yet
 
-- **SENSHU records, sign-off (APPROVE, REOPEN, VOID), the suggested result and the public view:**
+- **Sign-off (APPROVE, REOPEN, VOID), the suggested result and the public view:**
   later issues of the Structure and engine milestone.
 - **The round-robin effective score** after a forfeit: the setting exists, nothing reads it yet.
 - **ETag on reads:** planned, not built.

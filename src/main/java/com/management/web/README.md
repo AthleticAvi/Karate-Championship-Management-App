@@ -33,7 +33,7 @@ In the feature packages:
 
 - `KumiteGameController` at `/api/v1/kumite-games`: creates and reads games, and records each
   action on one through a sub-resource that reads as a thing: `settings`, `scores`, `penalties`,
-  `clock-actions`, `assignments`, `amendments`, `results`.
+  `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`.
 - `AthleteController` at `/api/v1/athletes`: creates, reads, updates and deletes athletes.
 - `RefereeController` at `/api/v1/referees`: creates, reads, renames and deletes referees.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
@@ -77,7 +77,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `amendments`, `results`, `currentResult`, `warnings`, `serverTime` |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `AthleteResponse` | `/api/v1/athletes`, and `current` in an update's 409 | `id`, `name`, `weightKg` |
 | `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
@@ -92,7 +92,7 @@ live in the web packages and `security` already depends on it, so the reverse wo
 | Level | Endpoints under `/api/v1` |
 |---|---|
 | Public | `GET /athletes/{athleteId}`, `GET /referees/{refereeId}` |
-| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `assignments`, `amendments`, `results` |
+| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results` |
 | Admin | `POST /athletes`, `PUT /athletes/{athleteId}`, `DELETE /athletes/{athleteId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
 Any Scorekeeper may act on any game: there is no assignment of scorekeepers. A game is read by a
@@ -126,7 +126,9 @@ between this contract and a silent shift under a dependency upgrade.
 - **An athlete or referee a game names is `{id, name, known}`.** One deleted in the accepted race
   reads `"name": null, "known": false`, never a 500.
 - **Every entry carries `meta`:** `id`, `order`, `recordedAt`, `recordedBy`, `raisedWarnings`. A
-  score or penalty also says whether it was `cancelled`.
+  score, penalty or SENSHU record also says whether it was `cancelled`.
+- **SENSHU is `senshu` on each side and `senshuClosed` on the game,** derived on every read. Both
+  sides are never true.
 - **Enums serialise as their names**, uppercase, exactly as declared. An absent value is `null`.
 
 ## [mutations] Mutations return the new state
@@ -252,7 +254,8 @@ Each feature's `web` package holds the shapes of its part of the API: records th
 no logic.
 
 - `kumitegame.web`: `KumiteGameRequest` with `PanelMemberRequest`, `SettingsRequest`,
-  `ScoreRequest`, `PenaltyRequest`, `ClockActionRequest`, `AssignmentRequest`, `AmendmentRequest`,
+  `ScoreRequest`, `PenaltyRequest`, `ClockActionRequest`, `SenshuRecordRequest`,
+  `AssignmentRequest`, `AmendmentRequest`,
   `ResultRequest`, `RecordedResponse`, and `KumiteGameResponse` with its nested records.
 - `athlete.web`: `AthleteRequest`, the body of a create and an update, and `AthleteResponse`.
 - `referee.web`: `RefereeRequest`, the body of a create and a rename, and `RefereeResponse`.
