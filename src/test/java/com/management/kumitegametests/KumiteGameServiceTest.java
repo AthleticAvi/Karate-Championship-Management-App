@@ -18,10 +18,12 @@ import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
 import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.ActingRole;
 import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameFormat;
+import com.management.kumitegame.domain.GameStatus;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewAssignment;
@@ -29,6 +31,7 @@ import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.Recording;
@@ -36,6 +39,7 @@ import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.kumitegame.service.KumiteGameWriter;
@@ -269,6 +273,39 @@ class KumiteGameServiceTest {
             changed -> {
               assertThat(changed.current().game().scores(Side.AO)).hasSize(1);
               assertThat(changed.current().game().results()).isEmpty();
+            });
+    verify(repository).save(any(KumiteGameDocument.class));
+  }
+
+  /** Approve, reopen and void take the same path: a lost race answers the game, untried again. */
+  @Test
+  void statusChange_thatLosesRace_answersTheCurrentGameAndIsNotRetried() {
+    String gameId = created();
+    willAnswer(
+            call -> {
+              KumiteGameDocument stored = storage.findById(KumiteGameDocument.class, gameId).get();
+              KumiteGame other = KumiteGameDocumentMapper.toDomain(stored);
+              other.recordResult(
+                  new NewResult("other", Outcome.WIN, Side.AO, ResultReason.KIKEN, null, false),
+                  "another-scorekeeper",
+                  TestClock.NOW);
+              storage.save(KumiteGameDocumentMapper.toDocument(other, stored));
+              throw new OptimisticLockingFailureException("stale version");
+            })
+        .given(repository)
+        .save(any(KumiteGameDocument.class));
+
+    assertThatThrownBy(() ->
+            service.recordStatusChange(
+                gameId,
+                new NewStatusChange("v1", StatusChangeKind.VOID, "never fought"),
+                ActingRole.ADMIN,
+                "admin"))
+        .isInstanceOfSatisfying(
+            GameChangedException.class,
+            changed -> {
+              assertThat(changed.current().state().status()).isEqualTo(GameStatus.DECIDED);
+              assertThat(changed.current().game().statusChanges()).isEmpty();
             });
     verify(repository).save(any(KumiteGameDocument.class));
   }

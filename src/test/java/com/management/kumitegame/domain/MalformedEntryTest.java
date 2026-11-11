@@ -106,13 +106,16 @@ class MalformedEntryTest {
             List.of(
                 new Amendment(AmendmentKind.CANCEL, "a1", null, meta("m1", 8)),
                 new Amendment(AmendmentKind.ACKNOWLEDGE, "missing", null, meta("m2", 9))),
-            List.of());
+            List.of(),
+            List.of(
+                new StatusChange(StatusChangeKind.APPROVE, null, meta("z1", 10)),
+                new StatusChange(StatusChangeKind.REOPEN, null, meta("z2", 11))));
 
     GameState state = stored.state();
 
     assertThat(state.warnings())
         .extracting(GameWarning::entryId)
-        .containsExactly("a2", "a3", "a4", "c1", "c2", "m1", "m2");
+        .containsExactly("a2", "a3", "a4", "c1", "c2", "m1", "m2", "z1", "z2");
     assertThat(state.side(Side.AKA).athleteId()).isEqualTo("aka");
     assertThat(state.status()).isEqualTo(GameStatus.FIGHTING);
     assertThat(state.panel()).isEmpty();

@@ -11,7 +11,8 @@ import org.jspecify.annotations.Nullable;
  * Everything derived from a game's entries, folded in order. Never stored.
  *
  * @param exchange the number of main-clock starts so far
- * @param currentResult the latest result
+ * @param currentResult the latest result; none after a reopen of a DECIDED game supersedes it, or
+ *     after a void
  * @param timeUpAt when the main clock reached zero, while the game is TIME_UP
  * @param senshu who holds SENSHU, and whether it is closed
  * @param cancelledIds the scores, penalties and SENSHU records a CANCEL took back

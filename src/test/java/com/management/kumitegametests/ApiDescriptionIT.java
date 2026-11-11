@@ -121,6 +121,11 @@ class ApiDescriptionIT {
         .contains("current");
     assertThat(response("post", GAME + "/results", "409").get("description").asString())
         .contains("current");
+    assertThat(statusesOf(operation("post", GAME + "/status-changes")))
+        .as("a Scorekeeper row that states the 403 the game answers for an Admin's move")
+        .containsExactly("200", "400", "401", "403", "404", "409", "413", "415", "500");
+    assertThat(response("post", GAME + "/status-changes", "409").get("description").asString())
+        .contains("current");
     assertThat(statusesOf(operation("get", REFEREE))).containsExactly("200", "401", "404", "500");
     assertThat(statusesOf(operation("put", REFEREE)))
         .containsExactly("200", "400", "401", "403", "404", "409", "413", "415", "500");
@@ -220,6 +225,7 @@ class ApiDescriptionIT {
             "AssignmentRequest",
             "AmendmentRequest",
             "ResultRequest",
+            "StatusChangeRequest",
             "KumiteGameRequest")) {
       assertThat(schema(request).get("properties").propertyNames())
           .doesNotContain("recordedBy", "recordedAt", "order");
@@ -228,7 +234,7 @@ class ApiDescriptionIT {
 
   @Test
   void signedInIdentity_staysOutOfTheParameters() {
-    for (String path : List.of(GAME + "/scores", GAME + "/results")) {
+    for (String path : List.of(GAME + "/scores", GAME + "/results", GAME + "/status-changes")) {
       List<String> names = new ArrayList<>();
       operation("post", path).get("parameters").forEach(p -> names.add(p.get("name").asString()));
 

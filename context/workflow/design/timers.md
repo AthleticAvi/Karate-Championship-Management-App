@@ -24,6 +24,9 @@ Status: enforced
   because nothing was counting in memory.
 - **Do not rely on a scheduled job firing at zero** for correctness. A restart loses it. Learn of
   zero from a client report, or derive it on the next read or write.
+- **A final state stops its timers in the fold.** When a state refuses every later timer action,
+  a timer running as it is entered can never be paused, and the derived time counts down for
+  ever. Stop each timer at the instant of the move into it.
 
 ## [client-time] The time the person saw is the fact
 

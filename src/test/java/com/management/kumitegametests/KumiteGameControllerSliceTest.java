@@ -14,6 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.management.athlete.domain.Athlete;
+import com.management.kumitegame.domain.ActingRole;
+import com.management.kumitegame.domain.ActionForbiddenException;
 import com.management.kumitegame.domain.ActionRefusedException;
 import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
@@ -27,6 +29,7 @@ import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
 import com.management.kumitegame.domain.NewSenshuRecord;
+import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.PanelRole;
@@ -36,6 +39,7 @@ import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
 import com.management.referee.domain.Referee;
@@ -153,7 +157,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
            "meta": {"id": "k1", "order": 6, "recordedAt": "2026-01-01T12:00:02Z",
                     "recordedBy": "scorekeeper", "raisedWarnings": []}}
         ],
-        "amendments": [], "results": [], "currentResult": null, "warnings": [],
+        "amendments": [], "results": [], "currentResult": null, "statusChanges": [],
+        "warnings": [],
         "serverTime": "2026-01-01T12:00:02Z"
       }
       """
@@ -370,6 +375,100 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.detail").value("A WIN names a winner."));
+  }
+
+  /** A voided game, as a mutation answers it. */
+  private static Recording voided() {
+    KumiteGame game = TestGames.game();
+    game.recordStatusChange(
+        new NewStatusChange("v1", StatusChangeKind.VOID, "never fought"),
+        ActingRole.ADMIN,
+        "aiko",
+        LATER);
+    return new Recording(new GameRead(game, game.state(), Map.of(), Map.of(), LATER), List.of());
+  }
+
+  @Test
+  void statusChange_byScorekeeper_isMappedWhole_withTheScorekeeperRole() throws Exception {
+    NewStatusChange expected = new NewStatusChange("z1", StatusChangeKind.APPROVE, null);
+    given(
+            kumiteGameService()
+                .recordStatusChange("game-1", expected, ActingRole.SCOREKEEPER, "kenta"))
+        .willReturn(voided());
+
+    mockMvc
+        .perform(
+            post(GAME + "/status-changes", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"z1\", \"kind\": \"APPROVE\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.game.status").value("VOIDED"))
+        .andExpect(jsonPath("$.game.currentResult").isEmpty())
+        .andExpect(
+            content()
+                .json(
+                    """
+                    {"game": {"statusChanges": [
+                      {"kind": "VOID", "reason": "never fought",
+                       "meta": {"id": "v1", "order": 4, "recordedAt": "2026-01-01T12:00:02Z",
+                                "recordedBy": "aiko", "raisedWarnings": []}}
+                    ]}}
+                    """,
+                    JsonCompareMode.LENIENT));
+
+    then(kumiteGameService())
+        .should()
+        .recordStatusChange("game-1", expected, ActingRole.SCOREKEEPER, "kenta");
+  }
+
+  /** The role comes from the signed-in account, by the account role's name. */
+  @Test
+  @WithMockUser(username = "aiko", roles = "ADMIN")
+  void statusChange_byAdmin_passesTheAdminRole() throws Exception {
+    NewStatusChange expected = new NewStatusChange("v1", StatusChangeKind.VOID, "protest accepted");
+    given(kumiteGameService().recordStatusChange("game-1", expected, ActingRole.ADMIN, "aiko"))
+        .willReturn(voided());
+
+    mockMvc
+        .perform(
+            post(GAME + "/status-changes", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"v1\", \"kind\": \"VOID\", \"reason\": \"protest accepted\"}"))
+        .andExpect(status().isOk());
+
+    then(kumiteGameService())
+        .should()
+        .recordStatusChange("game-1", expected, ActingRole.ADMIN, "aiko");
+  }
+
+  /** The role table admits the endpoint, so the game refuses the move with the same 403. */
+  @Test
+  void adminOnlyMove_fromScorekeeper_isForbidden_withTheReason() throws Exception {
+    given(kumiteGameService().recordStatusChange(eq("game-1"), any(), any(), anyString()))
+        .willThrow(new ActionForbiddenException("Only an Admin may void a game that is DECIDED."));
+
+    mockMvc
+        .perform(
+            post(GAME + "/status-changes", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"v1\", \"kind\": \"VOID\", \"reason\": \"protest\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.title").value("Access denied"))
+        .andExpect(jsonPath("$.detail").value("Only an Admin may void a game that is DECIDED."));
+  }
+
+  @Test
+  void statusChangeWithoutKind_isRefusedNamingTheField() throws Exception {
+    mockMvc
+        .perform(
+            post(GAME + "/status-changes", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"z1\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors.kind").exists());
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
   @Test

@@ -25,6 +25,11 @@ public record ClockState(boolean running, long remainingMs, @Nullable Instant si
     return Math.max(0, remainingMs - passed);
   }
 
+  /** The clock stopped at {@code at}, keeping the time it had left then. */
+  ClockState stoppedAt(Instant at) {
+    return new ClockState(false, remainingAt(at), at);
+  }
+
   /**
    * The clock after an action, per the clock table: only ADD_TIME keeps the run state, and only
    * START and ADD_TIME keep the time left. A second START or PAUSE changes nothing but the instant.

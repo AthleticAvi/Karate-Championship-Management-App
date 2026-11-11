@@ -33,7 +33,7 @@ In the feature packages:
 
 - `KumiteGameController` at `/api/v1/kumite-games`: creates and reads games, and records each
   action on one through a sub-resource that reads as a thing: `settings`, `scores`, `penalties`,
-  `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`.
+  `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`, `status-changes`.
 - `AthleteController` at `/api/v1/athletes`: creates, reads, updates and deletes athletes.
 - `RefereeController` at `/api/v1/referees`: creates, reads, renames and deletes referees.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
@@ -77,7 +77,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `AthleteResponse` | `/api/v1/athletes`, and `current` in an update's 409 | `id`, `name`, `weightKg` |
 | `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
@@ -92,10 +92,13 @@ live in the web packages and `security` already depends on it, so the reverse wo
 | Level | Endpoints under `/api/v1` |
 |---|---|
 | Public | `GET /athletes/{athleteId}`, `GET /referees/{refereeId}` |
-| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results` |
+| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`, `status-changes` |
 | Admin | `POST /athletes`, `PUT /athletes/{athleteId}`, `DELETE /athletes/{athleteId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
-Any Scorekeeper may act on any game: there is no assignment of scorekeepers. A game is read by a
+Any Scorekeeper may act on any game: there is no assignment of scorekeepers. `status-changes` admits
+both roles because the role a move needs depends on the game's status: reopening an APPROVED game
+and voiding are an Admin's, and the game refuses them to a Scorekeeper with a 403. See `[status]`
+in `src/main/java/com/management/kumitegame/domain/README.md`. A game is read by a
 Scorekeeper or an Admin until the public view exists. Athletes follow the levels `/players` had,
 and the referees': listed for the owner to confirm. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
@@ -105,7 +108,11 @@ each answer means is in the security README.
 ## [identity] Who did it
 
 A controller that records who acted takes `java.security.Principal` and passes `getName()` down as a
-plain string: every game mutation, which stores it as the entry's `recordedBy`. No request has room
+plain string: every game mutation, which stores it as the entry's `recordedBy`. A status change also
+passes the role, as `ActingRole`, from `HttpServletRequest.isUserInRole`: the servlet API, which
+Spring Security answers, and which the description leaves out like `Principal`. The role is found
+by the account role's name, which `ActingRoleTest` ties, because the game feature may not import the
+account's type. No request has room
 for it, and a body that still sends one is not refused: the field is not read. `Principal` is the
 JDK's type, so the description does not list it as a parameter and no Spring Security type comes
 near the signature.
@@ -220,6 +227,9 @@ record as it now stands, in words only: the shared problem schema cannot list it
 not carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409
 on deleting an athlete or referee comes from the rules: a game names it.
 
+A game's `status-changes` states its 403 and its 409 too: its row is at Scorekeeper level, and the
+game refuses an Admin's move from a Scorekeeper.
+
 `ApiDescriptionIT` pins these rules, and compares 400, 401, 404 and the success codes with real
 answers. A 401 is on public reads too, because wrong credentials are refused there. A 403 is on Admin
 rows only, because a Scorekeeper row admits both roles an account can hold. Every row but a public
@@ -256,7 +266,7 @@ no logic.
 - `kumitegame.web`: `KumiteGameRequest` with `PanelMemberRequest`, `SettingsRequest`,
   `ScoreRequest`, `PenaltyRequest`, `ClockActionRequest`, `SenshuRecordRequest`,
   `AssignmentRequest`, `AmendmentRequest`,
-  `ResultRequest`, `RecordedResponse`, and `KumiteGameResponse` with its nested records.
+  `ResultRequest`, `StatusChangeRequest`, `RecordedResponse`, and `KumiteGameResponse` with its nested records.
 - `athlete.web`: `AthleteRequest`, the body of a create and an update, and `AthleteResponse`.
 - `referee.web`: `RefereeRequest`, the body of a create and a rename, and `RefereeResponse`.
 - `account.web`: `AccountRequest`, `AccountResponse`.
@@ -299,13 +309,14 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
 | Missing or wrong credentials | 401 | `AuthenticationException` (framework) | fixed, the same for every cause |
 | Valid credentials without the role | 403 | `AccessDeniedException` (framework) | fixed |
+| A move the game keeps for an Admin, from a Scorekeeper: reopening an APPROVED game, voiding | 403 | `ActionForbiddenException` | the message |
 | Body past the JSON size limit | 413 | `HttpMessageNotReadableException` (framework) | generic |
 | A username already taken | 409 | `AccountAlreadyExistsException` | the message |
 | Removing the last Admin | 409 | `LastAdminException` | the message |
 | A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
 | A referee rename that lost to another write | 409 | `RefereeChangedException` | fixed, plus a `current` extension property holding the referee as it now stands. Not retried |
 | An athlete update that lost to another write | 409 | `AthleteChangedException` | fixed, plus `current`, the athlete as it now stands. Not retried |
-| Setting the time, a result or a settings change that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
+| Setting the time, a result, a settings change, or an approve, reopen or void that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
 | An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides | 409 | `ActionRefusedException` | the message |
 | Deleting an athlete or referee a game names | 409 | `AthleteInUseException`, `RefereeInUseException` | the message |
 | No such game | 404 | `GameNotFoundException` | the message |

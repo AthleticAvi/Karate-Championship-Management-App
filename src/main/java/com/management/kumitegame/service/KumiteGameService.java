@@ -4,6 +4,7 @@ import com.management.athlete.service.AthleteService;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
 import com.management.kumitegame.data.KumiteGameRepository;
+import com.management.kumitegame.domain.ActingRole;
 import com.management.kumitegame.domain.Assignment;
 import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
@@ -23,6 +24,7 @@ import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
 import com.management.kumitegame.domain.NewSenshuRecord;
 import com.management.kumitegame.domain.NewSettings;
+import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.Recorded;
 import com.management.kumitegame.domain.Recording;
@@ -47,8 +49,8 @@ import org.springframework.stereotype.Service;
  *
  * <p><strong>Appends retry, absolute actions do not.</strong> A score, penalty, clock action,
  * SENSHU record, assignment or amendment goes through {@link KumiteGameWriter#append}. Setting the
- * time, recording a result and changing the settings set a value, so a lost race answers 409 with
- * the game as it now stands: see {@code [version-writes]} in {@code
+ * time, recording a result, changing the settings, and approving, reopening or voiding set a value,
+ * so a lost race answers 409 with the game as it now stands: see {@code [version-writes]} in {@code
  * context/workflow/design/concurrency-consistency.md}.
  */
 @Service
@@ -153,6 +155,18 @@ public class KumiteGameService {
 
   public Recording recordResult(String gameId, NewResult result, String recordedBy) {
     return absolute(gameId, game -> game.recordResult(result, recordedBy, clock.instant()));
+  }
+
+  /**
+   * Approves, reopens or voids. Absolute: a move chosen against a status that has since changed is
+   * not what the caller meant.
+   *
+   * @param role the role the signed-in account acts under, which some moves need
+   */
+  public Recording recordStatusChange(
+      String gameId, NewStatusChange change, ActingRole role, String recordedBy) {
+    return absolute(
+        gameId, game -> game.recordStatusChange(change, role, recordedBy, clock.instant()));
   }
 
   private Recording append(String gameId, Function<KumiteGame, Recorded> action) {

@@ -33,9 +33,10 @@ public class KumiteGameDocument {
    * <ul>
    *   <li>1: the first shape.
    *   <li>2: adds {@code senshuRecords}. A shape 1 game reads with none.
+   *   <li>3: adds {@code statusChanges}. A shape 2 game reads with none.
    * </ul>
    */
-  public static final int CURRENT_SCHEMA_VERSION = 2;
+  public static final int CURRENT_SCHEMA_VERSION = 3;
 
   @Id private String id;
 
@@ -53,6 +54,7 @@ public class KumiteGameDocument {
   private List<StoredSenshuRecord> senshuRecords;
   private List<StoredAmendment> amendments;
   private List<StoredResult> results;
+  private List<StoredStatusChange> statusChanges;
   @CreatedDate private Instant createdAt;
   @LastModifiedDate private Instant modifiedAt;
 
@@ -72,6 +74,7 @@ public class KumiteGameDocument {
       List<StoredSenshuRecord> senshuRecords,
       List<StoredAmendment> amendments,
       List<StoredResult> results,
+      List<StoredStatusChange> statusChanges,
       Instant createdAt,
       Instant modifiedAt) {
     this.id = id;
@@ -87,6 +90,7 @@ public class KumiteGameDocument {
     this.senshuRecords = senshuRecords;
     this.amendments = amendments;
     this.results = results;
+    this.statusChanges = statusChanges;
     this.createdAt = createdAt;
     this.modifiedAt = modifiedAt;
   }
@@ -158,6 +162,8 @@ public class KumiteGameDocument {
       boolean bothDisqualified,
       StoredMeta meta) {}
 
+  public record StoredStatusChange(String kind, String reason, StoredMeta meta) {}
+
   public String getId() {
     return id;
   }
@@ -208,6 +214,10 @@ public class KumiteGameDocument {
 
   public List<StoredResult> getResults() {
     return results;
+  }
+
+  public List<StoredStatusChange> getStatusChanges() {
+    return statusChanges;
   }
 
   public Instant getCreatedAt() {

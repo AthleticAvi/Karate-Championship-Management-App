@@ -37,7 +37,8 @@ public final class ApiAccess {
 
   /**
    * A game is read by a Scorekeeper or an Admin: the public view of a game is a later addition.
-   * Athletes follow the referee levels.
+   * Athletes follow the referee levels. A status change admits both, because which role a move
+   * needs depends on the game's status: the game refuses an Admin's move from a Scorekeeper.
    */
   public static final List<Rule> RULES =
       List.of(
@@ -53,6 +54,7 @@ public final class ApiAccess {
           new Rule(HttpMethod.POST, ONE_GAME + "/assignments", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/amendments", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/results", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/status-changes", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ATHLETES, Level.ADMIN),
           new Rule(HttpMethod.PUT, ONE_ATHLETE, Level.ADMIN),
           new Rule(HttpMethod.DELETE, ONE_ATHLETE, Level.ADMIN),

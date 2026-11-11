@@ -62,7 +62,7 @@ class RepresentationCharacterizationTest {
     // The id is given before the insert; the version and the schema version are stored.
     assertThat(stored.get("_id")).isEqualTo(TestGames.GAME_ID);
     assertThat(stored.get("version")).isEqualTo(0L);
-    assertThat(stored.get("schemaVersion")).isEqualTo(2);
+    assertThat(stored.get("schemaVersion")).isEqualTo(3);
     // Spring Data writes a type hint alongside the data.
     assertThat(stored.get("_class")).isEqualTo("com.management.kumitegame.data.KumiteGameDocument");
     // Enums are stored as their names.
@@ -94,6 +94,7 @@ class RepresentationCharacterizationTest {
                 "senshuRecords",
                 "amendments",
                 "results",
+                "statusChanges",
                 "sides",
                 "settings"));
   }

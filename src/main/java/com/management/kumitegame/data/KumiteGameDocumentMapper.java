@@ -10,6 +10,7 @@ import com.management.kumitegame.data.KumiteGameDocument.StoredScore;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSenshuRecord;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSettings;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSide;
+import com.management.kumitegame.data.KumiteGameDocument.StoredStatusChange;
 import com.management.kumitegame.domain.Amendment;
 import com.management.kumitegame.domain.AmendmentKind;
 import com.management.kumitegame.domain.Assignment;
@@ -34,6 +35,8 @@ import com.management.kumitegame.domain.SenshuRecord;
 import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Settings;
 import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.StatusChange;
+import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
 import java.time.Instant;
@@ -103,7 +106,8 @@ public final class KumiteGameDocumentMapper {
         list(document.getClockActions(), KumiteGameDocumentMapper::clockAction),
         list(document.getSenshuRecords(), KumiteGameDocumentMapper::senshuRecord),
         list(document.getAmendments(), KumiteGameDocumentMapper::amendment),
-        list(document.getResults(), KumiteGameDocumentMapper::result));
+        list(document.getResults(), KumiteGameDocumentMapper::result),
+        list(document.getStatusChanges(), KumiteGameDocumentMapper::statusChange));
   }
 
   /**
@@ -150,6 +154,7 @@ public final class KumiteGameDocumentMapper {
         game.senshuRecords().stream().map(KumiteGameDocumentMapper::storedSenshuRecord).toList(),
         game.amendments().stream().map(KumiteGameDocumentMapper::storedAmendment).toList(),
         game.results().stream().map(KumiteGameDocumentMapper::storedResult).toList(),
+        game.statusChanges().stream().map(KumiteGameDocumentMapper::storedStatusChange).toList(),
         createdAt,
         modifiedAt);
   }
@@ -342,6 +347,15 @@ public final class KumiteGameDocumentMapper {
         result.reasonDetail(),
         result.bothDisqualified(),
         storedMeta(result.meta()));
+  }
+
+  private static StatusChange statusChange(StoredStatusChange stored) {
+    return new StatusChange(
+        StatusChangeKind.valueOf(stored.kind()), stored.reason(), meta(stored.meta()));
+  }
+
+  private static StoredStatusChange storedStatusChange(StatusChange change) {
+    return new StoredStatusChange(change.kind().name(), change.reason(), storedMeta(change.meta()));
   }
 
   private static <S, T> List<T> list(List<S> stored, Function<S, T> read) {

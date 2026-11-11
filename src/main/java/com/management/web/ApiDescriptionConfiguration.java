@@ -163,8 +163,9 @@ class ApiDescriptionConfiguration {
   }
 
   /**
-   * Wrong credentials answer 401 on any operation, a public read included. Only an Admin rule can
-   * answer 403: a Scorekeeper rule admits both roles an account can hold.
+   * Wrong credentials answer 401 on any operation, a public read included. By rule, only an Admin
+   * row answers 403: a Scorekeeper row admits both roles an account can hold. An operation whose
+   * domain refuses a role, such as a game's status changes, states its own 403.
    */
   private static void addAccess(ApiAccess.Level level, Operation operation) {
     addFailure(operation, HttpStatus.UNAUTHORIZED);

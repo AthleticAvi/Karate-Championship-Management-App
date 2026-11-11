@@ -3,6 +3,7 @@ package com.management.kumitegame.data;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.management.kumitegame.domain.ActingRole;
 import com.management.kumitegame.domain.AmendmentKind;
 import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
@@ -16,6 +17,7 @@ import com.management.kumitegame.domain.NewPenalty;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
 import com.management.kumitegame.domain.NewSenshuRecord;
+import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.PauseReason;
@@ -25,12 +27,15 @@ import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.Timer;
 import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGames;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Every field of a game survives the trip to its stored form and back. */
 class KumiteGameDocumentMapperTest {
@@ -79,6 +84,16 @@ class KumiteGameDocumentMapperTest {
         new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, "10-second rule", true),
         SK,
         t.plusSeconds(16));
+    game.recordStatusChange(
+        new NewStatusChange("z1", StatusChangeKind.APPROVE, null),
+        ActingRole.SCOREKEEPER,
+        SK,
+        t.plusSeconds(17));
+    game.recordStatusChange(
+        new NewStatusChange("z2", StatusChangeKind.REOPEN, "protest accepted"),
+        ActingRole.ADMIN,
+        SK,
+        t.plusSeconds(18));
     return game;
   }
 
@@ -100,6 +115,7 @@ class KumiteGameDocumentMapperTest {
             fresh.getSenshuRecords(),
             fresh.getAmendments(),
             fresh.getResults(),
+            fresh.getStatusChanges(),
             CREATED,
             MODIFIED));
   }
@@ -172,6 +188,7 @@ class KumiteGameDocumentMapperTest {
             current.getSenshuRecords(),
             current.getAmendments(),
             current.getResults(),
+            current.getStatusChanges(),
             CREATED,
             MODIFIED);
 
@@ -199,6 +216,7 @@ class KumiteGameDocumentMapperTest {
             current.getSenshuRecords(),
             current.getAmendments(),
             current.getResults(),
+            current.getStatusChanges(),
             CREATED,
             MODIFIED);
 
@@ -208,21 +226,23 @@ class KumiteGameDocumentMapperTest {
         .hasMessageContaining("cannot read");
   }
 
-  /** A list stored as absent, such as one added to the shape later, reads as empty: shape 1 too. */
-  @Test
-  void absentLists_readAsEmpty() {
+  /** A list stored as absent, such as one added to the shape later, reads as empty: shapes 1, 2. */
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2})
+  void absentLists_readAsEmpty(int schemaVersion) {
     KumiteGameDocument current = KumiteGameDocumentMapper.toNewDocument(TestGames.game());
     KumiteGameDocument sparse =
         new KumiteGameDocument(
             current.getId(),
             1,
-            1,
+            schemaVersion,
             current.getFormat(),
             false,
             false,
             current.getSettings(),
             null,
             current.getAssignments(),
+            null,
             null,
             null,
             null,
@@ -235,6 +255,7 @@ class KumiteGameDocumentMapperTest {
     assertThat(read.scores(Side.AKA)).isEmpty();
     assertThat(read.results()).isEqualTo(List.of());
     assertThat(read.senshuRecords()).isEmpty();
+    assertThat(read.statusChanges()).isEmpty();
     assertThat(read.state().side(Side.AO).athleteId()).isEqualTo(TestGames.AO_ATHLETE);
   }
 }
