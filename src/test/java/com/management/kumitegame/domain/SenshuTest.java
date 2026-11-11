@@ -449,7 +449,7 @@ class SenshuTest {
     void cancelledScore_leavingTheHolderOnlyOpposedScores_warns() {
       start();
       score(Side.AKA, null, at(5));
-      String unopposed = lastId();
+      final String unopposed = lastId();
       award(Side.AKA, at(6));
       pauseAndRestart(at(10), 110_000, at(11));
       score(Side.AKA, null, at(12));
