@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -18,11 +19,13 @@ import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
 import com.management.kumitegame.data.KumiteGameRepository;
 import com.management.kumitegame.domain.AssignmentKind;
+import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameFormat;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewAssignment;
+import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
@@ -33,6 +36,7 @@ import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.kumitegame.service.KumiteGameWriter;
 import com.management.referee.domain.Referee;
@@ -179,6 +183,43 @@ class KumiteGameServiceTest {
                 gameId,
                 new NewAssignment(
                     "a1", AssignmentKind.PANEL_ADD, null, null, "nobody", PanelRole.JUDGE),
+                "scorekeeper"))
+        .isInstanceOf(InvalidGameRequestException.class);
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+  }
+
+  /** SET_TIME sets a value, so it takes the absolute path: a lost race is not retried. */
+  @Test
+  void setTime_thatLosesRace_answersTheCurrentGame_andOtherClockActionsAppend() {
+    String gameId = created();
+    service.recordClockAction(
+        gameId,
+        new NewClockAction("c1", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+        "scorekeeper");
+    willThrow(new OptimisticLockingFailureException("stale version"))
+        .given(repository)
+        .save(any(KumiteGameDocument.class));
+
+    assertThatThrownBy(() ->
+            service.recordClockAction(
+                gameId,
+                new NewClockAction(
+                    "c2", Timer.MAIN, null, ClockActionKind.SET_TIME, 119_000, 60_000L, null),
+                "scorekeeper"))
+        .isInstanceOfSatisfying(
+            GameChangedException.class,
+            changed -> assertThat(changed.current().game().clockActions()).hasSize(1));
+  }
+
+  @Test
+  void athleteAssignment_ofAthleteThatDoesNotExist_writesNothing() {
+    String gameId = created();
+    clearInvocations(repository);
+
+    assertThatThrownBy(() ->
+            service.recordAssignment(
+                gameId,
+                new NewAssignment("a1", AssignmentKind.ATHLETE, Side.AKA, "nobody", null, null),
                 "scorekeeper"))
         .isInstanceOf(InvalidGameRequestException.class);
     verify(repository, never()).save(any(KumiteGameDocument.class));
