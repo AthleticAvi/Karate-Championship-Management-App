@@ -157,11 +157,13 @@ final class GameFold {
    */
   private void senshu(SenshuRecord record) {
     senshuRecords.add(record);
-    Long shown =
-        Objects.equals(record.exchange(), exchange == 0 ? null : exchange)
-            ? record.clockRemainingMs()
-            : null;
-    if (SenshuFold.inFinalWindow(shown, mainClock, record.meta().recordedAt(), settings)) {
+    if (SenshuFold.inFinalWindow(
+        record.exchange(),
+        record.clockRemainingMs(),
+        exchange == 0 ? null : exchange,
+        mainClock,
+        record.meta().recordedAt(),
+        settings)) {
       senshuInFinalWindow.add(record.id());
     }
   }

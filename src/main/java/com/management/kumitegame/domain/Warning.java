@@ -7,7 +7,7 @@ package com.management.kumitegame.domain;
 public enum Warning {
   /** The time the screen showed is further from the derived clock than the tolerance allows. */
   TIME_SHOWN_OUT_OF_TOLERANCE,
-  /** The clock remaining sent with a score or penalty is outside the tolerance. */
+  /** The clock remaining sent with a score, penalty or SENSHU record is outside the tolerance. */
   CLOCK_REMAINING_OUT_OF_TOLERANCE,
   SCORE_BEFORE_START,
   /** A score in TIME_UP later than the late-score window allows (Article 8.10). */
@@ -24,7 +24,9 @@ public enum Warning {
   RESULT_BEFORE_START,
   /** A result while one stands: it supersedes the current one. */
   RESULT_WHILE_DECIDED,
+  /** SENSHU recorded before the start. */
   SENSHU_BEFORE_START,
+  /** SENSHU recorded while a result stands. */
   SENSHU_AFTER_RESULT,
   /**
    * SENSHU awarded when the other side scored in the same exchange, or such a score recorded after

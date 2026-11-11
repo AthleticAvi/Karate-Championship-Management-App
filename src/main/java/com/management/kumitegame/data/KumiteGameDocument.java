@@ -25,8 +25,17 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document("kumiteGame")
 public class KumiteGameDocument {
 
-  /** The shape this class writes. Raise it when a field is renamed, moved or changes meaning. */
-  public static final int CURRENT_SCHEMA_VERSION = 1;
+  /**
+   * The shape this class writes. Raise it when a field is added, renamed, moved or changes meaning:
+   * a build that does not know a field would drop it on its next save, so it must refuse the shape
+   * instead.
+   *
+   * <ul>
+   *   <li>1: the first shape.
+   *   <li>2: adds {@code senshuRecords}. A shape 1 game reads with none.
+   * </ul>
+   */
+  public static final int CURRENT_SCHEMA_VERSION = 2;
 
   @Id private String id;
 

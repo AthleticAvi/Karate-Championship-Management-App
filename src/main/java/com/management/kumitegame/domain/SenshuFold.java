@@ -74,14 +74,22 @@ final class SenshuFold {
   /**
    * Whether an action came in the final window: fewer than the window's milliseconds left (Articles
    * 12.2.8, 12.2.10). The time left is the clock remaining the action was sent with, the time its
-   * screen showed, or the main clock at that instant when it was sent with none.
+   * screen showed. The main clock at that instant decides instead when it was sent with none, or
+   * when the action names an earlier exchange, whose time it then carries: the window is about when
+   * the action is taken. The penalty warning and the closure both decide it here.
    *
-   * @param clockRemainingMs the time shown, passed only for an action in the current exchange: one
-   *     naming an earlier exchange carries that exchange's time, not the time it was given at
+   * @param exchange the exchange the action names; empty means the current one
+   * @param currentExchange the exchange open when the action is taken; empty before the start
    */
   static boolean inFinalWindow(
-      @Nullable Long clockRemainingMs, ClockState mainClock, Instant at, Settings settings) {
-    long left = clockRemainingMs != null ? clockRemainingMs : mainClock.remainingAt(at);
+      @Nullable Integer exchange,
+      @Nullable Long clockRemainingMs,
+      @Nullable Integer currentExchange,
+      ClockState mainClock,
+      Instant at,
+      Settings settings) {
+    boolean current = exchange == null || exchange.equals(currentExchange);
+    long left = current && clockRemainingMs != null ? clockRemainingMs : mainClock.remainingAt(at);
     return left < settings.finalWindowMs();
   }
 }

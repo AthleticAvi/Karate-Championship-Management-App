@@ -229,6 +229,9 @@ retries. The check runs per game, inside the versioned save:
 - **After the December championship there is real data.** From then on, every change to a stored
   shape needs a migration, or a mapper that reads both shapes. See `[schema-versioning]` in
   `context/workflow/databases/mongodb/design/persistence.md`.
+- **A new field raises the schema version too.** A build that does not know a field ignores it on
+  read and drops it on its next save, so after a rollback the data is gone. Raised, the older build
+  refuses the game instead. Shape 2 added `senshuRecords`; a shape 1 game reads with none.
 - **The type hint follows the package.** Spring Data stores each document's class name in `_class`,
   so moving a document class changes it on every later write. A document whose name no longer loads
   still reads, through the declared type.

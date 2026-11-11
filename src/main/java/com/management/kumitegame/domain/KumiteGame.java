@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
@@ -174,14 +175,12 @@ public final class KumiteGame {
     GameState state = state();
     List<Warning> raised = admit(EntryKind.SCORE, state);
     LateScore.check(state, now, settings, raised);
-    Integer scoreExchange = score.exchange() != null ? score.exchange() : state.currentExchange();
-    SenshuWarnings.checkScore(
-        score.side(), scoreExchange, standingAward(state).orElse(null), raised);
+    Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
+    SenshuWarnings.checkScore(score.side(), exchange, standingAward(state).orElse(null), raised);
     if (isCurrentExchange(score.exchange(), state)) {
       ClockTolerance.checkClockRemaining(
           state.mainClock(), score.clockRemainingMs(), now, settings, raised);
     }
-    Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
     scoresOf(score.side())
         .add(
             new Score(
@@ -211,7 +210,9 @@ public final class KumiteGame {
         penalty.side(),
         penalty.infraction(),
         SenshuFold.inFinalWindow(
-            isCurrentExchange(penalty.exchange(), state) ? penalty.clockRemainingMs() : null,
+            penalty.exchange(),
+            penalty.clockRemainingMs(),
+            state.currentExchange(),
             state.mainClock(),
             now,
             settings),
@@ -449,8 +450,7 @@ public final class KumiteGame {
         senshuRecords.stream()
             .sorted(Comparator.comparingInt(record -> record.meta().order()))
             .toList();
-    Set<String> before =
-        Set.copyOf(SenshuFold.replay(inOrder, state::isCancelled, record -> false).conflicting());
+    Set<String> before = skippedIds(state);
     return SenshuFold.replay(
             inOrder, id -> state.isCancelled(id) || id.equals(targetId), record -> false)
         .conflicting()
@@ -458,13 +458,26 @@ public final class KumiteGame {
         .anyMatch(id -> !before.contains(id));
   }
 
-  /** The award the holder holds SENSHU by: the latest standing AWARDED, when a side holds it. */
+  /**
+   * The award the holder holds SENSHU by: the latest AWARDED of the holder's side that is neither
+   * cancelled nor skipped by the fold.
+   */
   private Optional<SenshuRecord> standingAward(GameState state) {
+    Set<String> skipped = skippedIds(state);
     return senshuRecords.stream()
         .filter(record -> record.kind() == SenshuRecordKind.AWARDED)
         .filter(record -> state.senshu().isHeldBy(record.side()))
-        .filter(record -> !state.isCancelled(record.id()))
+        .filter(record -> !state.isCancelled(record.id()) && !skipped.contains(record.id()))
         .max(Comparator.comparingInt(record -> record.meta().order()));
+  }
+
+  /** The entries the fold skipped as history it cannot fold as written. */
+  private static Set<String> skippedIds(GameState state) {
+    return state.warnings().stream()
+        .filter(warning -> warning.code() == Warning.HISTORY_INCONSISTENT)
+        .map(GameWarning::entryId)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   /** The side whose list holds the score this id names, if it names a score. */

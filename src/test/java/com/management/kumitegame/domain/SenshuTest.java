@@ -540,5 +540,42 @@ class SenshuTest {
               new GameWarning(Warning.HISTORY_INCONSISTENT, "s1"),
               new GameWarning(Warning.HISTORY_INCONSISTENT, "s2"));
     }
+
+    /** The holder holds SENSHU by the award the fold applied, never by one it skipped. */
+    @Test
+    void opposingScoreWarning_followsTheAppliedAward_notSkippedOne() {
+      KumiteGame stored =
+          new KumiteGame(
+              "game-7",
+              GameFormat.ELIMINATION,
+              false,
+              false,
+              TestGames.settings(),
+              Map.of(),
+              Map.of(),
+              TestGames.game().assignments(),
+              List.of(),
+              List.of(
+                  new SenshuRecord(
+                      Side.AKA, SenshuRecordKind.AWARDED, null, 1, null, meta("s1", 4)),
+                  new SenshuRecord(
+                      Side.AKA, SenshuRecordKind.AWARDED, null, 3, null, meta("s2", 5))),
+              List.of(),
+              List.of());
+
+      Recorded inFirst =
+          stored.recordScore(
+              new NewScore("o1", Side.AO, ScoreLevel.YUKO, ScoreSource.VIDEO_REVIEW, 1, null),
+              SK,
+              T0);
+      Recorded inSkipped =
+          stored.recordScore(
+              new NewScore("o2", Side.AO, ScoreLevel.YUKO, ScoreSource.VIDEO_REVIEW, 3, null),
+              SK,
+              T0);
+
+      assertThat(inFirst.raisedWarnings()).contains(Warning.SENSHU_WHEN_BOTH_SCORED);
+      assertThat(inSkipped.raisedWarnings()).doesNotContain(Warning.SENSHU_WHEN_BOTH_SCORED);
+    }
   }
 }

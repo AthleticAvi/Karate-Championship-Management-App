@@ -125,7 +125,7 @@ class KumiteGameDocumentMapperTest {
     assertThat(written).usingRecursiveComparison().isEqualTo(stored);
     assertThat(written.getVersion()).isEqualTo(7);
     assertThat(written.getCreatedAt()).isEqualTo(CREATED);
-    assertThat(written.getSchemaVersion()).isEqualTo(1);
+    assertThat(written.getSchemaVersion()).isEqualTo(KumiteGameDocument.CURRENT_SCHEMA_VERSION);
   }
 
   @Test
@@ -177,7 +177,7 @@ class KumiteGameDocumentMapperTest {
 
     assertThatThrownBy(() -> KumiteGameDocumentMapper.toDomain(newer))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("schema version 2");
+        .hasMessageContaining("schema version " + (KumiteGameDocument.CURRENT_SCHEMA_VERSION + 1));
   }
 
   /** A stored value this build cannot read is a fault in the data, never the caller's 400. */
@@ -208,7 +208,7 @@ class KumiteGameDocumentMapperTest {
         .hasMessageContaining("cannot read");
   }
 
-  /** A list stored as absent, such as one added to the shape later, reads as empty. */
+  /** A list stored as absent, such as one added to the shape later, reads as empty: shape 1 too. */
   @Test
   void absentLists_readAsEmpty() {
     KumiteGameDocument current = KumiteGameDocumentMapper.toNewDocument(TestGames.game());
