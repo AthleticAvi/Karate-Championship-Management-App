@@ -95,31 +95,33 @@ final class GameFold {
   }
 
   /**
-   * A reopen of a DECIDED game returns to the status before the result, as the clock has moved it
-   * since, and supersedes the result; a reopen of an APPROVED one returns to DECIDED with its
-   * result standing. A void annuls the game: its result stays on record, and none is current.
+   * Where each move lands. Whether it may be taken at all is the status matrix's, so a move the
+   * matrix refuses where it lands is skipped.
+   *
+   * <p>A reopen of a DECIDED game returns to the status before the result, as the clock has moved
+   * it since; a reopen of an APPROVED one returns to DECIDED. Only DECIDED and APPROVED hold a
+   * current result, so a reopen to before the result, or a void, supersedes it, and it stays on
+   * record. A final game takes no clock action, so its clocks stop when it becomes final.
    */
   private void changeStatus(StatusChange change) {
-    GameStatus after =
-        switch (change.kind()) {
-          case APPROVE -> status == GameStatus.DECIDED ? GameStatus.APPROVED : null;
-          case REOPEN ->
-              switch (status) {
-                case DECIDED -> statusBeforeResult;
-                case APPROVED -> GameStatus.DECIDED;
-                default -> null;
-              };
-          case VOID -> status == GameStatus.VOIDED ? null : GameStatus.VOIDED;
-        };
-    if (after == null) {
+    if (EntryKind.of(change.kind()).admission(status).refused()) {
       skip(change);
       return;
     }
-    if ((status == GameStatus.DECIDED && change.kind() == StatusChangeKind.REOPEN)
-        || change.kind() == StatusChangeKind.VOID) {
+    status =
+        switch (change.kind()) {
+          case APPROVE -> GameStatus.APPROVED;
+          case REOPEN -> status == GameStatus.APPROVED ? GameStatus.DECIDED : statusBeforeResult;
+          case VOID -> GameStatus.VOIDED;
+        };
+    if (status != GameStatus.DECIDED && status != GameStatus.APPROVED) {
       currentResult = null;
     }
-    status = after;
+    if (status.isFinal()) {
+      Instant at = change.meta().recordedAt();
+      mainClock = mainClock.stoppedAt(at);
+      medicalClocks.replaceAll((side, clock) -> clock.stoppedAt(at));
+    }
   }
 
   /** Every side has a tally from construction on. */
@@ -175,12 +177,12 @@ final class GameFold {
   }
 
   /**
-   * Only the main clock moves the status, and never out of DECIDED: only a result ends a game. Time
-   * put back after zero returns to FIGHTING only if the clock then has time left, so SET_TIME to 0
-   * stays TIME_UP.
+   * The main clock moves the status between NOT_STARTED, FIGHTING and TIME_UP, and never ends a
+   * game: only a result, a reopen and a void leave those. Time put back after zero returns to
+   * FIGHTING only if the clock then has time left, so SET_TIME to 0 stays TIME_UP.
    *
-   * <p>While DECIDED, the clock still moves the status a reopen returns to, so a reopened game's
-   * status agrees with its clock.
+   * <p>While DECIDED, the clock moves the status a reopen returns to instead, so a reopened game's
+   * status agrees with its clock. A final game takes no clock action.
    */
   private void moveStatus(ClockActionKind action, Instant at) {
     boolean decided = status == GameStatus.DECIDED;

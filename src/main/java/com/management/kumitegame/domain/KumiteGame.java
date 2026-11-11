@@ -161,8 +161,10 @@ public final class KumiteGame {
    * changes its rules mid-way. No history is kept, since nothing has happened yet.
    */
   public Recorded changeSettings(NewSettings newSettings) {
+    GameState state = state();
+    refuseIfFinal(EntryKind.SETTINGS_CHANGE, state);
     Settings changed = newSettings.under(settings.rulebookVersion());
-    admit(EntryKind.SETTINGS_CHANGE, state());
+    admit(EntryKind.SETTINGS_CHANGE, state);
     this.settings = changed;
     return Recorded.applied(List.of());
   }
@@ -247,8 +249,9 @@ public final class KumiteGame {
     if (replay.isPresent()) {
       return replay.get();
     }
-    requireWellFormed(action);
     GameState state = state();
+    refuseIfFinal(EntryKind.CLOCK_ACTION, state);
+    requireWellFormed(action);
     List<Warning> raised = admit(EntryKind.CLOCK_ACTION, state);
     ClockTolerance.checkTimeShown(
         state.clock(action.timer(), action.side()), action.timeShownMs(), now, settings, raised);
@@ -279,6 +282,7 @@ public final class KumiteGame {
       return replay.get();
     }
     GameState state = state();
+    refuseIfFinal(EntryKind.SENSHU_RECORD, state);
     Side holder = state.senshu().holder();
     if (record.kind() == SenshuRecordKind.AWARDED && holder != null) {
       throw new ActionRefusedException(
@@ -320,8 +324,9 @@ public final class KumiteGame {
     if (replay.isPresent()) {
       return replay.get();
     }
-    requireWellFormed(assignment);
     GameState state = state();
+    refuseIfFinal(EntryKind.ASSIGNMENT, state);
+    requireWellFormed(assignment);
     Side side = assignment.side();
     String athleteId = assignment.athleteId();
     if (assignment.kind() == AssignmentKind.ATHLETE
@@ -367,6 +372,7 @@ public final class KumiteGame {
       return replay.get();
     }
     GameState state = state();
+    refuseIfFinal(EntryKind.AMENDMENT, state);
     Entry target =
         entries()
             .map(SidedEntry::entry)
@@ -424,13 +430,14 @@ public final class KumiteGame {
     if (replay.isPresent()) {
       return replay.get();
     }
+    GameState state = state();
+    refuseIfFinal(EntryKind.RESULT, state);
     if ((result.outcome() == Outcome.WIN) != (result.winner() != null)) {
       throw new InvalidGameRequestException(
           "A WIN names a winner, and a "
               + result.outcome()
               + (result.outcome() == Outcome.WIN ? " needs one." : " has none."));
     }
-    GameState state = state();
     List<Warning> raised = new ArrayList<>();
     if (state.status() != GameStatus.NOT_STARTED || !result.reason().isBeforeTheStart()) {
       raised = admit(EntryKind.RESULT, state);
@@ -578,6 +585,16 @@ public final class KumiteGame {
    */
   private static boolean isCurrentExchange(@Nullable Integer named, GameState state) {
     return named == null || named.equals(state.currentExchange());
+  }
+
+  /**
+   * A final game refuses every recording before anything else is checked, so the caller is never
+   * told to fix what would still be refused.
+   */
+  private static void refuseIfFinal(EntryKind kind, GameState state) {
+    if (state.status().isFinal()) {
+      admit(kind, state);
+    }
   }
 
   private static List<Warning> admit(EntryKind kind, GameState state) {

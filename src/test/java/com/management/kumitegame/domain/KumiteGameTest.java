@@ -1091,6 +1091,54 @@ class KumiteGameTest {
           .isInstanceOf(ActionRefusedException.class);
     }
 
+    /** A final game takes no clock action, so a clock left running would count down for ever. */
+    @ParameterizedTest
+    @EnumSource(
+        value = StatusChangeKind.class,
+        names = {"APPROVE", "VOID"})
+    void finalGame_stopsItsClocks_atTheMove(StatusChangeKind kind) {
+      start();
+      medical(Side.AO, ClockActionKind.START, 180_000, at(5));
+      result(Outcome.WIN, Side.AKA, ResultReason.POINTS, at(10));
+
+      game.recordStatusChange(new NewStatusChange(id(), kind, "x"), ActingRole.ADMIN, SK, at(20));
+
+      GameState state = game.state();
+      assertThat(state.mainClock().running()).isFalse();
+      assertThat(state.mainClock().remainingAt(at(60))).isEqualTo(100_000);
+      assertThat(state.medicalClock(Side.AO).running()).isFalse();
+      assertThat(state.medicalClock(Side.AO).remainingAt(at(60))).isEqualTo(165_000);
+    }
+
+    /** The final status refuses first, so the caller is not sent to fix what stays refused. */
+    @Test
+    void finalGame_refusesBeforeAnyOtherCheck() {
+      bring(GameStatus.VOIDED);
+
+      assertThatThrownBy(() ->
+              game.recordResult(
+                  new NewResult(id(), Outcome.WIN, null, ResultReason.POINTS, null, false), SK, T0))
+          .isInstanceOf(ActionRefusedException.class);
+      assertThatThrownBy(() ->
+              game.recordAmendment(
+                  new NewAmendment(id(), AmendmentKind.CANCEL, "missing", null), SK, T0))
+          .isInstanceOf(ActionRefusedException.class)
+          .hasMessageContaining("VOIDED");
+      assertThatThrownBy(() ->
+              game.recordClockAction(
+                  new NewClockAction(
+                      id(), Timer.MAIN, null, ClockActionKind.SET_TIME, 0, null, null),
+                  SK,
+                  T0))
+          .isInstanceOf(ActionRefusedException.class);
+      assertThatThrownBy(() ->
+              game.recordAssignment(
+                  new NewAssignment(id(), AssignmentKind.ATHLETE, null, null, null, null), SK, T0))
+          .isInstanceOf(ActionRefusedException.class);
+      assertThatThrownBy(() -> game.changeSettings(newSettings(0)))
+          .isInstanceOf(ActionRefusedException.class);
+    }
+
     /** Append refuses these, so only history written under other rules can hold them. */
     @Test
     void entriesAfterFinalStatus_inStoredHistory_areSkippedWithWarning() {

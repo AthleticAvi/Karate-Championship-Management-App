@@ -143,6 +143,12 @@ while DECIDED, or any medical timer action.
   to DECIDED with the same one. The scorekeeper then records a corrected result, which warns
   `RESULT_WHILE_DECIDED` as any second result does, or reopens again to before the result.
 - **A void annuls the result.** It stays in `results`, and `currentResult` is empty.
+- **A final game stops its clocks.** APPROVED and VOIDED take no clock action, so the main clock
+  and both medical timers stop, with the time they had, at the approve or the void. An Admin's
+  reopen leaves them stopped.
+- **A final game refuses first.** Every other check on an action, such as a WIN with no winner or
+  a CANCEL of something missing, comes after, so the caller is never sent to fix what stays
+  refused.
 - **An Admin may do whatever a Scorekeeper may,** so an Admin may approve, and reopen a DECIDED
   game, with no reason. A reason is needed only for an Admin's own moves.
 - **The role is a plain value.** The gateway passes `ActingRole`, named as the account roles, the

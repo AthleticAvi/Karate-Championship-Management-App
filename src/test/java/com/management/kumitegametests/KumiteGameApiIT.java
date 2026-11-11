@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.bson.Document;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -339,7 +340,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
         .isEqualTo("SENSHU_WHEN_BOTH_SCORED");
   }
 
-  private static String statusChange(String id, String kind, String reason) {
+  private static String statusChange(String id, String kind, @Nullable String reason) {
     return reason == null
         ? "{\"id\": \"%s\", \"kind\": \"%s\"}".formatted(id, kind)
         : "{\"id\": \"%s\", \"kind\": \"%s\", \"reason\": \"%s\"}".formatted(id, kind, reason);
