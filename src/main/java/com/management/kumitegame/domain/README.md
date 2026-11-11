@@ -38,7 +38,11 @@ a game, by recording a result, and only an Admin annuls one.
     `NewSenshuRecord`, `NewAssignment`, `NewAmendment`, `NewResult`, `NewStatusChange`: what the
     client sent, mapped by the gateway. `ActingRole`, the role the signed-in account acts under.
   - Derived values `GameState`, `SideState`, `ClockState`, `SenshuState`, `GameWarning`, folded by
-    `GameFold`. `SenshuFold` replays the SENSHU records.
+    `GameFold`. `SenshuFold` replays the SENSHU records. `EffectiveScores` derives each side's
+    `EffectiveScore`.
+  - The suggested result: `ResultRules`, the port the `kumitegame.rules` chain implements,
+    `Standing`, what it reads, and `SuggestedResult`, what it answers, which also decides whether a
+    result agrees with it. See `src/main/java/com/management/kumitegame/rules/README.md`.
   - The rules: `EntryKind`, the status matrix, and one class per warning, `ClockTolerance`,
     `LateScore`, `PenaltyLadder`, `SenshuWarnings` and `FormatCombination`, each reading the
     settings snapshot.
@@ -50,7 +54,13 @@ a game, by recording a result, and only an Admin annuls one.
 ## [may-call] May call
 
 Other `domain` types: `kumitegame.domain` uses `athlete.domain` and `referee.domain`. Never a
-`service`, `data` or `web` package, and no Spring Data type: strict rules in `ArchitectureTest`.
+`service`, `rules`, `data` or `web` package, and no Spring Data type: strict rules in
+`ArchitectureTest`.
+
+The suggestion comes from `kumitegame.rules` through `ResultRules`, a port the domain owns. A game
+is built with it, through `KumiteGame.create` or the data mapper, so its fold includes the
+suggestion and no action needs it passed in. The port must answer for any standing: the fold never
+throws.
 
 ## [model] The game: entries, everything else derived
 
@@ -85,6 +95,14 @@ id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`.
   of one target, a target that does not exist. To undo a mistaken CANCEL, record the entry again.
 - **Results are recorded as given.** Only a WIN names a winner. A later result supersedes the
   current one, which stays in `results`. So does a reopen of a DECIDED game, and a void.
+- **The suggestion is derived, and kept on each result.** `GameState.suggested` is what the rules
+  point to now, none on a VOIDED game. Each result stores `suggested`, the suggestion it was
+  recorded against, so later corrections never change what the scorekeeper saw.
+- **The effective score is derived from the result that stands.** In round robin, a WIN by
+  HANSOKU, KIKEN or SHIKKAKU gives the loser 0, and the winner the higher of
+  `roundRobinForfeitPoints` and what it scored, the points added as YUKO; a double disqualification
+  gives both 0 (Articles 10.7.1, 6.2, 12.3.2). A HANSOKU with no result yet changes nothing.
+  Elimination keeps what was scored. No score entry is ever added.
 - **The panel applies as given.** Adding a referee already on it changes the role, and removing
   one not on it changes nothing. One athlete on both sides is refused.
 
@@ -248,6 +266,8 @@ A warning is applied, stored on the entry and returned. It is never confirmed fi
 | `SENSHU_HOLDER_AVOIDING_COMBAT` | A penalty to the holder, in the final window, that names an avoiding-combat infraction, whatever its level. Not checked without an infraction | 12.2.8, 10.4.16 |
 | `SENSHU_HOLDER_WITHOUT_UNOPPOSED_SCORE` | A CANCEL of the holder's score that leaves the holder no standing score in an exchange where the opponent has none. A score before the start belongs to no exchange | 12.2.2 |
 | `CLOCK_ACTION_AFTER_RESULT`, `ASSIGNMENT_AFTER_START`, `RESULT_BEFORE_START`, `RESULT_WHILE_DECIDED` | The status matrix | |
+| `RESULT_DIFFERS_FROM_SUGGESTION` | A result that does not agree with the suggestion. Never KIKEN; with no suggestion, anything but SHIKKAKU | 12.2 |
+| `SUGGESTION_DIFFERS_FROM_RESULT` | Any entry while DECIDED that changes or removes the suggestion, so the result standing no longer agrees. The status stays | 12.2 |
 | `FORMAT_COMBINATION` | A round-robin medal game, or an elimination extra game. Derived, because creation is not an entry | Appendix 6 |
 | `HISTORY_INCONSISTENT` | Stored history the fold skipped | |
 
@@ -273,8 +293,8 @@ retries. The check runs per game, inside the versioned save:
   `context/workflow/databases/mongodb/design/persistence.md`.
 - **A new field raises the schema version too.** A build that does not know a field ignores it on
   read and drops it on its next save, so after a rollback the data is gone. Raised, the older build
-  refuses the game instead. Shape 2 added `senshuRecords`, and shape 3 `statusChanges`; an older
-  game reads with none.
+  refuses the game instead. Shape 2 added `senshuRecords`, shape 3 `statusChanges`, and shape 4
+  `suggested` on each result; an older game reads with none.
 - **The type hint follows the package.** Spring Data stores each document's class name in `_class`,
   so moving a document class changes it on every later write. A document whose name no longer loads
   still reads, through the declared type.
@@ -298,8 +318,6 @@ created with. New behaviour is a new rule class, not a change to the entries.
 
 ## [deviations] Known deviations
 
-- **A DRAW in elimination or an extra game is recorded without a warning** (Articles 12.2.5, 12.2.4).
-  The suggested result, still to come, warns when a recorded result differs from it.
 - **An AWARDED to a side with no score is recorded without a warning** (Article 12.2.2). A
   scorekeeper may record SENSHU before the score it rests on.
 - **The unopposed-score warning looks at any exchange, not only the first.** Article 12.2.2 is

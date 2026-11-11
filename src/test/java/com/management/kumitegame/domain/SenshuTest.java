@@ -531,7 +531,8 @@ class SenshuTest {
                   record("s1", 6, Side.AO, SenshuRecordKind.WITHDRAWN)),
               List.of(),
               List.of(),
-              List.of());
+              List.of(),
+              TestGames.rules());
 
       GameState state = stored.state();
 
@@ -563,7 +564,8 @@ class SenshuTest {
                       Side.AKA, SenshuRecordKind.AWARDED, null, 3, null, meta("s2", 5))),
               List.of(),
               List.of(),
-              List.of());
+              List.of(),
+              TestGames.rules());
 
       Recorded inFirst =
           stored.recordScore(

@@ -76,6 +76,7 @@ Name the controller in the annotation. Omitting it loads every controller, which
 - **Every status code the layer can produce gets a test**, including each handler in the exception mapping. An error path with no test is an error path that has never run.
 - **Pin the format of dates, times and durations** with an explicit body assertion. These have several plausible serialisations and the default can shift under a dependency upgrade with no code change and no other failing test.
 - **Validation failures are tested here**, not in a unit test: the constraint only fires because the container is present.
+- **Compare a JSON object with a matcher, never `jsonPath(...).value(aMap)`.** `value` converts the node to the expected value's class, and the class of a `Map.of` map cannot be built, so the assertion reports `but was: <null>` while the body holds the object. Use `jsonPath(path, equalTo(map))`, or assert the fields one by one.
 
 ## [persistence-slice] Persistence slice
 

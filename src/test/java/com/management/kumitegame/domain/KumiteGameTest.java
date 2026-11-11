@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -119,11 +120,38 @@ class KumiteGameTest {
               SK,
               at);
       case SETTINGS_CHANGE -> game.changeSettings(newSettings(100_000));
-      case RESULT -> result(Outcome.WIN, Side.AO, ResultReason.POINTS, at);
+      case RESULT -> agreeingResult(status, at);
       case APPROVE -> change(StatusChangeKind.APPROVE, null, ActingRole.SCOREKEEPER);
       case REOPEN -> change(StatusChangeKind.REOPEN, "protest accepted", ActingRole.ADMIN);
       case VOID -> change(StatusChangeKind.VOID, "protest accepted", ActingRole.ADMIN);
     };
+  }
+
+  /**
+   * A result the rules agree with, so the matrix shows only what the status raises: the suggestion
+   * when there is one, KIKEN when there is none. Before the start, POINTS, which the rules cannot
+   * agree with either.
+   */
+  private Recorded agreeingResult(GameStatus status, Instant at) {
+    SuggestedResult suggested = game.state().suggested();
+    if (suggested != null) {
+      Side winner = suggested.outcome() == Outcome.WIN ? Side.AO : null;
+      return game.recordResult(
+          new NewResult(
+              id(),
+              suggested.outcome(),
+              suggested.winner() == null ? winner : suggested.winner(),
+              suggested.reason(),
+              null,
+              suggested.bothDisqualified()),
+          SK,
+          at);
+    }
+    return result(
+        Outcome.WIN,
+        Side.AO,
+        status == GameStatus.NOT_STARTED ? ResultReason.POINTS : ResultReason.KIKEN,
+        at);
   }
 
   private static NewSettings newSettings(long durationMs) {
@@ -173,7 +201,7 @@ class KumiteGameTest {
     "SETTINGS_CHANGE, FIGHTING, REFUSED",
     "SETTINGS_CHANGE, TIME_UP, REFUSED",
     "SETTINGS_CHANGE, DECIDED, REFUSED",
-    "RESULT, NOT_STARTED, RESULT_BEFORE_START",
+    "RESULT, NOT_STARTED, RESULT_BEFORE_START RESULT_DIFFERS_FROM_SUGGESTION",
     "RESULT, FIGHTING, APPLIED",
     "RESULT, TIME_UP, APPLIED",
     "RESULT, DECIDED, RESULT_WHILE_DECIDED",
@@ -224,7 +252,9 @@ class KumiteGameTest {
     Recorded recorded = act(kind, status);
 
     List<Warning> warnings =
-        expected.equals("APPLIED") ? List.of() : List.of(Warning.valueOf(expected));
+        expected.equals("APPLIED")
+            ? List.of()
+            : Stream.of(expected.split(" ")).map(Warning::valueOf).toList();
     assertThat(recorded.raisedWarnings()).isEqualTo(warnings);
     assertThat(recorded.replayed()).isFalse();
     if (kind != EntryKind.SETTINGS_CHANGE) {
@@ -557,7 +587,8 @@ class KumiteGameTest {
               TestGames.settings(),
               TestGames.ids("created"),
               SK,
-              T0);
+              T0,
+              TestGames.rules());
 
       assertThat(created.state().warnings())
           .isEqualTo(
@@ -685,7 +716,8 @@ class KumiteGameTest {
                       null,
                       new EntryMeta("cancel-3", 7, T0, SK, List.of()))),
               List.of(),
-              List.of());
+              List.of(),
+              TestGames.rules());
 
       GameState state = stored.state();
 
@@ -824,7 +856,8 @@ class KumiteGameTest {
                   TestGames.settings(),
                   TestGames.ids("x"),
                   SK,
-                  T0))
+                  T0,
+                  TestGames.rules()))
           .isInstanceOf(InvalidGameRequestException.class);
       assertThatThrownBy(() ->
               KumiteGame.create(
@@ -841,7 +874,8 @@ class KumiteGameTest {
                   TestGames.settings(),
                   TestGames.ids("x"),
                   SK,
-                  T0))
+                  T0,
+                  TestGames.rules()))
           .isInstanceOf(InvalidGameRequestException.class);
     }
 
@@ -990,7 +1024,7 @@ class KumiteGameTest {
       decided();
       change(StatusChangeKind.REOPEN, null, ActingRole.SCOREKEEPER);
 
-      Recorded recorded = result(Outcome.WIN, Side.AO, ResultReason.POINTS, at(30));
+      Recorded recorded = result(Outcome.WIN, Side.AO, ResultReason.KIKEN, at(30));
 
       assertThat(recorded.raisedWarnings()).isEmpty();
       assertThat(game.state().status()).isEqualTo(GameStatus.DECIDED);
@@ -1170,6 +1204,7 @@ class KumiteGameTest {
                       ResultReason.KIKEN,
                       null,
                       false,
+                      null,
                       new EntryMeta("r1", 4, T0, SK, List.of()))),
               List.of(
                   new StatusChange(
@@ -1177,7 +1212,8 @@ class KumiteGameTest {
                   new StatusChange(
                       StatusChangeKind.APPROVE,
                       null,
-                      new EntryMeta("again", 7, T0, SK, List.of()))));
+                      new EntryMeta("again", 7, T0, SK, List.of()))),
+              TestGames.rules());
 
       GameState state = stored.state();
 

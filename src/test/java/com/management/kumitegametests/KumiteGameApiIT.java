@@ -114,7 +114,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
     String gameId = create();
 
     Document stored = stored(gameId);
-    assertThat(stored.get("schemaVersion")).isEqualTo(3);
+    assertThat(stored.get("schemaVersion")).isEqualTo(4);
     assertThat(stored.get("version")).isEqualTo(1L);
     assertThat(stored.get("createdAt")).isInstanceOf(Date.class);
     assertThat(stored.get("modifiedAt")).isInstanceOf(Date.class);
@@ -338,6 +338,50 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(
             game.get("ao").get("scores").get(0).get("meta").get("raisedWarnings").get(0).asString())
         .isEqualTo("SENSHU_WHEN_BOTH_SCORED");
+  }
+
+  /**
+   * The suggestion through the real beans: live on each read, kept on the result it was recorded
+   * against, and a different result applied with a warning.
+   */
+  @Test
+  void result_keepsTheSuggestion_andOneThatDiffers_isAppliedWithWarning() {
+    String gameId = create();
+    post(
+        asScorekeeper(),
+        gameId,
+        "clock-actions",
+        """
+        {"id": "c1", "timer": "MAIN", "action": "START", "timeShownMs": 120000}
+        """);
+    post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+    post(
+        asScorekeeper(),
+        gameId,
+        "clock-actions",
+        """
+        {"id": "c2", "timer": "MAIN", "action": "TIME_UP", "timeShownMs": 0}
+        """);
+    JsonNode suggested = body(read(gameId)).get("suggestedResult");
+    assertThat(suggested.get("winner").asString()).isEqualTo("AKA");
+    assertThat(suggested.get("reason").asString()).isEqualTo("POINTS");
+
+    ResponseEntity<String> recorded =
+        post(
+            asScorekeeper(),
+            gameId,
+            "results",
+            """
+            {"id": "r1", "outcome": "WIN", "winner": "AO", "reason": "HANTEI",
+             "bothDisqualified": false}
+            """);
+
+    assertThat(status(recorded)).isEqualTo(200);
+    assertThat(body(recorded).get("raisedWarnings").get(0).asString())
+        .isEqualTo("RESULT_DIFFERS_FROM_SUGGESTION");
+    Document result = stored(gameId).getList("results", Document.class).getFirst();
+    assertThat(result.get("suggested", Document.class).get("winner")).isEqualTo("AKA");
+    assertThat(stored(gameId)).doesNotContainKey("suggestedResult");
   }
 
   private static String statusChange(String id, String kind, @Nullable String reason) {

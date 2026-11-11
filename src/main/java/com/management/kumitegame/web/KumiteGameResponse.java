@@ -34,6 +34,8 @@ import org.jspecify.annotations.Nullable;
  * @param senshuClosed SENSHU was withdrawn in the final window, so nobody should earn it again
  * @param currentResult the latest result; empty while none is recorded, after a reopen of a DECIDED
  *     game supersedes it, and on a VOIDED game
+ * @param suggestedResult the result the rules point to now; the scorekeeper confirms it by
+ *     recording a result. Empty while they point to none
  * @param statusChanges every approve, reopen and void, as given
  * @param warnings what the game itself shows: its format, or stored history skipped while folding
  * @param serverTime the server's time when this was read
@@ -57,6 +59,7 @@ public record KumiteGameResponse(
     List<AmendmentResponse> amendments,
     List<ResultResponse> results,
     @Nullable ResultResponse currentResult,
+    @Nullable SuggestedResultResponse suggestedResult,
     List<StatusChangeResponse> statusChanges,
     List<GameWarningResponse> warnings,
     Instant serverTime) {
@@ -85,6 +88,8 @@ public record KumiteGameResponse(
    * @param colour how the side is shown, from configuration
    * @param athlete the latest athlete put on this side; empty only in history that names none
    * @param senshu whether this side holds SENSHU; never both sides
+   * @param effectiveScore the score the format counts: in round robin after HANSOKU, KIKEN or
+   *     SHIKKAKU, not what was scored. Otherwise what was scored
    */
   public record SideResponse(
       String colour,
@@ -96,6 +101,7 @@ public record KumiteGameResponse(
       int wazaAriCount,
       int chuiCount,
       int hansokuChuiCount,
+      EffectiveScoreResponse effectiveScore,
       List<ScoreResponse> scores,
       List<PenaltyResponse> penalties) {}
 
@@ -174,13 +180,36 @@ public record KumiteGameResponse(
   public record AmendmentResponse(
       AmendmentKind kind, String targetId, @Nullable String reason, EntryMetaResponse meta) {}
 
+  /**
+   * A result as given.
+   *
+   * @param suggested what the rules suggested when it was recorded; empty when they suggested
+   *     nothing
+   */
   public record ResultResponse(
       Outcome outcome,
       @Nullable Side winner,
       ResultReason reason,
       @Nullable String reasonDetail,
       boolean bothDisqualified,
+      @Nullable SuggestedResultResponse suggested,
       EntryMetaResponse meta) {}
+
+  /**
+   * A result the rules point to.
+   *
+   * @param winner for a WIN, but never for a HANTEI: the officials' vote names it
+   */
+  public record SuggestedResultResponse(
+      Outcome outcome, @Nullable Side winner, ResultReason reason, boolean bothDisqualified) {}
+
+  /**
+   * A side's score as the format counts it.
+   *
+   * @param addedPoints points given rather than scored, counted as YUKO
+   */
+  public record EffectiveScoreResponse(
+      int total, int ipponCount, int wazaAriCount, int addedPoints) {}
 
   public record StatusChangeResponse(
       StatusChangeKind kind, @Nullable String reason, EntryMetaResponse meta) {}

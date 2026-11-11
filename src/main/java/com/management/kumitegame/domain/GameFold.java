@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
  */
 final class GameFold {
 
+  private final KumiteGame game;
   private final Settings settings;
   private GameStatus status = GameStatus.NOT_STARTED;
   private GameStatus statusBeforeResult = GameStatus.NOT_STARTED;
@@ -39,8 +40,9 @@ final class GameFold {
   private final List<GameWarning> warnings = new ArrayList<>();
   private int lastOrder;
 
-  private GameFold(Settings settings) {
-    this.settings = settings;
+  private GameFold(KumiteGame game) {
+    this.game = game;
+    this.settings = game.settings();
     this.mainClock = ClockState.stopped(settings.durationMs());
     for (Side side : Side.values()) {
       medicalClocks.put(side, ClockState.stopped(settings.medicalTimeMs()));
@@ -49,7 +51,7 @@ final class GameFold {
   }
 
   static GameState fold(KumiteGame game) {
-    GameFold fold = new GameFold(game.settings());
+    GameFold fold = new GameFold(game);
     if (FormatCombination.isOdd(game.format(), game.isMedalGame(), game.isExtraGame())) {
       fold.warnings.add(new GameWarning(Warning.FORMAT_COMBINATION, null));
     }
@@ -268,6 +270,15 @@ final class GameFold {
     tallies.forEach((side, tally) -> sides.put(side, tally.state()));
     List<PanelMember> members = new ArrayList<>();
     panel.forEach((refereeId, role) -> members.add(new PanelMember(refereeId, role)));
+    Standing standing =
+        new Standing(
+            game.format(),
+            game.isMedalGame(),
+            game.isExtraGame(),
+            settings,
+            (status.isMovedByTheClock() ? status : statusBeforeResult) == GameStatus.TIME_UP,
+            sides,
+            senshu.state().holder());
     return new GameState(
         status,
         mainClock,
@@ -278,6 +289,8 @@ final class GameFold {
         currentResult,
         status == GameStatus.TIME_UP ? timeUpAt : null,
         senshu.state(),
+        status == GameStatus.VOIDED ? null : game.rules().suggest(standing).orElse(null),
+        EffectiveScores.of(game.format(), sides, currentResult, settings),
         cancelled,
         warnings,
         lastOrder);
@@ -290,8 +303,7 @@ final class GameFold {
     private int total;
     private int ippon;
     private int wazaAri;
-    private int chui;
-    private int hansokuChui;
+    private final Map<PenaltyLevel, Integer> penalties = new EnumMap<>(PenaltyLevel.class);
 
     void addScore(Score score, Settings settings) {
       countScore(score, settings, 1);
@@ -319,15 +331,23 @@ final class GameFold {
     }
 
     private void countPenalty(Penalty penalty, int sign) {
-      if (penalty.level() == PenaltyLevel.CHUI) {
-        chui += sign;
-      } else if (penalty.level() == PenaltyLevel.HANSOKU_CHUI) {
-        hansokuChui += sign;
-      }
+      penalties.merge(penalty.level(), sign, Integer::sum);
+    }
+
+    private int count(PenaltyLevel level) {
+      return penalties.getOrDefault(level, 0);
     }
 
     SideState state() {
-      return new SideState(athleteId, total, ippon, wazaAri, chui, hansokuChui);
+      return new SideState(
+          athleteId,
+          total,
+          ippon,
+          wazaAri,
+          count(PenaltyLevel.CHUI),
+          count(PenaltyLevel.HANSOKU_CHUI),
+          count(PenaltyLevel.HANSOKU),
+          count(PenaltyLevel.SHIKKAKU));
     }
   }
 }

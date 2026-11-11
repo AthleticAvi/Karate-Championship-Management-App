@@ -67,9 +67,16 @@ class InMemoryMongoFidelityTest {
         storage.findById(KumiteGameDocument.class, saved.getId()).orElseThrow();
 
     assertThat(reloaded).usingRecursiveComparison().isEqualTo(saved);
-    assertThat(KumiteGameDocumentMapper.toDomain(reloaded).settings().pointsFor(ScoreLevel.IPPON))
+    assertThat(
+            KumiteGameDocumentMapper.toDomain(reloaded, TestGames.rules())
+                .settings()
+                .pointsFor(ScoreLevel.IPPON))
         .isEqualTo(3);
-    assertThat(KumiteGameDocumentMapper.toDomain(reloaded).state().side(Side.AO).athleteId())
+    assertThat(
+            KumiteGameDocumentMapper.toDomain(reloaded, TestGames.rules())
+                .state()
+                .side(Side.AO)
+                .athleteId())
         .isEqualTo(TestGames.AO_ATHLETE);
   }
 

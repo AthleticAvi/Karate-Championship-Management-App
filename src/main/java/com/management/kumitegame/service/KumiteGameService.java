@@ -28,6 +28,7 @@ import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.Recorded;
 import com.management.kumitegame.domain.Recording;
+import com.management.kumitegame.domain.ResultRules;
 import com.management.referee.service.RefereeService;
 import java.time.Clock;
 import java.util.Collection;
@@ -61,6 +62,7 @@ public class KumiteGameService {
   private final AthleteService athleteService;
   private final RefereeService refereeService;
   private final KumiteGameProperties properties;
+  private final ResultRules rules;
   private final Clock clock;
 
   public KumiteGameService(
@@ -69,12 +71,14 @@ public class KumiteGameService {
       AthleteService athleteService,
       RefereeService refereeService,
       KumiteGameProperties properties,
+      ResultRules rules,
       Clock clock) {
     this.kumiteGameRepository = kumiteGameRepository;
     this.writer = writer;
     this.athleteService = athleteService;
     this.refereeService = refereeService;
     this.properties = properties;
+    this.rules = rules;
     this.clock = clock;
   }
 
@@ -95,10 +99,11 @@ public class KumiteGameService {
             properties.rules().snapshot(),
             () -> UUID.randomUUID().toString(),
             recordedBy,
-            clock.instant());
+            clock.instant(),
+            rules);
     KumiteGame created =
         KumiteGameDocumentMapper.toDomain(
-            kumiteGameRepository.insert(KumiteGameDocumentMapper.toNewDocument(game)));
+            kumiteGameRepository.insert(KumiteGameDocumentMapper.toNewDocument(game)), rules);
     GameRead read = read(created);
     return new Recording(read, read.state().warnings().stream().map(GameWarning::code).toList());
   }
@@ -108,7 +113,8 @@ public class KumiteGameService {
         KumiteGameDocumentMapper.toDomain(
             kumiteGameRepository
                 .findById(gameId)
-                .orElseThrow(() -> new GameNotFoundException("No game has the id " + gameId))));
+                .orElseThrow(() -> new GameNotFoundException("No game has the id " + gameId)),
+            rules));
   }
 
   public Recording changeSettings(String gameId, NewSettings settings) {

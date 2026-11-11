@@ -24,6 +24,13 @@ public enum Warning {
   RESULT_BEFORE_START,
   /** A result while one stands: it supersedes the current one. */
   RESULT_WHILE_DECIDED,
+  /** A result other than the one the rules suggested. Recorded as given. */
+  RESULT_DIFFERS_FROM_SUGGESTION,
+  /**
+   * A correction while DECIDED changed the suggestion, which now differs from the result that
+   * stands. Nothing reopens.
+   */
+  SUGGESTION_DIFFERS_FROM_RESULT,
   /** SENSHU recorded before the start. */
   SENSHU_BEFORE_START,
   /** SENSHU recorded while a result stands. */

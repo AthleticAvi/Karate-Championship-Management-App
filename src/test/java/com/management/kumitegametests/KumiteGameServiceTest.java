@@ -40,6 +40,7 @@ import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.StatusChangeKind;
+import com.management.kumitegame.domain.SuggestedResult;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.kumitegame.service.KumiteGameWriter;
@@ -92,12 +93,17 @@ class KumiteGameServiceTest {
   }
 
   private static KumiteGameProperties properties(Duration duration, int ipponPoints) {
+    return properties(duration, ipponPoints, 8);
+  }
+
+  private static KumiteGameProperties properties(
+      Duration duration, int ipponPoints, int leadToWin) {
     return new KumiteGameProperties(
         new KumiteGameProperties.Rules(
             duration,
             List.of(Duration.ofSeconds(90), Duration.ofMinutes(2), Duration.ofMinutes(3)),
             Map.of(ScoreLevel.IPPON, ipponPoints, ScoreLevel.WAZA_ARI, 2, ScoreLevel.YUKO, 1),
-            8,
+            leadToWin,
             Duration.ofSeconds(15),
             Duration.ofMillis(1500),
             3,
@@ -112,10 +118,11 @@ class KumiteGameServiceTest {
   private KumiteGameService service(KumiteGameProperties properties) {
     return new KumiteGameService(
         repository,
-        new KumiteGameWriter(repository),
+        new KumiteGameWriter(repository, TestGames.rules()),
         athletes,
         referees,
         properties,
+        TestGames.rules(),
         TestClock.FIXED);
   }
 
@@ -147,6 +154,42 @@ class KumiteGameServiceTest {
     assertThat(kept.settings().pointsFor(ScoreLevel.IPPON)).isEqualTo(3);
     assertThat(redeployed.get(after).game().settings().durationMs()).isEqualTo(90_000);
     assertThat(redeployed.get(after).game().settings().pointsFor(ScoreLevel.IPPON)).isEqualTo(5);
+  }
+
+  /**
+   * The suggestion reads the lead to win from the game's snapshot: a 6-point lead wins a game
+   * created under a lead of 6, and not one created under 8, whatever configuration now says.
+   */
+  @Test
+  void suggestion_readsTheLeadFromTheSnapshot_notFromConfiguration() {
+    String underEight = created();
+    KumiteGameService leadOfSix = service(properties(Duration.ofMinutes(2), 3, 6));
+    String underSix =
+        leadOfSix
+            .create(TestGames.newGame(GameFormat.ELIMINATION, false, false), "scorekeeper")
+            .game()
+            .game()
+            .id();
+    for (String gameId : List.of(underEight, underSix)) {
+      leadOfSix.recordClockAction(
+          gameId,
+          new NewClockAction("c", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+          TestGames.SCOREKEEPER);
+      for (String id : List.of("s1", "s2")) {
+        leadOfSix.recordScore(
+            gameId,
+            new NewScore(id, Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, null, null),
+            TestGames.SCOREKEEPER);
+      }
+    }
+
+    // Read under a configuration of 6, and of 8: each game keeps the lead it was created with.
+    for (KumiteGameService reader : List.of(leadOfSix, service)) {
+      assertThat(reader.get(underEight).state().side(Side.AKA).total()).isEqualTo(6);
+      assertThat(reader.get(underEight).state().suggested()).isNull();
+      assertThat(reader.get(underSix).state().suggested())
+          .isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.LEAD));
+    }
   }
 
   @Test
@@ -252,7 +295,7 @@ class KumiteGameServiceTest {
     willAnswer(
             call -> {
               KumiteGameDocument stored = storage.findById(KumiteGameDocument.class, gameId).get();
-              KumiteGame other = KumiteGameDocumentMapper.toDomain(stored);
+              KumiteGame other = KumiteGameDocumentMapper.toDomain(stored, TestGames.rules());
               other.recordScore(
                   new NewScore("other", Side.AO, ScoreLevel.IPPON, ScoreSource.JUDGES, null, null),
                   "another-scorekeeper",
@@ -284,7 +327,7 @@ class KumiteGameServiceTest {
     willAnswer(
             call -> {
               KumiteGameDocument stored = storage.findById(KumiteGameDocument.class, gameId).get();
-              KumiteGame other = KumiteGameDocumentMapper.toDomain(stored);
+              KumiteGame other = KumiteGameDocumentMapper.toDomain(stored, TestGames.rules());
               other.recordResult(
                   new NewResult("other", Outcome.WIN, Side.AO, ResultReason.KIKEN, null, false),
                   "another-scorekeeper",

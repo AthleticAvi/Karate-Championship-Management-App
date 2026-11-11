@@ -22,7 +22,7 @@ split by layer. Shared code sits in its own top-level packages.
 | Responsibility | Packages | Job |
 |---|---|---|
 | Gateways | `<feature>.web`, `web`, `filters`, `security` | HTTP in and out. Translate, then delegate |
-| Business | `<feature>.service`, `<feature>.domain` | Orchestration, rules, domain types |
+| Business | `<feature>.service`, `<feature>.rules`, `<feature>.domain` | Orchestration, the suggested result, rules, domain types |
 | Data | `<feature>.data` | MongoDB access, the stored documents and their mappers |
 | Wiring | `config`, `KumiteGameStarter` | Typed settings and application start |
 
@@ -31,6 +31,7 @@ split by layer. Shared code sits in its own top-level packages.
 | `<feature>.web` | The feature's controller, request and response records, and mapper | `web/README.md` |
 | `web` | What every feature's API shares: version prefix, role table, CORS, API description, `GlobalExceptionHandler` | `web/README.md` |
 | `<feature>.service` | Services | `kumitegame/service/README.md` |
+| `<feature>.rules` | The suggested-result chain, Spring beans behind a port the domain owns | `kumitegame/rules/README.md` |
 | `<feature>.domain` | Domain types, the vocabulary, the game's rules, and the exception types the feature throws | `kumitegame/domain/README.md` |
 | `<feature>.data` | Repositories, stored documents and their mappers | `kumitegame/data/README.md` |
 | `athlete` | The athlete aggregate | `athlete/README.md` |
@@ -38,12 +39,15 @@ split by layer. Shared code sits in its own top-level packages.
 | `filters`, `security`, `config` | Shared, each with its own README | |
 
 The game's rules sit in `kumitegame.domain`: the aggregate refuses what is impossible, and a
-rule class per warning reads the game's settings. There is no `rules` package until the system
-suggests results.
+rule class per warning reads the game's settings. The suggested result is a chain of beans in
+`kumitegame.rules`, so adding a step adds a class. The domain owns the question, `ResultRules`, and
+each game is built with the bean, so its fold includes the suggestion and the domain never depends
+on the rules.
 
 `[package-layout]` in `context/workflow/web-frameworks/spring-boot/standards/standards.md` names
 `web`, `domain` and `data` only. `service` is kept as a layer of its own, because the Spring Boot
-layer contract does not let domain code call persistence, and the services do.
+layer contract does not let domain code call persistence, and the services do. `rules` is kept too:
+its steps are beans, and the domain holds no Spring type.
 
 Flow: `Filter -> Security -> Controller -> Service -> Repository -> MongoDB`. There are no outbound
 gateways yet.
@@ -94,8 +98,7 @@ Exception types sit in the `domain` package of the feature that throws them, and
 
 ## [not-built] Not built yet
 
-- **The suggested result and the public view:** later issues of the Structure and engine milestone.
-- **The round-robin effective score** after a forfeit: the setting exists, nothing reads it yet.
+- **The public view:** a later issue of the Structure and engine milestone.
 - **ETag on reads:** planned, not built.
 - **Push to screens:** a screen reads the game after each action. No WebSocket or Server-Sent Events.
 - **Frontend:** not started.

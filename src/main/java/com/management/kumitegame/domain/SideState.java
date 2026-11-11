@@ -13,4 +13,12 @@ public record SideState(
     int ipponCount,
     int wazaAriCount,
     int chuiCount,
-    int hansokuChuiCount) {}
+    int hansokuChuiCount,
+    int hansokuCount,
+    int shikkakuCount) {
+
+  /** A standing HANSOKU or SHIKKAKU disqualifies the side from the game (Articles 10.3, 10.4). */
+  public boolean isDisqualified() {
+    return hansokuCount > 0 || shikkakuCount > 0;
+  }
+}
