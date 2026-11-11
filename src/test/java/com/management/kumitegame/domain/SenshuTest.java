@@ -530,6 +530,7 @@ class SenshuTest {
                   record("s2", 5, Side.AO, SenshuRecordKind.AWARDED),
                   record("s1", 6, Side.AO, SenshuRecordKind.WITHDRAWN)),
               List.of(),
+              List.of(),
               List.of());
 
       GameState state = stored.state();
@@ -560,6 +561,7 @@ class SenshuTest {
                       Side.AKA, SenshuRecordKind.AWARDED, null, 1, null, meta("s1", 4)),
                   new SenshuRecord(
                       Side.AKA, SenshuRecordKind.AWARDED, null, 3, null, meta("s2", 5))),
+              List.of(),
               List.of(),
               List.of());
 

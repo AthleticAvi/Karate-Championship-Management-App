@@ -3,11 +3,21 @@ package com.management.kumitegame.domain;
 /**
  * Where a game stands. Never stored: folded from the entries, in order.
  *
- * <p>APPROVED and VOIDED arrive with sign-off.
+ * <p>APPROVED and VOIDED are final: nothing is recorded on them but an Admin's reopen of an
+ * APPROVED game, or a void of one.
  */
 public enum GameStatus {
   NOT_STARTED,
   FIGHTING,
   TIME_UP,
-  DECIDED
+  DECIDED,
+  /** The result is signed off. */
+  APPROVED,
+  /** Annulled. The record stays. */
+  VOIDED;
+
+  /** Nothing is recorded on a final game but an Admin's reopen of an APPROVED game, or a void. */
+  boolean isFinal() {
+    return this == APPROVED || this == VOIDED;
+  }
 }

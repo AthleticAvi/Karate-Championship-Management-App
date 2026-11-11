@@ -24,6 +24,7 @@ final class GameFold {
 
   private final Settings settings;
   private GameStatus status = GameStatus.NOT_STARTED;
+  private GameStatus statusBeforeResult = GameStatus.NOT_STARTED;
   private ClockState mainClock;
   private final Map<Side, ClockState> medicalClocks = new EnumMap<>(Side.class);
   private int exchange;
@@ -63,6 +64,10 @@ final class GameFold {
       skip(entry);
       return;
     }
+    if (status.isFinal() && !(entry instanceof StatusChange)) {
+      skip(entry);
+      return;
+    }
     Side side = placed.side();
     switch (entry) {
       case Score score when side != null -> tally(side).addScore(score, settings);
@@ -73,11 +78,48 @@ final class GameFold {
       case ClockAction action -> clock(action);
       case SenshuRecord record -> senshu(record);
       case Amendment amendment -> amend(amendment);
-      case Result result -> {
-        currentResult = result;
-        status = GameStatus.DECIDED;
-      }
+      case Result result -> decide(result);
+      case StatusChange change -> changeStatus(change);
     }
+  }
+
+  /**
+   * A result while DECIDED supersedes the current one, and keeps the status it was reached from.
+   */
+  private void decide(Result result) {
+    if (status != GameStatus.DECIDED) {
+      statusBeforeResult = status;
+    }
+    currentResult = result;
+    status = GameStatus.DECIDED;
+  }
+
+  /**
+   * A reopen of a DECIDED game returns to the status before the result, as the clock has moved it
+   * since, and supersedes the result; a reopen of an APPROVED one returns to DECIDED with its
+   * result standing. A void annuls the game: its result stays on record, and none is current.
+   */
+  private void changeStatus(StatusChange change) {
+    GameStatus after =
+        switch (change.kind()) {
+          case APPROVE -> status == GameStatus.DECIDED ? GameStatus.APPROVED : null;
+          case REOPEN ->
+              switch (status) {
+                case DECIDED -> statusBeforeResult;
+                case APPROVED -> GameStatus.DECIDED;
+                default -> null;
+              };
+          case VOID -> status == GameStatus.VOIDED ? null : GameStatus.VOIDED;
+        };
+    if (after == null) {
+      skip(change);
+      return;
+    }
+    if ((status == GameStatus.DECIDED && change.kind() == StatusChangeKind.REOPEN)
+        || change.kind() == StatusChangeKind.VOID) {
+      currentResult = null;
+    }
+    status = after;
   }
 
   /** Every side has a tally from construction on. */
@@ -136,18 +178,29 @@ final class GameFold {
    * Only the main clock moves the status, and never out of DECIDED: only a result ends a game. Time
    * put back after zero returns to FIGHTING only if the clock then has time left, so SET_TIME to 0
    * stays TIME_UP.
+   *
+   * <p>While DECIDED, the clock still moves the status a reopen returns to, so a reopened game's
+   * status agrees with its clock.
    */
   private void moveStatus(ClockActionKind action, Instant at) {
-    if (status == GameStatus.NOT_STARTED && action == ClockActionKind.START) {
-      status = GameStatus.FIGHTING;
-    } else if (status == GameStatus.FIGHTING && action == ClockActionKind.TIME_UP) {
-      status = GameStatus.TIME_UP;
+    boolean decided = status == GameStatus.DECIDED;
+    GameStatus from = decided ? statusBeforeResult : status;
+    GameStatus to = from;
+    if (from == GameStatus.NOT_STARTED && action == ClockActionKind.START) {
+      to = GameStatus.FIGHTING;
+    } else if (from == GameStatus.FIGHTING && action == ClockActionKind.TIME_UP) {
+      to = GameStatus.TIME_UP;
       timeUpAt = at;
-    } else if (status == GameStatus.TIME_UP
+    } else if (from == GameStatus.TIME_UP
         && action.isPuttingTimeBack()
         && mainClock.remainingAt(at) > 0) {
-      status = GameStatus.FIGHTING;
+      to = GameStatus.FIGHTING;
       timeUpAt = null;
+    }
+    if (decided) {
+      statusBeforeResult = to;
+    } else {
+      status = to;
     }
   }
 

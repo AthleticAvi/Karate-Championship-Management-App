@@ -174,4 +174,21 @@ class EntryRetryTest {
     assertThatThrownBy(() -> game.recordResult(original, "other", T0))
         .isInstanceOf(ActionRefusedException.class);
   }
+
+  /** A retry is recognised before the status is checked, so a void sent again replays. */
+  @Test
+  void statusChange() {
+    KumiteGame game = TestGames.game();
+    NewStatusChange original = new NewStatusChange("v", StatusChangeKind.VOID, "never fought");
+    provesRetries(
+        game,
+        original,
+        List.of(
+            new NewStatusChange("v", StatusChangeKind.REOPEN, "never fought"),
+            new NewStatusChange("v", StatusChangeKind.VOID, "protest"),
+            new NewStatusChange("v", StatusChangeKind.VOID, null)),
+        change -> game.recordStatusChange(change, ActingRole.ADMIN, SK, T0));
+    assertThatThrownBy(() -> game.recordStatusChange(original, ActingRole.ADMIN, "other", T0))
+        .isInstanceOf(ActionRefusedException.class);
+  }
 }

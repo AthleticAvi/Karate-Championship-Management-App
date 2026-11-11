@@ -81,10 +81,20 @@ class KumiteGameTest {
     if (status == GameStatus.TIME_UP) {
       clock(ClockActionKind.TIME_UP, 0, null, at(120));
     }
-    if (status == GameStatus.DECIDED) {
+    if (status == GameStatus.DECIDED || status == GameStatus.APPROVED) {
       result(Outcome.WIN, Side.AKA, ResultReason.KIKEN, T0);
     }
+    if (status == GameStatus.APPROVED) {
+      change(StatusChangeKind.APPROVE, null, ActingRole.SCOREKEEPER);
+    }
+    if (status == GameStatus.VOIDED) {
+      change(StatusChangeKind.VOID, "never fought", ActingRole.ADMIN);
+    }
     assertThat(game.state().status()).isEqualTo(status);
+  }
+
+  private Recorded change(StatusChangeKind kind, @Nullable String reason, ActingRole role) {
+    return game.recordStatusChange(new NewStatusChange(id(), kind, reason), role, SK, T0);
   }
 
   /** An action of each kind, taken just after the status was reached, raising nothing else. */
@@ -110,6 +120,9 @@ class KumiteGameTest {
               at);
       case SETTINGS_CHANGE -> game.changeSettings(newSettings(100_000));
       case RESULT -> result(Outcome.WIN, Side.AO, ResultReason.POINTS, at);
+      case APPROVE -> change(StatusChangeKind.APPROVE, null, ActingRole.SCOREKEEPER);
+      case REOPEN -> change(StatusChangeKind.REOPEN, "protest accepted", ActingRole.ADMIN);
+      case VOID -> change(StatusChangeKind.VOID, "protest accepted", ActingRole.ADMIN);
     };
   }
 
@@ -163,7 +176,41 @@ class KumiteGameTest {
     "RESULT, NOT_STARTED, RESULT_BEFORE_START",
     "RESULT, FIGHTING, APPLIED",
     "RESULT, TIME_UP, APPLIED",
-    "RESULT, DECIDED, RESULT_WHILE_DECIDED"
+    "RESULT, DECIDED, RESULT_WHILE_DECIDED",
+    "SCORE, APPROVED, REFUSED",
+    "SCORE, VOIDED, REFUSED",
+    "PENALTY, APPROVED, REFUSED",
+    "PENALTY, VOIDED, REFUSED",
+    "CLOCK_ACTION, APPROVED, REFUSED",
+    "CLOCK_ACTION, VOIDED, REFUSED",
+    "SENSHU_RECORD, APPROVED, REFUSED",
+    "SENSHU_RECORD, VOIDED, REFUSED",
+    "AMENDMENT, APPROVED, REFUSED",
+    "AMENDMENT, VOIDED, REFUSED",
+    "ASSIGNMENT, APPROVED, REFUSED",
+    "ASSIGNMENT, VOIDED, REFUSED",
+    "SETTINGS_CHANGE, APPROVED, REFUSED",
+    "SETTINGS_CHANGE, VOIDED, REFUSED",
+    "RESULT, APPROVED, REFUSED",
+    "RESULT, VOIDED, REFUSED",
+    "APPROVE, NOT_STARTED, REFUSED",
+    "APPROVE, FIGHTING, REFUSED",
+    "APPROVE, TIME_UP, REFUSED",
+    "APPROVE, DECIDED, APPLIED",
+    "APPROVE, APPROVED, REFUSED",
+    "APPROVE, VOIDED, REFUSED",
+    "REOPEN, NOT_STARTED, REFUSED",
+    "REOPEN, FIGHTING, REFUSED",
+    "REOPEN, TIME_UP, REFUSED",
+    "REOPEN, DECIDED, APPLIED",
+    "REOPEN, APPROVED, APPLIED",
+    "REOPEN, VOIDED, REFUSED",
+    "VOID, NOT_STARTED, APPLIED",
+    "VOID, FIGHTING, APPLIED",
+    "VOID, TIME_UP, APPLIED",
+    "VOID, DECIDED, APPLIED",
+    "VOID, APPROVED, APPLIED",
+    "VOID, VOIDED, REFUSED"
   })
   void statusMatrix(EntryKind kind, GameStatus status, String expected) {
     bring(status);
@@ -637,6 +684,7 @@ class KumiteGameTest {
                       "missing",
                       null,
                       new EntryMeta("cancel-3", 7, T0, SK, List.of()))),
+              List.of(),
               List.of());
 
       GameState state = stored.state();
@@ -866,6 +914,230 @@ class KumiteGameTest {
       assertThat(game.results()).hasSize(2);
       Result current = Objects.requireNonNull(game.state().currentResult());
       assertThat(current.winner()).isEqualTo(Side.AO);
+    }
+  }
+
+  /** The status table of the planning record: approve, reopen and void, and who may. */
+  @Nested
+  class StatusChanges {
+
+    private Result decided() {
+      start();
+      result(Outcome.WIN, Side.AKA, ResultReason.POINTS, at(1));
+      return Objects.requireNonNull(game.state().currentResult());
+    }
+
+    @Test
+    void approve_signsOffTheResult() {
+      Result result = decided();
+
+      change(StatusChangeKind.APPROVE, null, ActingRole.SCOREKEEPER);
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.APPROVED);
+      assertThat(game.state().currentResult()).isEqualTo(result);
+    }
+
+    /** Before the start, while fighting, or after the time ran out: back to where it was. */
+    @ParameterizedTest
+    @EnumSource(
+        value = GameStatus.class,
+        names = {"NOT_STARTED", "FIGHTING", "TIME_UP"})
+    void reopen_returnsToTheStatusBeforeTheResult_andKeepsTheResultOnRecord(GameStatus before) {
+      bring(before);
+      Instant at = before == GameStatus.TIME_UP ? at(121) : at(1);
+      result(Outcome.WIN, Side.AKA, ResultReason.KIKEN, at);
+
+      change(StatusChangeKind.REOPEN, null, ActingRole.SCOREKEEPER);
+
+      GameState state = game.state();
+      assertThat(state.status()).isEqualTo(before);
+      assertThat(state.currentResult()).as("superseded by the reopen").isNull();
+      assertThat(game.results()).hasSize(1);
+      assertThat(game.statusChanges()).singleElement().extracting(StatusChange::reason).isNull();
+    }
+
+    /**
+     * A clock action while DECIDED is recorded with a warning, and moves what a reopen returns to.
+     */
+    @Test
+    void reopen_returnsToTheStatusTheClockLeft() {
+      result(Outcome.WIN, Side.AKA, ResultReason.KIKEN, T0);
+      start();
+
+      change(StatusChangeKind.REOPEN, null, ActingRole.SCOREKEEPER);
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.FIGHTING);
+      assertThatThrownBy(() -> game.changeSettings(newSettings(100_000)))
+          .as("a started game keeps its rules")
+          .isInstanceOf(ActionRefusedException.class);
+    }
+
+    @Test
+    void reopen_afterSupersedingResult_returnsToTheStatusBeforeTheFirst() {
+      decided();
+      result(Outcome.WIN, Side.AO, ResultReason.HANTEI, at(2));
+      clock(ClockActionKind.TIME_UP, 0, null, at(120));
+
+      change(StatusChangeKind.REOPEN, null, ActingRole.SCOREKEEPER);
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.TIME_UP);
+      assertThat(game.state().timeUpAt()).isEqualTo(at(120));
+      assertThat(game.results()).hasSize(2);
+    }
+
+    @Test
+    void reopenedGame_takesNewResult_withNoWarning() {
+      decided();
+      change(StatusChangeKind.REOPEN, null, ActingRole.SCOREKEEPER);
+
+      Recorded recorded = result(Outcome.WIN, Side.AO, ResultReason.POINTS, at(30));
+
+      assertThat(recorded.raisedWarnings()).isEmpty();
+      assertThat(game.state().status()).isEqualTo(GameStatus.DECIDED);
+      assertThat(Objects.requireNonNull(game.state().currentResult()).winner()).isEqualTo(Side.AO);
+    }
+
+    @Test
+    void adminReopenOfApproved_returnsToDecided_withTheResultStanding() {
+      final Result result = decided();
+      change(StatusChangeKind.APPROVE, null, ActingRole.SCOREKEEPER);
+
+      change(StatusChangeKind.REOPEN, "SHIKKAKU after the game", ActingRole.ADMIN);
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.DECIDED);
+      assertThat(game.state().currentResult()).isEqualTo(result);
+
+      change(StatusChangeKind.REOPEN, null, ActingRole.SCOREKEEPER);
+      assertThat(game.state().status())
+          .as("a further reopen goes back to before the result")
+          .isEqualTo(GameStatus.FIGHTING);
+    }
+
+    /** An Admin may do everything a Scorekeeper may, and needs no reason for it either. */
+    @Test
+    void admin_mayApproveAndReopenDecided_withoutReason() {
+      decided();
+      change(StatusChangeKind.REOPEN, null, ActingRole.ADMIN);
+      result(Outcome.WIN, Side.AKA, ResultReason.POINTS, at(2));
+
+      change(StatusChangeKind.APPROVE, null, ActingRole.ADMIN);
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.APPROVED);
+    }
+
+    @Test
+    void scorekeeper_cannotReopenApproved() {
+      decided();
+      change(StatusChangeKind.APPROVE, null, ActingRole.SCOREKEEPER);
+      int entries = game.entriesInOrder().size();
+
+      assertThatThrownBy(() -> change(StatusChangeKind.REOPEN, "protest", ActingRole.SCOREKEEPER))
+          .isInstanceOf(ActionForbiddenException.class);
+      assertThat(game.entriesInOrder()).hasSize(entries);
+      assertThat(game.state().status()).isEqualTo(GameStatus.APPROVED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+        value = GameStatus.class,
+        names = {"NOT_STARTED", "FIGHTING", "TIME_UP", "DECIDED", "APPROVED"})
+    void scorekeeper_cannotVoid(GameStatus status) {
+      bring(status);
+      int entries = game.entriesInOrder().size();
+
+      assertThatThrownBy(() -> change(StatusChangeKind.VOID, "protest", ActingRole.SCOREKEEPER))
+          .isInstanceOf(ActionForbiddenException.class);
+      assertThat(game.entriesInOrder()).hasSize(entries);
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        value = {"REOPEN, NONE", "REOPEN, '  '", "VOID, NONE", "VOID, '  '"},
+        nullValues = "NONE")
+    void adminMove_withoutReason_isRefused(StatusChangeKind kind, @Nullable String reason) {
+      bring(GameStatus.APPROVED);
+      int entries = game.entriesInOrder().size();
+
+      assertThatThrownBy(() -> change(kind, reason, ActingRole.ADMIN))
+          .isInstanceOf(InvalidGameRequestException.class);
+      assertThat(game.entriesInOrder()).hasSize(entries);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+        value = GameStatus.class,
+        names = {"NOT_STARTED", "FIGHTING", "TIME_UP", "DECIDED", "APPROVED"})
+    void void_fromAnyStatusButVoided_annulsTheGame_andTheRecordStays(GameStatus status) {
+      bring(status);
+      final int entries = game.entriesInOrder().size();
+      final int results = game.results().size();
+
+      change(StatusChangeKind.VOID, "never fought", ActingRole.ADMIN);
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.VOIDED);
+      assertThat(game.state().currentResult()).isNull();
+      assertThat(game.results()).hasSize(results);
+      assertThat(game.entriesInOrder()).hasSize(entries + 1);
+      assertThat(game.statusChanges().getLast().reason()).isEqualTo("never fought");
+    }
+
+    /** The status decides first: a move it refuses is refused whatever the role or reason. */
+    @ParameterizedTest
+    @EnumSource(ActingRole.class)
+    void voidOfVoided_isRefused_whateverTheRoleOrReason(ActingRole role) {
+      bring(GameStatus.VOIDED);
+
+      assertThatThrownBy(() -> change(StatusChangeKind.VOID, null, role))
+          .isInstanceOf(ActionRefusedException.class);
+    }
+
+    /** Append refuses these, so only history written under other rules can hold them. */
+    @Test
+    void entriesAfterFinalStatus_inStoredHistory_areSkippedWithWarning() {
+      KumiteGame stored =
+          new KumiteGame(
+              "game-8",
+              GameFormat.ELIMINATION,
+              false,
+              false,
+              TestGames.settings(),
+              Map.of(
+                  Side.AKA,
+                  List.of(
+                      new Score(
+                          ScoreLevel.IPPON,
+                          ScoreSource.JUDGES,
+                          null,
+                          null,
+                          new EntryMeta("late", 6, T0, SK, List.of())))),
+              Map.of(),
+              TestGames.game().assignments(),
+              List.of(),
+              List.of(),
+              List.of(),
+              List.of(
+                  new Result(
+                      Outcome.WIN,
+                      Side.AO,
+                      ResultReason.KIKEN,
+                      null,
+                      false,
+                      new EntryMeta("r1", 4, T0, SK, List.of()))),
+              List.of(
+                  new StatusChange(
+                      StatusChangeKind.APPROVE, null, new EntryMeta("ok", 5, T0, SK, List.of())),
+                  new StatusChange(
+                      StatusChangeKind.APPROVE,
+                      null,
+                      new EntryMeta("again", 7, T0, SK, List.of()))));
+
+      GameState state = stored.state();
+
+      assertThat(state.status()).isEqualTo(GameStatus.APPROVED);
+      assertThat(state.side(Side.AKA).total()).isZero();
+      assertThat(state.warnings())
+          .extracting(GameWarning::entryId)
+          .containsExactly("late", "again");
     }
   }
 }

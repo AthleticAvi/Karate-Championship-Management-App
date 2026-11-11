@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -48,6 +49,7 @@ public final class KumiteGame {
   private final List<SenshuRecord> senshuRecords;
   private final List<Amendment> amendments;
   private final List<Result> results;
+  private final List<StatusChange> statusChanges;
 
   /** A game as stored. Any history loads: see {@link GameFold}. */
   public KumiteGame(
@@ -62,7 +64,8 @@ public final class KumiteGame {
       List<ClockAction> clockActions,
       List<SenshuRecord> senshuRecords,
       List<Amendment> amendments,
-      List<Result> results) {
+      List<Result> results,
+      List<StatusChange> statusChanges) {
     this.id = id;
     this.format = format;
     this.medalGame = medalGame;
@@ -77,6 +80,7 @@ public final class KumiteGame {
     this.senshuRecords = new ArrayList<>(senshuRecords);
     this.amendments = new ArrayList<>(amendments);
     this.results = new ArrayList<>(results);
+    this.statusChanges = new ArrayList<>(statusChanges);
   }
 
   /**
@@ -140,6 +144,7 @@ public final class KumiteGame {
         Map.of(),
         Map.of(),
         assignments,
+        List.of(),
         List.of(),
         List.of(),
         List.of(),
@@ -442,6 +447,53 @@ public final class KumiteGame {
   }
 
   /**
+   * Approves, reopens or voids the game: the moves no other entry causes.
+   *
+   * <p>Refused when the status does not allow the move. Reopening an APPROVED game and voiding are
+   * an Admin's: refused to a Scorekeeper, and refused without a reason. Reopening a DECIDED game
+   * returns it to the status it had before the result, which the reopen supersedes; reopening an
+   * APPROVED one returns it to DECIDED, with its result standing.
+   *
+   * @param role the role the signed-in account acts under
+   */
+  public Recorded recordStatusChange(
+      NewStatusChange change, ActingRole role, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            change.id(),
+            found ->
+                found.entry() instanceof StatusChange stored && change.matches(stored, recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
+    }
+    GameState state = state();
+    List<Warning> raised = admit(EntryKind.of(change.kind()), state);
+    if (change.kind().isAdminOnly(state.status())) {
+      if (role != ActingRole.ADMIN) {
+        throw new ActionForbiddenException(
+            "Only an Admin may " + verb(change.kind()) + " a game that is " + state.status() + ".");
+      }
+      String reason = change.reason();
+      if (reason == null || reason.isBlank()) {
+        throw new InvalidGameRequestException(
+            "A reason is needed to "
+                + verb(change.kind())
+                + " a game that is "
+                + state.status()
+                + ".");
+      }
+    }
+    statusChanges.add(
+        new StatusChange(
+            change.kind(), change.reason(), next(change.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
+  }
+
+  private static String verb(StatusChangeKind kind) {
+    return kind.name().toLowerCase(Locale.ROOT);
+  }
+
+  /**
    * Whether SENSHU, replayed as this CANCEL would leave it, meets an award while a side holds it.
    * Only a cancelled withdrawal can do that.
    */
@@ -501,7 +553,7 @@ public final class KumiteGame {
                 Stream.concat(scoresOf(side).stream(), penaltiesOf(side).stream())
                     .map(entry -> new SidedEntry(entry, side)));
     Stream<SidedEntry> unsided =
-        Stream.of(assignments, clockActions, senshuRecords, amendments, results)
+        Stream.of(assignments, clockActions, senshuRecords, amendments, results, statusChanges)
             .flatMap(List::stream)
             .map(entry -> new SidedEntry(entry, null));
     return Stream.concat(sided, unsided);
@@ -646,6 +698,10 @@ public final class KumiteGame {
 
   public List<Result> results() {
     return Collections.unmodifiableList(results);
+  }
+
+  public List<StatusChange> statusChanges() {
+    return Collections.unmodifiableList(statusChanges);
   }
 
   /** A stored game: equal only to the same game. */
