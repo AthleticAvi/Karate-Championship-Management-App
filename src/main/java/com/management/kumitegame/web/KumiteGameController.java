@@ -67,7 +67,8 @@ public class KumiteGameController {
   /**
    * Takes the application's start once, for the tags.
    *
-   * @param context the running application, whose start goes into every tag: see {@link #tagOf}
+   * @param context the running application, whose start goes into every tag: see {@link
+   *     #tagOf(Class, VersionedGameRead)}
    */
   public KumiteGameController(
       KumiteGameService kumiteGameService,
@@ -107,7 +108,7 @@ public class KumiteGameController {
       headers = @Header(name = HttpHeaders.ETAG, description = TAG))
   @GetMapping("/{gameId}")
   public @Nullable KumiteGameResponse getGame(@PathVariable String gameId, WebRequest request) {
-    return readTagged(gameId, request);
+    return readTagged(gameId, GameViews.Public.class, request);
   }
 
   /**
@@ -127,7 +128,7 @@ public class KumiteGameController {
       headers = @Header(name = HttpHeaders.ETAG, description = TAG))
   @GetMapping("/{gameId}" + FULL_VIEW)
   public @Nullable KumiteGameResponse getFullView(@PathVariable String gameId, WebRequest request) {
-    return readTagged(gameId, request);
+    return readTagged(gameId, GameViews.Scorekeeper.class, request);
   }
 
   /**
@@ -280,9 +281,10 @@ public class KumiteGameController {
    * Decides the tag from the versions before the body is built: an unchanged game answers 304 with
    * no body, and the framework sends the tag on both answers.
    */
-  private @Nullable KumiteGameResponse readTagged(String gameId, WebRequest request) {
+  private @Nullable KumiteGameResponse readTagged(
+      String gameId, Class<?> view, WebRequest request) {
     VersionedGameRead versioned = kumiteGameService.getVersioned(gameId);
-    if (request.checkNotModified(tagOf(versioned))) {
+    if (request.checkNotModified(tagOf(view, versioned))) {
       return null;
     }
     return KumiteGameMapper.toResponse(versioned.read(), properties.sideColours());
@@ -291,6 +293,9 @@ public class KumiteGameController {
   /**
    * A weak tag over every version the game's answer shows: the game's, and each athlete's and
    * referee's it names, by id, so a rename changes it and so does one deleted in the accepted race.
+   *
+   * <p>The view goes in, so a tag from one view never answers 304 on the other: a client that sent
+   * the public view's tag to the full view would otherwise keep a body with no recorder.
    *
    * <p>The application's start goes in too. A redeploy can change what the same stored game reads
    * as, such as the side colours or the suggested result, and a tag kept across it would hold an
@@ -301,9 +306,11 @@ public class KumiteGameController {
    * running clock's {@code remainingMs}. The digest is the one the framework's own body tags use:
    * it shortens the tag and guards nothing.
    */
-  private String tagOf(VersionedGameRead versioned) {
+  private String tagOf(Class<?> view, VersionedGameRead versioned) {
     String versions =
-        startedAt
+        view.getSimpleName()
+            + "|"
+            + startedAt
             + "|"
             + versioned.gameVersion()
             + "|"

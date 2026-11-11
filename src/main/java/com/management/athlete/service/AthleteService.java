@@ -10,7 +10,6 @@ import com.management.athlete.domain.AthleteNotFoundException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -49,9 +48,8 @@ public class AthleteService {
 
   /** The athletes with these ids that exist, by id. A missing one is simply absent. */
   public Map<String, Athlete> findAll(Collection<String> athleteIds) {
-    return findAllVersioned(athleteIds).values().stream()
-        .map(VersionedAthlete::athlete)
-        .collect(Collectors.toMap(Athlete::id, Function.identity()));
+    return findAllVersioned(athleteIds).entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, found -> found.getValue().athlete()));
   }
 
   /**

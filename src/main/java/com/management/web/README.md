@@ -218,6 +218,7 @@ public view is `{}`, and the strict slice test fails.
 framework's `WebRequest.checkNotModified`; a current `If-None-Match` answers 304 with no body and
 the tag. It is a digest over:
 
+- the view, so a tag from one view never answers 304 on the other;
 - the application's start, because a redeploy can change what a stored game reads as, such as the
   side colours or the suggested result. A restart costs each caller one full answer;
 - the game document's version;

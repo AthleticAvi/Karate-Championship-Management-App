@@ -245,6 +245,18 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     assertThat(tag).startsWith("W/\"");
   }
 
+  /** A tag from one view never stands for the other, so a client never keeps the wrong body. */
+  @Test
+  void tag_differsBetweenTheViews_soOneViewsTagGetsTheOtherInFull() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
+    String publicTag = tagFrom(mockMvc.perform(get(GAME, "game-1")));
+
+    mockMvc
+        .perform(get(FULL_VIEW, "game-1").header(HttpHeaders.IF_NONE_MATCH, publicTag))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aka.scores[0].meta.recordedBy").value("scorekeeper"));
+  }
+
   /** Each version the answer shows is in the tag: one changed version answers the body again. */
   @Test
   void read_withStaleTag_answersTheGameAndTheNewTag() throws Exception {
