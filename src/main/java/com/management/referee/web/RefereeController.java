@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Creates, reads, renames and deletes referees, each kept once, outside any match. */
+/** Creates, reads, renames and deletes referees, each kept once, outside any game. */
 @RestController
 @RequestMapping(RefereeController.PATH)
 public class RefereeController {

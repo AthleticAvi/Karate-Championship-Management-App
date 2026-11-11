@@ -37,7 +37,7 @@ class FirstAdminIT {
   private static final String PASSWORD_KEY = "accounts.first-admin.password";
   private static final String ADMIN = "first-admin";
   private static final String PASSWORD = UUID.randomUUID().toString();
-  private static final String PLAYERS = "/api/v1/players";
+  private static final String ATHLETES = "/api/v1/athletes";
 
   private final String database = "first-admin-" + UUID.randomUUID();
 
@@ -68,7 +68,7 @@ class FirstAdminIT {
   private static int creationStatus(
       ConfigurableApplicationContext context, String username, String password) throws Exception {
     return IntegrationTestBase.send(
-            IntegrationTestBase.request(context, PLAYERS)
+            IntegrationTestBase.request(context, ATHLETES)
                 .header("Authorization", IntegrationTestBase.basic(username, password))
                 .header("Content-Type", "application/json")
                 .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}")))

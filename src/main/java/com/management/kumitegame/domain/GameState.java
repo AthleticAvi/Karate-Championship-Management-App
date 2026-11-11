@@ -1,32 +1,62 @@
 package com.management.kumitegame.domain;
 
-import java.util.EnumSet;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The lifecycle of a match, with its legal transitions held as data.
+ * Everything derived from a game's entries, folded in order. Never stored.
  *
- * <p>The state machine is settled domain: {@code QUEUED → RUNNING ⇄ PAUSED}, with {@code FINISHED}
- * reachable from {@code RUNNING} and {@code PAUSED} only. A finished match is terminal. Keeping the
- * rule on the enum, as data rather than as scattered {@code if} statements, means the services
- * enforcing it and the planned Game Orchestrator consulting it read the same single table.
+ * @param exchange the number of main-clock starts so far
+ * @param currentResult the latest result
+ * @param timeUpAt when the main clock reached zero, while the game is TIME_UP
+ * @param cancelledIds the scores and penalties a CANCEL took back
+ * @param warnings what the fold found: the format, or history it skipped
+ * @param lastOrder the highest order used, so the next entry takes the one after
  */
-public enum GameState {
-  QUEUED,
-  RUNNING,
-  PAUSED,
-  FINISHED;
+public record GameState(
+    GameStatus status,
+    ClockState mainClock,
+    Map<Side, ClockState> medicalClocks,
+    int exchange,
+    Map<Side, SideState> sides,
+    List<PanelMember> panel,
+    @Nullable Result currentResult,
+    @Nullable Instant timeUpAt,
+    Set<String> cancelledIds,
+    List<GameWarning> warnings,
+    int lastOrder) {
 
-  private static final Map<GameState, Set<GameState>> LEGAL_TRANSITIONS =
-      Map.of(
-          QUEUED, EnumSet.of(RUNNING),
-          RUNNING, EnumSet.of(PAUSED, FINISHED),
-          PAUSED, EnumSet.of(RUNNING, FINISHED),
-          FINISHED, EnumSet.noneOf(GameState.class));
+  public GameState {
+    medicalClocks = Map.copyOf(medicalClocks);
+    sides = Map.copyOf(sides);
+    panel = List.copyOf(panel);
+    cancelledIds = Set.copyOf(cancelledIds);
+    warnings = List.copyOf(warnings);
+  }
 
-  /** Whether a match in this state may move to {@code target}. */
-  public boolean canTransitionTo(GameState target) {
-    return LEGAL_TRANSITIONS.get(this).contains(target);
+  public SideState side(Side side) {
+    return Objects.requireNonNull(sides.get(side));
+  }
+
+  public ClockState medicalClock(Side side) {
+    return Objects.requireNonNull(medicalClocks.get(side));
+  }
+
+  /** The main clock, or the side's medical timer. */
+  public ClockState clock(Timer timer, @Nullable Side side) {
+    return timer == Timer.MEDICAL && side != null ? medicalClock(side) : mainClock;
+  }
+
+  public boolean isCancelled(String entryId) {
+    return cancelledIds.contains(entryId);
+  }
+
+  /** The exchange an entry made now belongs to: empty before the first start. */
+  @Nullable Integer currentExchange() {
+    return exchange == 0 ? null : exchange;
   }
 }

@@ -104,7 +104,21 @@ class ApiDescriptionConfiguration {
     }
   }
 
+  /**
+   * Follows a field into a list, a map, or a nullable reference, which the generator writes as a
+   * choice of the reference and null, so a nested response is held to the same rule.
+   */
+  @SuppressWarnings("rawtypes")
   private static void requireEveryField(Schema<?> reference, Map<String, ?> schemas) {
+    if (reference.getItems() != null) {
+      requireEveryField(reference.getItems(), schemas);
+    }
+    if (reference.getAdditionalProperties() instanceof Schema<?> values) {
+      requireEveryField(values, schemas);
+    }
+    for (List<Schema> choices : choicesOf(reference)) {
+      choices.forEach(choice -> requireEveryField(choice, schemas));
+    }
     if (reference.get$ref() == null) {
       return;
     }
@@ -115,6 +129,18 @@ class ApiDescriptionConfiguration {
     }
     schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
     schema.getProperties().values().forEach(field -> requireEveryField(field, schemas));
+  }
+
+  @SuppressWarnings("rawtypes")
+  private static List<List<Schema>> choicesOf(Schema<?> schema) {
+    List<List<Schema>> choices = new ArrayList<>();
+    if (schema.getAnyOf() != null) {
+      choices.add(schema.getAnyOf());
+    }
+    if (schema.getOneOf() != null) {
+      choices.add(schema.getOneOf());
+    }
+    return choices;
   }
 
   private static void addFailures(PathItem.HttpMethod method, Operation operation) {

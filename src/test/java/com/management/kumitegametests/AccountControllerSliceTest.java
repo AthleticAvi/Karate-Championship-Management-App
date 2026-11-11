@@ -20,8 +20,6 @@ import com.management.account.domain.AccountRole;
 import com.management.account.domain.LastAdminException;
 import com.management.account.domain.NewAccount;
 import com.management.account.web.AccountRequest;
-import com.management.athlete.service.PlayerService;
-import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,7 +31,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -49,10 +46,6 @@ class AccountControllerSliceTest extends WebSliceTestBase {
   @Autowired private MockMvc mockMvc;
 
   @Autowired private PasswordEncoder passwordEncoder;
-
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
 
   private ResultActions create(String body) throws Exception {
     return mockMvc.perform(post(ACCOUNTS).contentType(MediaType.APPLICATION_JSON).content(body));

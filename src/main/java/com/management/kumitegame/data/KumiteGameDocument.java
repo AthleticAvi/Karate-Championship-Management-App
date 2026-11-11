@@ -1,0 +1,196 @@
+package com.management.kumitegame.data;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+/**
+ * A game as stored: one document per game, every entry embedded, so each action is one atomic
+ * write.
+ *
+ * <p>Knows nothing of the rules. {@link KumiteGameDocumentMapper} turns it into the domain type and
+ * back. Values the domain holds as enums are stored as their names, as plain strings, so a name
+ * this build no longer knows reaches the mapper, the one place an old shape is absorbed, rather
+ * than failing inside the conversion. Durations are whole milliseconds.
+ *
+ * <p>Nothing derived is stored: status, clocks, totals and the current result are folded from the
+ * entries each time the game is read.
+ */
+@Document("kumiteGame")
+public class KumiteGameDocument {
+
+  /** The shape this class writes. Raise it when a field is renamed, moved or changes meaning. */
+  public static final int CURRENT_SCHEMA_VERSION = 1;
+
+  @Id private String id;
+
+  /** Primitive, so an unsaved document reads as new: see {@code [optimistic-locking]}. */
+  @Version private long version;
+
+  private int schemaVersion;
+  private String format;
+  private boolean medalGame;
+  private boolean extraGame;
+  private StoredSettings settings;
+  private Map<String, StoredSide> sides;
+  private List<StoredAssignment> assignments;
+  private List<StoredClockAction> clockActions;
+  private List<StoredAmendment> amendments;
+  private List<StoredResult> results;
+  @CreatedDate private Instant createdAt;
+  @LastModifiedDate private Instant modifiedAt;
+
+  /** The creator Spring Data rebuilds a stored game with, and the mapper writes through. */
+  @PersistenceCreator
+  public KumiteGameDocument(
+      String id,
+      long version,
+      int schemaVersion,
+      String format,
+      boolean medalGame,
+      boolean extraGame,
+      StoredSettings settings,
+      Map<String, StoredSide> sides,
+      List<StoredAssignment> assignments,
+      List<StoredClockAction> clockActions,
+      List<StoredAmendment> amendments,
+      List<StoredResult> results,
+      Instant createdAt,
+      Instant modifiedAt) {
+    this.id = id;
+    this.version = version;
+    this.schemaVersion = schemaVersion;
+    this.format = format;
+    this.medalGame = medalGame;
+    this.extraGame = extraGame;
+    this.settings = settings;
+    this.sides = sides;
+    this.assignments = assignments;
+    this.clockActions = clockActions;
+    this.amendments = amendments;
+    this.results = results;
+    this.createdAt = createdAt;
+    this.modifiedAt = modifiedAt;
+  }
+
+  /**
+   * What every entry carries.
+   *
+   * <p>The client's id is stored as {@code entryId}, not {@code id}: Spring Data maps a property
+   * named {@code id} to {@code _id}, in a nested document too.
+   */
+  public record StoredMeta(
+      String entryId,
+      int order,
+      Instant recordedAt,
+      String recordedBy,
+      List<String> raisedWarnings) {}
+
+  /** The rule values the game runs under. */
+  public record StoredSettings(
+      long durationMs,
+      List<Long> durationsOfferedMs,
+      Map<String, Integer> pointValues,
+      int leadToWin,
+      long finalWindowMs,
+      long lateScoreWindowMs,
+      int chuiLimit,
+      int roundRobinForfeitPoints,
+      List<Long> addTimeStepsMs,
+      long medicalTimeMs,
+      long timeShownToleranceMs,
+      String rulebookVersion) {}
+
+  /** One side's scores and penalties, keyed by the side's name in {@code sides}. */
+  public record StoredSide(List<StoredScore> scores, List<StoredPenalty> penalties) {}
+
+  public record StoredScore(
+      String level, String source, Integer exchange, Long clockRemainingMs, StoredMeta meta) {}
+
+  public record StoredPenalty(
+      String level, String infraction, Integer exchange, Long clockRemainingMs, StoredMeta meta) {}
+
+  public record StoredAssignment(
+      String kind, String side, String athleteId, String refereeId, String role, StoredMeta meta) {}
+
+  public record StoredClockAction(
+      String timer,
+      String side,
+      String action,
+      long timeShownMs,
+      Long amountMs,
+      String pauseReason,
+      StoredMeta meta) {}
+
+  public record StoredAmendment(String kind, String targetId, String reason, StoredMeta meta) {}
+
+  public record StoredResult(
+      String outcome,
+      String winner,
+      String reason,
+      String reasonDetail,
+      boolean bothDisqualified,
+      StoredMeta meta) {}
+
+  public String getId() {
+    return id;
+  }
+
+  public long getVersion() {
+    return version;
+  }
+
+  public int getSchemaVersion() {
+    return schemaVersion;
+  }
+
+  public String getFormat() {
+    return format;
+  }
+
+  public boolean isMedalGame() {
+    return medalGame;
+  }
+
+  public boolean isExtraGame() {
+    return extraGame;
+  }
+
+  public StoredSettings getSettings() {
+    return settings;
+  }
+
+  public Map<String, StoredSide> getSides() {
+    return sides;
+  }
+
+  public List<StoredAssignment> getAssignments() {
+    return assignments;
+  }
+
+  public List<StoredClockAction> getClockActions() {
+    return clockActions;
+  }
+
+  public List<StoredAmendment> getAmendments() {
+    return amendments;
+  }
+
+  public List<StoredResult> getResults() {
+    return results;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public Instant getModifiedAt() {
+    return modifiedAt;
+  }
+}

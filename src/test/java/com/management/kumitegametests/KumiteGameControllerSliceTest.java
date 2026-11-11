@@ -1,12 +1,10 @@
 package com.management.kumitegametests;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -15,658 +13,323 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.athlete.domain.PlayerNotFoundException;
-import com.management.athlete.domain.PointTypeNotFoundException;
-import com.management.athlete.domain.PointsType;
-import com.management.athlete.service.PlayerService;
+import com.management.athlete.domain.Athlete;
+import com.management.kumitegame.domain.ActionRefusedException;
+import com.management.kumitegame.domain.ClockActionKind;
+import com.management.kumitegame.domain.GameChangedException;
+import com.management.kumitegame.domain.GameFormat;
 import com.management.kumitegame.domain.GameNotFoundException;
-import com.management.kumitegame.domain.GameWithFighters;
-import com.management.kumitegame.domain.IllegalStateTransitionException;
+import com.management.kumitegame.domain.GameRead;
 import com.management.kumitegame.domain.InvalidGameRequestException;
-import com.management.kumitegame.domain.InvalidPlayerColorException;
-import com.management.kumitegame.domain.NewClockAdjustment;
-import com.management.kumitegame.domain.NewOverride;
-import com.management.kumitegame.domain.PlayerColor;
-import com.management.kumitegame.service.KumiteGameService;
-import com.management.testsupport.KumiteGameBuilder;
-import com.management.testsupport.PlayerBuilder;
+import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.NewClockAction;
+import com.management.kumitegame.domain.NewGame;
+import com.management.kumitegame.domain.NewResult;
+import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.Outcome;
+import com.management.kumitegame.domain.PanelMember;
+import com.management.kumitegame.domain.PanelRole;
+import com.management.kumitegame.domain.Recording;
+import com.management.kumitegame.domain.ResultReason;
+import com.management.kumitegame.domain.ScoreLevel;
+import com.management.kumitegame.domain.ScoreSource;
+import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.Timer;
+import com.management.kumitegame.domain.Warning;
+import com.management.referee.domain.Referee;
+import com.management.testsupport.TestClock;
+import com.management.testsupport.TestGames;
 import com.management.testsupport.WebSliceTestBase;
-import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Every endpoint on {@code /api/v1/kumitegame}, at the HTTP boundary.
- *
- * <p>Started life in #87 as a two-test harness deliberately kept small until the response contract
- * settled; #37 filled it in once #33, #34, #35 and #36 had decided what the contract is. Each
- * endpoint has a success path asserting status and body, and each status the exception handler can
- * produce has a test.
- *
- * <p>Configuration comes from {@link WebSliceTestBase} — see there for why it is shared.
+ * Every endpoint on {@code /api/v1/kumite-games}, at the HTTP boundary, and the wire format pinned
+ * whole: a strict comparison is the only thing between this contract and a silent shift under a
+ * dependency upgrade. Who may call each is proven in {@code SecurityRulesSliceTest}.
  */
-@WithMockUser(roles = "ADMIN")
+@WithMockUser(username = "kenta", roles = "SCOREKEEPER")
 class KumiteGameControllerSliceTest extends WebSliceTestBase {
+
+  private static final String GAMES = "/api/v1/kumite-games";
+  private static final String GAME = GAMES + "/{gameId}";
+  private static final Instant LATER = TestClock.NOW.plusSeconds(2);
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
-
-  @Test
-  void createKumiteGame_whenTheRequestIsAccepted_returns201WithLocationHeader() throws Exception {
-    given(kumiteGameService.createKumiteGame(any()))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
-
-    mockMvc
-        .perform(
-            post("/api/v1/kumitegame")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "playersMap": {
-                        "red":  { "name": "Kenji", "color": "RED" },
-                        "blue": { "name": "Sato",  "color": "BLUE" }
-                      },
-                      "refereeList": ["Test Referee"],
-                      "gameDuration": 90
-                    }
-                    """))
-        .andExpect(status().isCreated())
-        .andExpect(header().string("Location", "/api/v1/kumitegame/game-1"))
-        .andExpect(jsonPath("$.id").value("game-1"))
-        .andExpect(jsonPath("$.gameState").value("QUEUED"));
-  }
-
-  @Test
-  @WithMockUser(username = "operator-1", roles = "ADMIN")
-  void overrideWinner_passesEachFieldToTheService() throws Exception {
-    given(
-            kumiteGameService.overrideWinner(
-                "game-1",
-                new NewOverride("RED", "Stopped on the mat", "Chief Referee", "operator-1")))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
-
-    mockMvc
-        .perform(
-            put("/api/v1/kumitegame/{gameId}/override-winner", "game-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "winner": "RED",
-                      "reason": "Stopped on the mat",
-                      "referee": "Chief Referee"
-                    }
-                    """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value("game-1"));
-  }
-
-  /** A name in the body must not reach the record: the old field is simply not read. */
-  @Test
-  @WithMockUser(username = "operator-1", roles = "ADMIN")
-  void overrideWinner_ignoresAnOperatorInTheBody() throws Exception {
-    given(
-            kumiteGameService.overrideWinner(
-                "game-1", new NewOverride("RED", "Stopped on the mat", "Chief", "operator-1")))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
-
-    mockMvc
-        .perform(
-            put("/api/v1/kumitegame/{gameId}/override-winner", "game-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "winner": "RED",
-                      "reason": "Stopped on the mat",
-                      "referee": "Chief",
-                      "decidedBy": "someone-else",
-                      "operator": "someone-else"
-                    }
-                    """))
-        .andExpect(status().isOk());
-  }
-
-  @Test
-  void overrideWinner_withNoReferee_isRefused() throws Exception {
-    mockMvc
-        .perform(
-            put("/api/v1/kumitegame/{gameId}/override-winner", "game-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    { "winner": "RED", "reason": "Stopped on the mat" }
-                    """))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.errors.referee").exists());
-  }
-
-  @Test
-  @WithMockUser(username = "operator-1", roles = "ADMIN")
-  void addTime_passesEachFieldToTheService() throws Exception {
-    given(kumiteGameService.addTime("game-1", new NewClockAdjustment(30, "operator-1")))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
-
-    mockMvc
-        .perform(
-            put("/api/v1/kumitegame/{gameId}/add-time", "game-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    { "seconds": 30 }
-                    """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value("game-1"));
-  }
-
-  @Test
-  void getKumiteGame_whenTheGameExists_returns200AndTheGameAsJson() throws Exception {
-    GameWithFighters game =
-        KumiteGameBuilder.newGame()
-            .runningWithRemaining(Duration.ofSeconds(87))
-            .buildWithFighters();
-    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
-
-    mockMvc
-        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
-        .andExpect(status().isOk())
-        // Asserted at the wire level, not against the object. Object equality passes while the
-        // serialised contract changes underneath -- which is the whole point of Epic #32.
-        .andExpect(jsonPath("$.gameState").value("RUNNING"))
-        .andExpect(jsonPath("$.remainingSeconds").value(87))
-        .andExpect(jsonPath("$.red.name").value("Red Fighter"))
-        .andExpect(jsonPath("$.blue.name").value("Blue Fighter"));
-  }
-
   /**
-   * The boundary rule, asserted as absence.
-   *
-   * <p>This is the only automated defence against a persistence type leaking back through the
-   * controller. Every name below is a field of the stored document that a client must never see; if
-   * one reappears, an entity is being serialised again.
+   * Started, with one WAZA_ARI to AKA. The AO athlete no longer exists: the accepted race with a
+   * delete, which reads as unknown.
    */
-  @Test
-  void getKumiteGame_response_carriesNoPersistenceDetail() throws Exception {
-    GameWithFighters game =
-        KumiteGameBuilder.newGame()
-            .runningWithRemaining(Duration.ofSeconds(87))
-            .buildWithFighters();
-    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
-
-    mockMvc
-        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
-        .andExpect(status().isOk())
-        // The colour-keyed structure is internal; the response names red and blue.
-        .andExpect(jsonPath("$.playersMap").doesNotExist())
-        .andExpect(jsonPath("$.playerIds").doesNotExist())
-        .andExpect(jsonPath("$.version").doesNotExist())
-        // Points and fouls are counts, not the wrapper objects the scoring strategies mutate.
-        .andExpect(jsonPath("$.red.points").isNumber())
-        .andExpect(jsonPath("$.red.fouls").isNumber())
-        // Internal bookkeeping: the clock's origin, its total, and the transient timer.
-        .andExpect(jsonPath("$.startTime").doesNotExist())
-        .andExpect(jsonPath("$.gameDuration").doesNotExist())
-        .andExpect(jsonPath("$.timer").doesNotExist());
+  private static GameRead scored() {
+    KumiteGame game = TestGames.game();
+    game.recordClockAction(
+        new NewClockAction("c1", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+        TestGames.SCOREKEEPER,
+        TestClock.NOW);
+    game.recordScore(
+        new NewScore("s1", Side.AKA, ScoreLevel.WAZA_ARI, ScoreSource.JUDGES, null, 118_000L),
+        TestGames.SCOREKEEPER,
+        LATER);
+    return new GameRead(
+        game,
+        game.state(),
+        Map.of(TestGames.AKA_ATHLETE, new Athlete(TestGames.AKA_ATHLETE, "Kenji", 61.5)),
+        Map.of(TestGames.REFEREE, new Referee(TestGames.REFEREE, "Sato")),
+        LATER);
   }
 
-  /**
-   * Pins the JSON representation, as the counterpart to {@link RepresentationCharacterizationTest}
-   * which pins the stored form.
-   *
-   * <p>Asserted here rather than against a hand-built mapper because this is the only place the
-   * application's real configured mapper runs — the one that will change under a dependency
-   * upgrade.
-   *
-   * <p>Retargeted by #33 from the entity's shape to the response type's, and tightened by #35 from
-   * a handful of paths to the whole body. What it pins is no longer "whatever the document happens
-   * to look like" but a contract someone chose.
-   *
-   * <p><strong>Strict comparison, deliberately.</strong> A path-by-path assertion cannot notice a
-   * field that appears — which is exactly how a persistence type leaks back in. Strict mode fails
-   * on an unexpected field as well as a changed one, so this single assertion covers both
-   * directions of the contract.
-   *
-   * <p><strong>The formats this locks (#35).</strong> {@code remainingSeconds} is a whole number of
-   * seconds, not an ISO-8601 duration string and not a decimal. No timestamp appears at all — the
-   * match's {@code startTime} is internal bookkeeping and a client holding {@code remainingSeconds}
-   * has no use for it, so the cheapest way to specify its format was to not expose it. Enums are
-   * their names. Points and fouls are bare integers, not the objects that carry them in storage.
-   * Referees are names, not objects. Changing any of those breaks this test, which is the point.
-   */
+  private static final String META_CREATED =
+      """
+      "recordedAt": "2026-01-01T12:00:00Z", "recordedBy": "scorekeeper", "raisedWarnings": []
+      """;
+
+  private static final String SCORED_GAME =
+      """
+      {
+        "id": "game-1", "format": "ELIMINATION", "medalGame": false, "extraGame": false,
+        "settings": {
+          "durationMs": 120000, "durationsOfferedMs": [90000, 120000, 180000],
+          "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1},
+          "leadToWin": 8, "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
+          "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000, 20000, 30000],
+          "medicalTimeMs": 180000, "timeShownToleranceMs": 1000, "rulebookVersion": "WKF 2026.01"
+        },
+        "status": "FIGHTING", "exchange": 1,
+        "mainClock": {"running": true, "remainingMs": 118000},
+        "aka": {
+          "colour": "red",
+          "athlete": {"id": "athlete-aka", "name": "Kenji", "known": true},
+          "medicalClock": {"running": false, "remainingMs": 180000},
+          "total": 2, "ipponCount": 0, "wazaAriCount": 1, "chuiCount": 0,
+          "scores": [{
+            "level": "WAZA_ARI", "source": "JUDGES", "exchange": 1, "clockRemainingMs": 118000,
+            "cancelled": false,
+            "meta": {"id": "s1", "order": 5, "recordedAt": "2026-01-01T12:00:02Z",
+                     "recordedBy": "scorekeeper", "raisedWarnings": []}
+          }],
+          "penalties": []
+        },
+        "ao": {
+          "colour": "blue",
+          "athlete": {"id": "athlete-ao", "name": null, "known": false},
+          "medicalClock": {"running": false, "remainingMs": 180000},
+          "total": 0, "ipponCount": 0, "wazaAriCount": 0, "chuiCount": 0,
+          "scores": [], "penalties": []
+        },
+        "panel": [{"referee": {"id": "referee-1", "name": "Sato", "known": true}, "role": "REFEREE"}],
+        "assignments": [
+          {"kind": "ATHLETE", "side": "AKA", "athleteId": "athlete-aka", "refereeId": null,
+           "role": null, "meta": {"id": "created-1", "order": 1, %1$s}},
+          {"kind": "ATHLETE", "side": "AO", "athleteId": "athlete-ao", "refereeId": null,
+           "role": null, "meta": {"id": "created-2", "order": 2, %1$s}},
+          {"kind": "PANEL_ADD", "side": null, "athleteId": null, "refereeId": "referee-1",
+           "role": "REFEREE", "meta": {"id": "created-3", "order": 3, %1$s}}
+        ],
+        "clockActions": [
+          {"timer": "MAIN", "side": null, "action": "START", "timeShownMs": 120000,
+           "amountMs": null, "pauseReason": null, "meta": {"id": "c1", "order": 4, %1$s}}
+        ],
+        "amendments": [], "results": [], "currentResult": null, "warnings": [],
+        "serverTime": "2026-01-01T12:00:02Z"
+      }
+      """
+          .formatted(META_CREATED);
+
   @Test
-  void getKumiteGame_whenTheMatchIsRunning_returnsExactlyThisBody() throws Exception {
-    GameWithFighters game =
-        KumiteGameBuilder.newGame()
-            .alreadyPersistedAs("game-1")
-            .with(
-                PlayerColor.RED,
-                PlayerBuilder.newPlayer()
-                    .alreadyPersistedAs("red-1")
-                    .named("Kenji")
-                    .scoring(PointsType.IPPON)
-                    .build())
-            .with(
-                PlayerColor.BLUE,
-                PlayerBuilder.newPlayer()
-                    .alreadyPersistedAs("blue-1")
-                    .named("Sato")
-                    .withFouls(1)
-                    .build())
-            .runningWithRemaining(Duration.ofSeconds(87))
-            .buildWithFighters();
-    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
+  void get_returnsExactlyTheGame() throws Exception {
+    given(kumiteGameService().get("game-1")).willReturn(scored());
 
     mockMvc
-        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
+        .perform(get(GAME, "game-1"))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+        .andExpect(content().json(SCORED_GAME, JsonCompareMode.STRICT));
+  }
+
+  @Test
+  void create_returns201WithLocation_theGameAndItsWarnings_recordedByTheSignedInAccount()
+      throws Exception {
+    NewGame expected =
+        new NewGame(
+            GameFormat.ROUND_ROBIN,
+            true,
+            false,
+            "athlete-aka",
+            "athlete-ao",
+            List.of(new PanelMember("referee-1", PanelRole.REFEREE)));
+    given(kumiteGameService().create(expected, "kenta"))
+        .willReturn(new Recording(scored(), List.of(Warning.FORMAT_COMBINATION)));
+
+    mockMvc
+        .perform(
+            post(GAMES)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"format": "ROUND_ROBIN", "medalGame": true, "extraGame": false,
+                     "akaAthleteId": "athlete-aka", "aoAthleteId": "athlete-ao",
+                     "panel": [{"refereeId": "referee-1", "role": "REFEREE"}]}
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(header().string("Location", GAMES + "/game-1"))
         .andExpect(
             content()
                 .json(
-                    """
-                    {
-                      "id": "game-1",
-                      "gameState": "RUNNING",
-                      "remainingSeconds": 87,
-                      "red":  { "id": "red-1",  "name": "Kenji", "points": 3, "fouls": 0 },
-                      "blue": { "id": "blue-1", "name": "Sato",  "points": 0, "fouls": 1 },
-                      "referees": ["Test Referee"],
-                      "winner": null,
-                      "endReason": null,
-                      "overridden": false
-                    }
-                    """,
+                    "{\"game\": " + SCORED_GAME + ", \"raisedWarnings\": [\"FORMAT_COMBINATION\"]}",
                     JsonCompareMode.STRICT));
   }
 
-  /**
-   * The decided match, pinning how a winner is encoded.
-   *
-   * <p>A colour name, not the sentence the field used to hold. The counterpart assertion — that an
-   * undecided match reports {@code null} rather than a placeholder string — is in the running-match
-   * body above.
-   */
   @Test
-  void getKumiteGame_whenTheMatchHasBeenWon_reportsTheWinningColour() throws Exception {
-    GameWithFighters game =
-        KumiteGameBuilder.newGame()
-            .alreadyPersistedAs("game-1")
-            .finished()
-            .wonBy(PlayerColor.RED)
-            .buildWithFighters();
-    given(kumiteGameService.getGameWithFighters("game-1")).willReturn(game);
-
-    mockMvc
-        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.gameState").value("FINISHED"))
-        .andExpect(jsonPath("$.remainingSeconds").value(0))
-        .andExpect(jsonPath("$.winner").value("RED"));
-  }
-
-  /**
-   * The four scoring endpoints, which all answer with the match as it now stands.
-   *
-   * <p>One test per endpoint rather than a parameterised sweep: each names a different service
-   * call, and a failure should say which endpoint broke without decoding a parameter index.
-   */
-  @Test
-  void addPoint_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(kumiteGameService.addPoint("game-1", "RED", "IPPON"))
-        .willReturn(matchWhereRedHasScored(PointsType.IPPON));
+  void score_isMappedWhole_andAnswersTheGame() throws Exception {
+    NewScore expected =
+        new NewScore("s2", Side.AO, ScoreLevel.IPPON, ScoreSource.VIDEO_REVIEW, 1, 90_000L);
+    given(kumiteGameService().recordScore("game-1", expected, "kenta"))
+        .willReturn(new Recording(scored(), List.of(Warning.CLOCK_REMAINING_OUT_OF_TOLERANCE)));
 
     mockMvc
         .perform(
-            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
-                .param("color", "RED")
-                .param("pointType", "IPPON"))
+            post(GAME + "/scores", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"id": "s2", "side": "AO", "level": "IPPON", "source": "VIDEO_REVIEW",
+                     "exchange": 1, "clockRemainingMs": 90000}
+                    """))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.red.points").value(3))
-        .andExpect(jsonPath("$.blue.points").value(0));
+        .andExpect(jsonPath("$.raisedWarnings[0]").value("CLOCK_REMAINING_OUT_OF_TOLERANCE"))
+        .andExpect(jsonPath("$.game.id").value("game-1"));
   }
 
+  /** The recorder comes from the signed-in account: a body that names one is not read. */
   @Test
-  void removePoint_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(kumiteGameService.removePoint("game-1", "RED", "IPPON"))
-        .willReturn(KumiteGameBuilder.newGame().alreadyPersistedAs("game-1").buildWithFighters());
+  void result_takesTheRecorderFromTheAccount() throws Exception {
+    NewResult expected =
+        new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.HANTEI, null, false);
+    given(kumiteGameService().recordResult("game-1", expected, "kenta"))
+        .willReturn(new Recording(scored(), List.of()));
 
     mockMvc
         .perform(
-            put("/api/v1/kumitegame/{gameId}/remove-point", "game-1")
-                .param("color", "RED")
-                .param("pointType", "IPPON"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.red.points").value(0));
+            post(GAME + "/results", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "HANTEI",
+                     "bothDisqualified": false, "recordedBy": "someone-else"}
+                    """))
+        .andExpect(status().isOk());
+
+    then(kumiteGameService()).should().recordResult("game-1", expected, "kenta");
   }
 
   @Test
-  void addFoul_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(kumiteGameService.addFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(1));
-
-    mockMvc
-        .perform(put("/api/v1/kumitegame/{gameId}/add-foul", "game-1").param("color", "BLUE"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.blue.fouls").value(1));
-  }
-
-  @Test
-  void removeFoul_whenTheRequestIsValid_returns200WithTheUpdatedMatch() throws Exception {
-    given(kumiteGameService.removeFoul("game-1", "BLUE")).willReturn(matchWhereBlueHasFouled(0));
-
-    mockMvc
-        .perform(put("/api/v1/kumitegame/{gameId}/remove-foul", "game-1").param("color", "BLUE"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.blue.fouls").value(0));
-  }
-
-  @Test
-  void updateKumiteGameWinner_whenTheColourIsValid_returns200WithTheWinner() throws Exception {
-    given(kumiteGameService.updateKumiteGameWinner("game-1", "RED"))
-        .willReturn(
-            KumiteGameBuilder.newGame()
-                .alreadyPersistedAs("game-1")
-                .finished()
-                .wonBy(PlayerColor.RED)
-                .buildWithFighters());
-
-    mockMvc
-        .perform(put("/api/v1/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.winner").value("RED"))
-        .andExpect(jsonPath("$.gameState").value("FINISHED"));
-  }
-
-  private static GameWithFighters matchWhereRedHasScored(PointsType pointsType) {
-    return KumiteGameBuilder.newGame()
-        .alreadyPersistedAs("game-1")
-        .with(PlayerColor.RED, PlayerBuilder.newPlayer().named("Kenji").scoring(pointsType).build())
-        .buildWithFighters();
-  }
-
-  private static GameWithFighters matchWhereBlueHasFouled(int fouls) {
-    return KumiteGameBuilder.newGame()
-        .alreadyPersistedAs("game-1")
-        .with(PlayerColor.BLUE, PlayerBuilder.newPlayer().named("Sato").withFouls(fouls).build())
-        .buildWithFighters();
-  }
-
-  @Test
-  void getKumiteGame_whenTheGameIsMissing_returns404AsProblemDetail() throws Exception {
-    given(kumiteGameService.getGameWithFighters(anyString()))
-        .willThrow(new GameNotFoundException("Game not found! Game Id: nope"));
-
-    mockMvc
-        .perform(get("/api/v1/kumitegame/{gameId}", "nope"))
-        .andExpect(status().isNotFound())
-        // The media type is half the contract: it tells a client the body is an error, in a
-        // format it can parse without a bespoke agreement.
-        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.status").value(404))
-        .andExpect(jsonPath("$.title").value("Match not found"))
-        .andExpect(jsonPath("$.detail").value("Game not found! Game Id: nope"));
-  }
-
-  /**
-   * The status correction #36 exists for.
-   *
-   * <p>This assertion previously pinned the <em>wrong</em> behaviour on purpose — 404 for an
-   * unparseable colour — so that fixing it would show up as a failing test rather than a silent
-   * change. This is that change.
-   */
-  @Test
-  void addPoint_whenTheColourIsNotRecognised_returns400() throws Exception {
-    willThrow(new InvalidPlayerColorException("Unknown player colour: purple"))
-        .given(kumiteGameService)
-        .addPoint(anyString(), anyString(), anyString());
-
+  void entryWithoutId_isRefusedNamingTheField() throws Exception {
     mockMvc
         .perform(
-            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
-                .param("color", "purple")
-                .param("pointType", "IPPON"))
+            post(GAME + "/penalties", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"side\": \"AKA\", \"level\": \"CHUI\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.title").value("Invalid player colour"));
+        .andExpect(jsonPath("$.errors.id").exists());
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
   @Test
-  void addPoint_whenThePointTypeIsNotRecognised_returns400() throws Exception {
-    willThrow(new PointTypeNotFoundException("Unknown point type: triple-axel"))
-        .given(kumiteGameService)
-        .addPoint(anyString(), anyString(), anyString());
-
+  void settingsWithZeroDuration_isRefused() throws Exception {
     mockMvc
         .perform(
-            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
-                .param("color", "RED")
-                .param("pointType", "triple-axel"))
+            put(GAME + "/settings", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"durationMs": 0, "durationsOfferedMs": [120000],
+                     "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1}, "leadToWin": 8,
+                     "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
+                     "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000],
+                     "medicalTimeMs": 180000, "timeShownToleranceMs": 1000}
+                    """))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.title").value("Invalid point type"));
+        .andExpect(jsonPath("$.errors.durationMs").exists());
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
-  /**
-   * A real colour that this match does not field stays 404.
-   *
-   * <p>Paired with the test above deliberately: the same parameter, two different failures, two
-   * different statuses. That distinction is the whole point of keeping them separate exception
-   * types.
-   */
   @Test
-  void addPoint_whenTheMatchDoesNotFieldThatColour_returns404() throws Exception {
-    willThrow(new PlayerNotFoundException("Match game-1 has no BLUE fighter."))
-        .given(kumiteGameService)
-        .addPoint(anyString(), anyString(), anyString());
+  void refusedAction_isConflict_withTheReason() throws Exception {
+    given(kumiteGameService().recordScore(eq("game-1"), any(), anyString()))
+        .willThrow(new ActionRefusedException("Entry id s1 was already used."));
 
     mockMvc
         .perform(
-            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
-                .param("color", "BLUE")
-                .param("pointType", "IPPON"))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.title").value("Fighter not found"));
-  }
-
-  /**
-   * The #29 guard on the wire: an operation the match's state forbids is 409 Conflict.
-   *
-   * <p>No lifecycle endpoint exists yet, so the throw is staged through an endpoint that does; the
-   * advice maps the type the same way regardless of where it is thrown. The detail is echoed
-   * because the guard writes it, and it names the two states — which is what the caller needs.
-   */
-  @Test
-  void anyOperationTheMatchStateForbids_returns409AsProblemDetail() throws Exception {
-    given(kumiteGameService.updateKumiteGameWinner(anyString(), anyString()))
-        .willThrow(
-            new IllegalStateTransitionException("Match game-1 is FINISHED and cannot be started."));
-
-    mockMvc
-        .perform(put("/api/v1/kumitegame/{gameId}/update-winner/{color}", "game-1", "RED"))
+            post(GAME + "/scores", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"id\": \"s1\", \"side\": \"AO\", \"level\": \"YUKO\", \"source\": \"JUDGES\"}"))
         .andExpect(status().isConflict())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.status").value(409))
-        .andExpect(jsonPath("$.title").value("Illegal match-state transition"))
-        .andExpect(jsonPath("$.detail").value("Match game-1 is FINISHED and cannot be started."));
+        .andExpect(jsonPath("$.title").value("Action refused"))
+        .andExpect(jsonPath("$.detail").value("Entry id s1 was already used."));
   }
 
-  /**
-   * A well-formed request the domain rejects: shape validation passed, the colour rule did not.
-   *
-   * <p>The body must be structurally valid, or {@code @Valid} rejects it before the controller —
-   * and therefore before the stubbed service — is ever reached.
-   */
+  /** The current game travels in the problem detail, so the caller needs no second read. */
   @Test
-  void createKumiteGame_whenTheServiceRejectsTheRequest_returns400WithTheReason() throws Exception {
-    given(kumiteGameService.createKumiteGame(any()))
+  void absoluteActionThatLost_isConflict_withTheCurrentGame() throws Exception {
+    given(kumiteGameService().recordResult(eq("game-1"), any(), anyString()))
         .willThrow(
-            new InvalidGameRequestException(
-                "A match fields exactly one fighter per colour, but two were given as RED."));
+            new GameChangedException(scored(), new OptimisticLockingFailureException("lost")));
 
     mockMvc
         .perform(
-            post("/api/v1/kumitegame")
+            post(GAME + "/results", "game-1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    {
-                      "playersMap": {
-                        "red":  { "name": "Kenji", "color": "RED" },
-                        "blue": { "name": "Sato",  "color": "RED" }
-                      },
-                      "refereeList": ["Test Referee"]
-                    }
+                    {"id": "r1", "outcome": "DRAW", "reason": "HIKIWAKE",
+                     "bothDisqualified": false}
                     """))
-        // Reached the catch-all and reported a client mistake as a server fault before #36.
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.status").value(400))
-        // Echoed because this project wrote it: the caller can act on it and it says nothing
-        // internal.
-        .andExpect(
-            jsonPath("$.detail")
-                .value(
-                    "A match fields exactly one fighter per colour, but two were given as RED."));
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("Concurrent update"))
+        .andExpect(jsonPath("$.current.id").value("game-1"))
+        .andExpect(jsonPath("$.current.aka.colour").value("red"))
+        .andExpect(jsonPath("$.current.aka.total").value(2));
   }
 
-  /**
-   * Bean Validation at the boundary (#39): every failing field reported, in one round trip.
-   *
-   * <p>Three distinct failures in one request — a blank fighter name (a nested constraint, which
-   * only fires because the map values are marked {@code @Valid}), a one-fighter map, and an empty
-   * referee list. The service is never reached; no stubbing is needed or wanted.
-   */
   @Test
-  void createKumiteGame_whenSeveralFieldsAreInvalid_returns400ListingEveryFailure()
-      throws Exception {
+  void invalidCombination_isBadRequest_withTheReason() throws Exception {
+    given(kumiteGameService().recordResult(eq("game-1"), any(), anyString()))
+        .willThrow(new InvalidGameRequestException("A WIN names a winner."));
+
     mockMvc
         .perform(
-            post("/api/v1/kumitegame")
+            post(GAME + "/results", "game-1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    {
-                      "playersMap": {
-                        "red": { "name": "", "color": "RED" }
-                      },
-                      "refereeList": []
-                    }
+                    {"id": "r1", "outcome": "WIN", "reason": "POINTS", "bothDisqualified": false}
                     """))
         .andExpect(status().isBadRequest())
-        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.title").value("Invalid request"))
-        .andExpect(jsonPath("$.errors").value(hasKey("playersMap[red].name")))
-        .andExpect(jsonPath("$.errors").value(hasKey("playersMap")))
-        .andExpect(jsonPath("$.errors").value(hasKey("refereeList")));
+        .andExpect(jsonPath("$.detail").value("A WIN names a winner."));
   }
 
-  /**
-   * A {@code null} fighter is the caller's mistake, not a server fault.
-   *
-   * <p>{@code @Valid} on the map values skips nulls entirely (per the Bean Validation spec), so
-   * without {@code @NotNull} beside it this request sailed through validation and died in the
-   * service as a 500. The container-element constraint is what turns it into a 400.
-   */
   @Test
-  void createKumiteGame_whenOneFighterIsNull_returns400NotServerError() throws Exception {
-    mockMvc
-        .perform(
-            post("/api/v1/kumitegame")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "playersMap": {
-                        "red":  null,
-                        "blue": { "name": "Sato", "color": "BLUE" }
-                      },
-                      "refereeList": ["Test Referee"]
-                    }
-                    """))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.errors").value(hasKey("playersMap[red]")));
-  }
-
-  /**
-   * An illegal argument from somewhere below the controller: still 400, but never its message.
-   *
-   * <p>The blanket {@code IllegalArgumentException} handler catches exceptions raised inside the
-   * framework and the driver as well as our own — Spring Data's "The given id must not be null" is
-   * one. Echoing those blamed the caller for a server fault <em>and</em> handed them internal text.
-   * The message it must not leak here is a database credential, the same thing the catch-all test
-   * guards.
-   */
-  @Test
-  void addPoint_whenAnUnexpectedIllegalArgumentEscapes_returns400WithoutLeakingTheMessage()
-      throws Exception {
-    willThrow(new IllegalArgumentException("invalid id for mongodb://user:secret@host/db"))
-        .given(kumiteGameService)
-        .addPoint(anyString(), anyString(), anyString());
+  void missingGame_isNotFound() throws Exception {
+    given(kumiteGameService().get(anyString()))
+        .willThrow(new GameNotFoundException("No game has the id nope"));
 
     mockMvc
-        .perform(
-            put("/api/v1/kumitegame/{gameId}/add-point", "game-1")
-                .param("color", "RED")
-                .param("pointType", "IPPON"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.detail").value("The request contained an invalid value."))
-        .andExpect(content().string(not(containsString("secret"))));
-  }
-
-  /**
-   * A non-numeric duration dies at binding, before any code runs (#39).
-   *
-   * <p>{@code gameDuration} is an {@code Integer} now, so the framework rejects text that is not a
-   * number as an unreadable body — no service stub, no hand parse, no {@code NumberFormatException}
-   * surfacing from below.
-   */
-  @Test
-  void createKumiteGame_whenTheDurationIsNotNumeric_returns400() throws Exception {
-    mockMvc
-        .perform(
-            post("/api/v1/kumitegame")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"gameDuration\":\"two minutes\"}"))
-        .andExpect(status().isBadRequest());
-  }
-
-  /**
-   * The catch-all, which must not leak.
-   *
-   * <p>An unhandled exception's message can carry internal identifiers, query fragments or file
-   * paths. The status is generic and so is the body; the message goes to the log instead.
-   */
-  @Test
-  void getKumiteGame_whenSomethingUnexpectedFails_returns500WithoutLeakingTheMessage()
-      throws Exception {
-    given(kumiteGameService.getGameWithFighters(anyString()))
-        .willThrow(new IllegalStateException("connection string mongodb://user:secret@host/db"));
-
-    mockMvc
-        .perform(get("/api/v1/kumitegame/{gameId}", "game-1"))
-        .andExpect(status().isInternalServerError())
-        .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
-        .andExpect(content().string(not(containsString("secret"))));
-  }
-
-  /**
-   * A framework-raised exception, mapped by the base class rather than by anything written here.
-   *
-   * <p>This is what extending {@code ResponseEntityExceptionHandler} buys. Before #36 an unreadable
-   * body hit the catch-all and came back as 500 — the server blamed for a malformed request.
-   */
-  @Test
-  void createKumiteGame_whenTheBodyIsNotReadable_returns400FromTheBaseHandler() throws Exception {
-    mockMvc
-        .perform(
-            post("/api/v1/kumitegame").contentType(MediaType.APPLICATION_JSON).content("{ not"))
-        .andExpect(status().isBadRequest());
+        .perform(get(GAME, "nope"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.title").value("Game not found"));
   }
 }

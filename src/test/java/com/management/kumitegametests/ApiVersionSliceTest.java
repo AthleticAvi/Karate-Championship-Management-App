@@ -5,11 +5,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.athlete.service.PlayerService;
-import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.FeatureWeb;
 import com.management.testsupport.WebSliceTestBase;
 import java.util.List;
@@ -17,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
@@ -36,10 +32,6 @@ class ApiVersionSliceTest extends WebSliceTestBase {
   @Qualifier("requestMappingHandlerMapping")
   private RequestMappingHandlerMapping handlerMapping;
 
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
-
   /** Read from the mappings, so an endpoint added later is covered without changing this test. */
   @Test
   void everyControllerEndpoint_isUnderTheVersionPrefix() {
@@ -54,32 +46,35 @@ class ApiVersionSliceTest extends WebSliceTestBase {
 
   @Test
   void oldPaths_forReads_areRefused() throws Exception {
-    mockMvc.perform(get("/api/kumitegame/game-1")).andExpect(status().isUnauthorized());
-    mockMvc.perform(get("/api/players/player-1")).andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/api/kumite-games/game-1")).andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/api/athletes/athlete-1")).andExpect(status().isUnauthorized());
 
-    verifyNoInteractions(kumiteGameService, playerService);
+    verifyNoInteractions(kumiteGameService(), athleteService());
   }
 
   @Test
   void oldPaths_forWrites_areRefused() throws Exception {
     mockMvc
         .perform(
-            post("/api/players")
+            post("/api/athletes")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\": \"Kenji\"}"))
         .andExpect(status().isUnauthorized());
     mockMvc
-        .perform(put("/api/kumitegame/game-1/add-foul").param("color", "RED"))
+        .perform(
+            post("/api/kumite-games/game-1/scores")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
         .andExpect(status().isUnauthorized());
-    mockMvc.perform(delete("/api/players/player-1")).andExpect(status().isUnauthorized());
+    mockMvc.perform(delete("/api/athletes/athlete-1")).andExpect(status().isUnauthorized());
 
-    verifyNoInteractions(kumiteGameService, playerService);
+    verifyNoInteractions(kumiteGameService(), athleteService());
   }
 
   @Test
   void anotherVersion_isRefused() throws Exception {
-    mockMvc.perform(get("/api/v2/players/player-1")).andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/api/v2/athletes/athlete-1")).andExpect(status().isUnauthorized());
 
-    verifyNoInteractions(kumiteGameService, playerService);
+    verifyNoInteractions(kumiteGameService(), athleteService());
   }
 }

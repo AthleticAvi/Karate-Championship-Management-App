@@ -80,7 +80,7 @@ class ActuatorHealthDownIT {
 
     ResponseEntity<String> response =
         rest.exchange(
-            "/api/v1/players", HttpMethod.POST, new HttpEntity<>("{}", headers), String.class);
+            "/api/v1/athletes", HttpMethod.POST, new HttpEntity<>("{}", headers), String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     assertThat(response.getHeaders().getFirst("Content-Type"))

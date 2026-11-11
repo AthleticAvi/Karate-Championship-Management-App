@@ -1,364 +1,525 @@
 package com.management.kumitegame.domain;
 
-import com.management.athlete.domain.Player;
-import com.management.athlete.domain.PlayerNotFoundException;
-import com.management.kumitegame.data.converters.LegacyWinnerConverter;
-import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
-import org.springframework.data.annotation.Version;
-import org.springframework.data.convert.ValueConverter;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
- * A match: two fighter references, the officials, the clock, the state, and the result.
+ * A Kumite game: what happened, as ordered entries, and the rules it ran under. Everything else is
+ * derived from these by {@link #state()}.
  *
- * <p><strong>Fighters are referenced, never embedded.</strong> The match stores each fighter's
- * document id keyed by colour; the fighter documents own their names and scores. The previous shape
- * embedded a full copy of each fighter here, which made every score two writes to two collections
- * with nothing tying them together — with no transaction to span them, a failure between the writes
- * left the copies permanently disagreeing. One fact, one owner: the score lives on {@link Player}
- * and nowhere else, and reads compose the two aggregates (see {@link GameWithFighters}).
+ * <p><strong>Officials decide, the system records.</strong> An action is refused only when the data
+ * would contradict itself. A rule breach the system can see is applied, and the warning is stored
+ * on the entry and returned. The warnings are separate rule classes reading the settings snapshot;
+ * which status accepts which action is {@link EntryKind}.
+ *
+ * <p><strong>A retried action applies once.</strong> Every entry carries the id the client gave it.
+ * An action whose id is already on record is the same request when what the client sent, and who
+ * sent it, match the stored entry: nothing is applied, and the stored warnings answer. Any other
+ * reuse of the id is refused. The check is per game, inside the versioned save.
+ *
+ * <p>Knows nothing of storage: the stored form is {@code
+ * com.management.kumitegame.data.KumiteGameDocument}.
  */
-@Document
-public class KumiteGame {
-  @Id private String id;
+public final class KumiteGame {
 
-  /**
-   * Detects concurrent modification: a save against a stale version matches no document and raises
-   * {@code OptimisticLockingFailureException} instead of silently overwriting.
-   *
-   * <p>Primitive {@code long}, so an unset version reads as {@code 0} — which Spring Data treats as
-   * <em>new</em>. A document written before this field existed therefore cannot be updated: its
-   * next save is attempted as an insert and fails on the duplicate identifier. That is accepted
-   * rather than backfilled, because there is no production data; see {@code CLAUDE.md}.
-   */
-  @Version private long version;
+  private final String id;
+  private final GameFormat format;
+  private final boolean medalGame;
+  private final boolean extraGame;
+  private Settings settings;
+  private final Map<Side, List<Score>> scores = new EnumMap<>(Side.class);
+  private final Map<Side, List<Penalty>> penalties = new EnumMap<>(Side.class);
+  private final List<Assignment> assignments;
+  private final List<ClockAction> clockActions;
+  private final List<Amendment> amendments;
+  private final List<Result> results;
 
-  private GameState gameState;
-
-  /** Fighter document ids keyed by colour. Absent on a document written before #49. */
-  @Nullable private Map<PlayerColor, String> playerIds;
-
-  private List<Referee> referees;
-
-  /**
-   * The colour that won, or {@code null} while the match has no winner.
-   *
-   * <p>Was a display sentence — {@code "RED player: Kenji"}, starting life as the literal {@code
-   * "Pending game ending"}. That is a value field doing a rendering job: no client could reliably
-   * tell whether a match had been decided without comparing strings, and the fighter's name was
-   * baked into a field that changes when the fighter is renamed. {@code
-   * context/workflow/languages/java/standards/standards.md} forbids a magic string for absent
-   * state; {@code null} is the absence.
-   *
-   * <p>{@link LegacyWinnerConverter} keeps documents written before that change readable — without
-   * it, {@code Enum.valueOf} fails on the stored sentence and the whole match becomes unloadable.
-   * See that class for why the conversion is bound to this property rather than to the type.
-   */
-  @ValueConverter(LegacyWinnerConverter.class)
-  @Nullable
-  private PlayerColor winner;
-
-  /**
-   * The colour that scored first — SENSHU — or {@code null} while nobody has scored.
-   *
-   * <p>Captured as it happens, because it cannot be reconstructed afterwards: the score alone does
-   * not say who reached it first. Without it a level match at time expiry has nothing to resolve
-   * on.
-   */
-  @Nullable private PlayerColor senshu;
-
-  /** Why the match ended, or {@code null} while it is still open. */
-  @Nullable private MatchEndReason endReason;
-
-  /** The rule that decided the winner, or {@code null} while undecided. */
-  @Nullable private String decidedBy;
-
-  /** The referee's override, or {@code null} when the result is the rules engine's. */
-  @Nullable private RefereeOverride refereeOverride;
-
-  /** Every time addition a referee applied, in the order they were applied. */
-  private List<ClockAdjustment> clockAdjustments = new ArrayList<>();
-
-  @Nullable private Instant startTime;
-  private Duration remainingTime;
-  private Duration gameDuration;
-
-  /**
-   * The mapper's way in (#52): builds an empty shell that the mapping layer populates field by
-   * field from the stored document. Explicit, so loading no longer runs the new-match constructor
-   * below and then overwrites its work — and so a future constructor-only field cannot be silently
-   * reset on every read.
-   */
-  @PersistenceCreator
-  KumiteGame() {}
-
-  /** A new match: queued, undecided, full time on the clock. */
+  /** A game as stored. Any history loads: see {@link GameFold}. */
   public KumiteGame(
-      Map<PlayerColor, String> playerIds, List<Referee> referees, Duration gameDuration) {
-    this.gameState = GameState.QUEUED;
-    this.playerIds = playerIds;
-    this.referees = referees;
-    this.gameDuration = gameDuration;
-    this.remainingTime = gameDuration;
-  }
-
-  public void updateWinner(PlayerColor color) {
-    requireFields(color);
-    setWinner(color);
-  }
-
-  private void requireFields(PlayerColor color) {
-    if (playerIds == null || !playerIds.containsKey(color)) {
-      throw new PlayerNotFoundException(
-          "Match " + id + " has no " + color + " fighter to declare the winner.");
+      String id,
+      GameFormat format,
+      boolean medalGame,
+      boolean extraGame,
+      Settings settings,
+      Map<Side, List<Score>> scores,
+      Map<Side, List<Penalty>> penalties,
+      List<Assignment> assignments,
+      List<ClockAction> clockActions,
+      List<Amendment> amendments,
+      List<Result> results) {
+    this.id = id;
+    this.format = format;
+    this.medalGame = medalGame;
+    this.extraGame = extraGame;
+    this.settings = settings;
+    for (Side side : Side.values()) {
+      this.scores.put(side, new ArrayList<>(scores.getOrDefault(side, List.of())));
+      this.penalties.put(side, new ArrayList<>(penalties.getOrDefault(side, List.of())));
     }
+    this.assignments = new ArrayList<>(assignments);
+    this.clockActions = new ArrayList<>(clockActions);
+    this.amendments = new ArrayList<>(amendments);
+    this.results = new ArrayList<>(results);
   }
 
   /**
-   * Records who scored first, once.
+   * A new game: the athlete on each side and the panel become its first entries.
    *
-   * <p>SENSHU is "the first to score", so the second call is deliberately a no-op rather than an
-   * overwrite — otherwise the last scorer would end up holding it.
+   * @param entryIds gives each of those entries its id: a creation is not retried by id, so the
+   *     server names them
    */
-  public void recordFirstScorer(PlayerColor color) {
-    if (senshu == null) {
-      senshu = color;
+  public static KumiteGame create(
+      String id,
+      NewGame newGame,
+      Settings settings,
+      Supplier<String> entryIds,
+      String recordedBy,
+      Instant now) {
+    if (newGame.akaAthleteId().equals(newGame.aoAthleteId())) {
+      throw new InvalidGameRequestException(
+          "An athlete cannot fight themselves: both sides were given athlete "
+              + newGame.akaAthleteId()
+              + ".");
     }
+    Set<String> referees = new HashSet<>();
+    newGame
+        .panel()
+        .forEach(member -> {
+          if (!referees.add(member.refereeId())) {
+            throw new InvalidGameRequestException(
+                "Referee " + member.refereeId() + " is on the panel more than once.");
+          }
+        });
+
+    List<Assignment> assignments = new ArrayList<>();
+    Map<Side, String> athletes =
+        Map.of(Side.AKA, newGame.akaAthleteId(), Side.AO, newGame.aoAthleteId());
+    for (Side side : Side.values()) {
+      assignments.add(
+          new Assignment(
+              AssignmentKind.ATHLETE,
+              side,
+              athletes.get(side),
+              null,
+              null,
+              meta(entryIds.get(), assignments.size() + 1, recordedBy, now, List.of())));
+    }
+    for (PanelMember member : newGame.panel()) {
+      assignments.add(
+          new Assignment(
+              AssignmentKind.PANEL_ADD,
+              null,
+              null,
+              member.refereeId(),
+              member.role(),
+              meta(entryIds.get(), assignments.size() + 1, recordedBy, now, List.of())));
+    }
+    return new KumiteGame(
+        id,
+        newGame.format(),
+        newGame.medalGame(),
+        newGame.extraGame(),
+        settings,
+        Map.of(),
+        Map.of(),
+        assignments,
+        List.of(),
+        List.of(),
+        List.of());
   }
 
-  public Optional<PlayerColor> getSenshu() {
-    return Optional.ofNullable(senshu);
+  /** Everything derived from the entries. */
+  public GameState state() {
+    return GameFold.fold(this);
   }
 
   /**
-   * Forgets who scored first.
-   *
-   * <p>For a score corrected back to zero: the fighter did not, after all, score first, and leaving
-   * the claim in place would let it decide a level match at time expiry.
+   * Replaces the settings, keeping the rulebook version. Only before the start: a game never
+   * changes its rules mid-way. No history is kept, since nothing has happened yet.
    */
-  public void clearFirstScorer() {
-    this.senshu = null;
+  public Recorded changeSettings(NewSettings newSettings) {
+    Settings changed = newSettings.under(settings.rulebookVersion());
+    admit(EntryKind.SETTINGS_CHANGE, state());
+    this.settings = changed;
+    return Recorded.applied(List.of());
+  }
+
+  public Recorded recordScore(NewScore score, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            score.id(),
+            found ->
+                found.entry() instanceof Score stored
+                    && score.matches(stored, found.side(), recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
+    }
+    GameState state = state();
+    List<Warning> raised = admit(EntryKind.SCORE, state);
+    LateScore.check(state, now, settings, raised);
+    ClockTolerance.checkClockRemaining(
+        state.mainClock(), score.clockRemainingMs(), now, settings, raised);
+    Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
+    scoresOf(score.side())
+        .add(
+            new Score(
+                score.level(),
+                score.source(),
+                exchange,
+                score.clockRemainingMs(),
+                next(score.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
+  }
+
+  public Recorded recordPenalty(NewPenalty penalty, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            penalty.id(),
+            found ->
+                found.entry() instanceof Penalty stored
+                    && penalty.matches(stored, found.side(), recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
+    }
+    GameState state = state();
+    List<Warning> raised = admit(EntryKind.PENALTY, state);
+    PenaltyLadder.check(state.side(penalty.side()), penalty.level(), settings, raised);
+    ClockTolerance.checkClockRemaining(
+        state.mainClock(), penalty.clockRemainingMs(), now, settings, raised);
+    Integer exchange = penalty.exchange() != null ? penalty.exchange() : state.currentExchange();
+    penaltiesOf(penalty.side())
+        .add(
+            new Penalty(
+                penalty.level(),
+                penalty.infraction(),
+                exchange,
+                penalty.clockRemainingMs(),
+                next(penalty.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
+  }
+
+  public Recorded recordClockAction(NewClockAction action, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            action.id(),
+            found ->
+                found.entry() instanceof ClockAction stored && action.matches(stored, recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
+    }
+    requireWellFormed(action);
+    GameState state = state();
+    List<Warning> raised = admit(EntryKind.CLOCK_ACTION, state);
+    ClockTolerance.checkTimeShown(
+        state.clock(action.timer(), action.side()), action.timeShownMs(), now, settings, raised);
+    clockActions.add(
+        new ClockAction(
+            action.timer(),
+            action.side(),
+            action.action(),
+            action.timeShownMs(),
+            action.amountMs(),
+            action.pauseReason(),
+            next(action.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
   }
 
   /**
-   * Applies an outcome and finishes the match, if it has not finished already.
-   *
-   * <p>Idempotent by design: two conditions can become true in the same instant — a point that
-   * crosses the threshold as the clock expires — and the first one to arrive is the one that
-   * happened. A later call changes nothing, which is what lets the evaluator run after every event
-   * without guarding each call site.
+   * Puts an athlete on a side, or changes the panel. Changing the panel applies as given: adding a
+   * referee already on it changes their role, and removing one not on it changes nothing.
    */
-  public void applyOutcome(MatchOutcome outcome, Clock clock) {
-    if (gameState == GameState.FINISHED) {
-      return;
+  public Recorded recordAssignment(NewAssignment assignment, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            assignment.id(),
+            found ->
+                found.entry() instanceof Assignment stored
+                    && assignment.matches(stored, recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
     }
-    if (outcome.winner() != null) {
-      requireFields(outcome.winner());
+    requireWellFormed(assignment);
+    GameState state = state();
+    Side side = assignment.side();
+    String athleteId = assignment.athleteId();
+    if (assignment.kind() == AssignmentKind.ATHLETE
+        && side != null
+        && athleteId != null
+        && athleteId.equals(state.side(side.opponent()).athleteId())) {
+      throw new ActionRefusedException(
+          "Athlete "
+              + athleteId
+              + " is on "
+              + side.opponent()
+              + ", so cannot also be on "
+              + side
+              + ".");
     }
-    this.winner = outcome.winner();
-    this.endReason = outcome.reason();
-    this.decidedBy = outcome.decidedBy();
-    this.gameState = GameState.FINISHED;
-    // The clock is read before startTime is cleared: timer() rebuilds from that field, so
-    // clearing it first would hand back a timer that never started and report the match's full
-    // remaining time, making an early finish look like one that ran its distance.
-    this.remainingTime = timer(clock).stopAndReport();
-    this.startTime = null;
-  }
-
-  public Optional<MatchEndReason> getEndReason() {
-    return Optional.ofNullable(endReason);
-  }
-
-  public Optional<String> getDecidedBy() {
-    return Optional.ofNullable(decidedBy);
-  }
-
-  /** The outcome as it currently stands, or empty while the match is undecided. */
-  public Optional<MatchOutcome> outcome() {
-    return endReason == null
-        ? Optional.empty()
-        : Optional.of(new MatchOutcome(winner, endReason, decidedBy == null ? "" : decidedBy));
-  }
-
-  public Optional<RefereeOverride> getRefereeOverride() {
-    return Optional.ofNullable(refereeOverride);
+    List<Warning> raised = admit(EntryKind.ASSIGNMENT, state);
+    assignments.add(
+        new Assignment(
+            assignment.kind(),
+            side,
+            assignment.athleteId(),
+            assignment.refereeId(),
+            assignment.role(),
+            next(assignment.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
   }
 
   /**
-   * Records a referee's override of the result.
+   * Cancels a score or penalty, or acknowledges the warnings on any entry.
    *
-   * <p>Sets the state directly rather than going through {@link #applyOutcome}, because an override
-   * applies to a match the rules engine may already have finished — that is its whole purpose. What
-   * the engine had decided is preserved inside the override record.
+   * <p>Refused when it would contradict itself: a target that does not exist, a CANCEL of anything
+   * but a score or penalty (a CANCEL included), or a second CANCEL of the same target. To undo a
+   * mistaken cancel, record the entry again.
    */
-  public void applyOverride(RefereeOverride override, Clock clock) {
-    if (override.winner() != null) {
-      requireFields(override.winner());
+  public Recorded recordAmendment(NewAmendment amendment, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            amendment.id(),
+            found ->
+                found.entry() instanceof Amendment stored && amendment.matches(stored, recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
     }
-    this.refereeOverride = override;
-    this.winner = override.winner();
-    this.endReason = MatchEndReason.REFEREE_OVERRIDE;
-    this.decidedBy = "RefereeOverride";
-    if (gameState != GameState.FINISHED) {
-      this.gameState = GameState.FINISHED;
-      // Read the clock before clearing startTime, for the reason applyOutcome states.
-      this.remainingTime = timer(clock).stopAndReport();
-      this.startTime = null;
+    GameState state = state();
+    Entry target =
+        entries()
+            .map(SidedEntry::entry)
+            .filter(entry -> entry.id().equals(amendment.targetId()))
+            .findFirst()
+            .orElseThrow(() ->
+                new ActionRefusedException(
+                    "No entry has the id " + amendment.targetId() + " in this game."));
+    if (amendment.kind() == AmendmentKind.CANCEL) {
+      if (!(target instanceof Score || target instanceof Penalty)) {
+        throw new ActionRefusedException(
+            "Only a score or a penalty can be cancelled, and "
+                + amendment.targetId()
+                + " is neither.");
+      }
+      if (state.isCancelled(amendment.targetId())) {
+        throw new ActionRefusedException(
+            "Entry " + amendment.targetId() + " is already cancelled.");
+      }
+    }
+    List<Warning> raised = admit(EntryKind.AMENDMENT, state);
+    amendments.add(
+        new Amendment(
+            amendment.kind(),
+            amendment.targetId(),
+            amendment.reason(),
+            next(amendment.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
+  }
+
+  /** Records a result as given. A later one supersedes it, and it stays on record. */
+  public Recorded recordResult(NewResult result, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            result.id(),
+            found -> found.entry() instanceof Result stored && result.matches(stored, recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
+    }
+    if ((result.outcome() == Outcome.WIN) != (result.winner() != null)) {
+      throw new InvalidGameRequestException(
+          "A WIN names a winner, and a "
+              + result.outcome()
+              + (result.outcome() == Outcome.WIN ? " needs one." : " has none."));
+    }
+    GameState state = state();
+    List<Warning> raised = new ArrayList<>();
+    if (state.status() != GameStatus.NOT_STARTED || !result.reason().isBeforeTheStart()) {
+      raised = admit(EntryKind.RESULT, state);
+    }
+    results.add(
+        new Result(
+            result.outcome(),
+            result.winner(),
+            result.reason(),
+            result.reasonDetail(),
+            result.bothDisqualified(),
+            next(result.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
+  }
+
+  /** Every entry, in the order it was recorded. */
+  List<SidedEntry> entriesInOrder() {
+    return entries()
+        .sorted(Comparator.comparingInt(placed -> placed.entry().meta().order()))
+        .toList();
+  }
+
+  private Stream<SidedEntry> entries() {
+    Stream<SidedEntry> sided =
+        Stream.of(Side.values())
+            .flatMap(side ->
+                Stream.concat(scoresOf(side).stream(), penaltiesOf(side).stream())
+                    .map(entry -> new SidedEntry(entry, side)));
+    Stream<SidedEntry> unsided =
+        Stream.of(assignments, clockActions, amendments, results)
+            .flatMap(List::stream)
+            .map(entry -> new SidedEntry(entry, null));
+    return Stream.concat(sided, unsided);
+  }
+
+  /** The stored answer when this id is already on record, or a refusal if it was another action. */
+  private Optional<Recorded> replayOf(String entryId, Predicate<SidedEntry> sameRequest) {
+    Optional<SidedEntry> found = entries().filter(e -> e.entry().id().equals(entryId)).findFirst();
+    if (found.isEmpty()) {
+      return Optional.empty();
+    }
+    if (!sameRequest.test(found.get())) {
+      throw new ActionRefusedException(
+          "Entry id " + entryId + " was already used for a different action in this game.");
+    }
+    return Optional.of(Recorded.replayOf(found.get().entry().meta()));
+  }
+
+  private static List<Warning> admit(EntryKind kind, GameState state) {
+    List<Warning> raised = new ArrayList<>();
+    kind.admission(state.status()).apply(kind, state.status(), raised);
+    return raised;
+  }
+
+  private static EntryMeta next(
+      String entryId, GameState state, String recordedBy, Instant now, List<Warning> raised) {
+    return meta(entryId, state.lastOrder() + 1, recordedBy, now, raised);
+  }
+
+  private static EntryMeta meta(
+      String entryId, int order, String recordedBy, Instant now, List<Warning> raised) {
+    return new EntryMeta(entryId, order, now, recordedBy, raised);
+  }
+
+  private static void requireWellFormed(NewClockAction action) {
+    if ((action.timer() == Timer.MEDICAL) != (action.side() != null)) {
+      throw new InvalidGameRequestException(
+          "A medical timer names its side, and the main clock has none.");
+    }
+    Long amount = action.amountMs();
+    if (action.action().hasAmount() != (amount != null)) {
+      throw new InvalidGameRequestException(
+          "ADD_TIME and SET_TIME take an amount, and "
+              + action.action()
+              + " was sent with it "
+              + (amount == null ? "missing." : "given."));
+    }
+    if (amount != null
+        && (amount < 0 || (action.action() == ClockActionKind.ADD_TIME && amount == 0))) {
+      throw new InvalidGameRequestException(
+          "Time added must be more than zero, and time set zero or more, but "
+              + amount
+              + " ms was given.");
     }
   }
 
-  /** Whether the rules engine may still set this match's result. */
-  public boolean isDecidedByReferee() {
-    return refereeOverride != null;
-  }
-
-  public List<ClockAdjustment> getClockAdjustments() {
-    return List.copyOf(clockAdjustments);
-  }
-
-  /**
-   * Adds time to the clock and records that it happened.
-   *
-   * <p>Delegates the arithmetic to the timer, then copies the result back into the persisted fields
-   * — the timer is rebuilt from those on every call, so a change kept only in the timer object
-   * would vanish on the next read.
-   */
-  public void addTime(ClockAdjustment adjustment, Clock clock) {
-    GameTimer timer = timer(clock);
-    timer.add(adjustment.added());
-    this.remainingTime = timer.getRemainingTime();
-    if (timer.isRunning()) {
-      this.startTime = timer.startedAt();
+  private static void requireWellFormed(NewAssignment assignment) {
+    boolean wellFormed =
+        switch (assignment.kind()) {
+          case ATHLETE ->
+              assignment.side() != null
+                  && assignment.athleteId() != null
+                  && assignment.refereeId() == null
+                  && assignment.role() == null;
+          case PANEL_ADD ->
+              assignment.refereeId() != null
+                  && assignment.role() != null
+                  && assignment.side() == null
+                  && assignment.athleteId() == null;
+          case PANEL_REMOVE ->
+              assignment.refereeId() != null
+                  && assignment.side() == null
+                  && assignment.athleteId() == null;
+        };
+    if (!wellFormed) {
+      throw new InvalidGameRequestException(
+          "ATHLETE names a side and an athlete, PANEL_ADD a referee and a role, and PANEL_REMOVE"
+              + " a referee, each with nothing else.");
     }
-    this.clockAdjustments.add(adjustment);
   }
 
-  public String getId() {
+  /** Every side has a list from construction on. */
+  private List<Score> scoresOf(Side side) {
+    return Objects.requireNonNull(scores.get(side));
+  }
+
+  private List<Penalty> penaltiesOf(Side side) {
+    return Objects.requireNonNull(penalties.get(side));
+  }
+
+  public String id() {
     return id;
   }
 
-  public long getVersion() {
-    return version;
+  public GameFormat format() {
+    return format;
   }
 
-  public GameState getGameState() {
-    return gameState;
+  public boolean isMedalGame() {
+    return medalGame;
   }
 
-  public void setGameState(GameState gameState) {
-    this.gameState = gameState;
+  public boolean isExtraGame() {
+    return extraGame;
   }
 
-  public @Nullable Map<PlayerColor, String> getPlayerIds() {
-    return playerIds;
+  public Settings settings() {
+    return settings;
   }
 
-  public List<Referee> getReferees() {
-    return referees;
+  public List<Score> scores(Side side) {
+    return Collections.unmodifiableList(scoresOf(side));
   }
 
-  public void setReferees(List<Referee> referees) {
-    this.referees = referees;
+  public List<Penalty> penalties(Side side) {
+    return Collections.unmodifiableList(penaltiesOf(side));
   }
 
-  public @Nullable PlayerColor getWinner() {
-    return winner;
+  public List<Assignment> assignments() {
+    return Collections.unmodifiableList(assignments);
   }
 
-  public void setWinner(@Nullable PlayerColor winner) {
-    this.winner = winner;
+  public List<ClockAction> clockActions() {
+    return Collections.unmodifiableList(clockActions);
   }
 
-  public void setStartTime(@Nullable Instant startTime) {
-    this.startTime = startTime;
+  public List<Amendment> amendments() {
+    return Collections.unmodifiableList(amendments);
   }
 
-  public @Nullable Instant getStartTime() {
-    return startTime;
+  public List<Result> results() {
+    return Collections.unmodifiableList(results);
   }
 
-  public Duration getRemainingTime() {
-    return remainingTime;
-  }
-
-  public void setRemainingTime(Duration remainingTime) {
-    this.remainingTime = remainingTime;
-  }
-
-  public Duration getGameDuration() {
-    return gameDuration;
-  }
-
-  public void setGameDuration(Duration gameDuration) {
-    this.gameDuration = gameDuration;
-  }
-
-  /**
-   * The match clock, built from persisted state on every call.
-   *
-   * <p>Nothing is kept, so a game loaded from MongoDB needs no setup and the mapping layer needs no
-   * way to supply a {@link Clock}: the caller passes it in. Dropping {@code startTime} from the
-   * reconstruction would silently freeze a running clock (see {@link GameTimer}), so both values go
-   * in.
-   *
-   * <p>Each call returns a new timer, so a change made to one reaches this match only when the
-   * caller copies it back, and a caller that also clears {@code startTime} reads the timer first.
-   */
-  public GameTimer timer(Clock clock) {
-    return new GameTimer(remainingTime, startTime, clock);
-  }
-
-  /**
-   * Identity equality on the persistent id (#60): two objects with the same id are the same stored
-   * match, even if one is stale. An unsaved match has no id and is equal only to itself.
-   */
+  /** A stored game: equal only to the same game. */
   @Override
   public boolean equals(@Nullable Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof KumiteGame otherGame)) {
-      return false;
-    }
-    return id != null && id.equals(otherGame.id);
+    return other instanceof KumiteGame game && id.equals(game.id);
   }
 
-  /**
-   * Constant, deliberately.
-   *
-   * <p>Hashing the identifier looks better distributed but breaks the contract: {@code save}
-   * assigns the id, so an entity put in a {@code HashSet} before saving lands in one bucket and is
-   * looked for in another afterwards — silently unreachable. A constant keeps the hash stable
-   * across that transition, which is the property collections actually require; equality still
-   * separates the instances.
-   */
   @Override
   public int hashCode() {
-    return KumiteGame.class.hashCode();
+    return id.hashCode();
   }
 
   @Override
   public String toString() {
-    return "KumiteGame{id="
-        + id
-        + ", state="
-        + gameState
-        + ", playerIds="
-        + playerIds
-        + ", winner="
-        + winner
-        + ", remainingTime="
-        + remainingTime
-        + "}";
+    return "KumiteGame[" + id + "]";
   }
 }

@@ -3,7 +3,7 @@ package com.management.referee.domain;
 import java.util.Objects;
 
 /**
- * A referee, kept once and outside any match. A match refers to one by id.
+ * A referee, kept once and outside any game. A game refers to one by id.
  *
  * <p>The domain type: what the business knows, and nothing of how it is stored. The stored shape is
  * {@code com.management.referee.data.RefereeDocument}: see {@code

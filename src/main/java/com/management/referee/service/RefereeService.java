@@ -5,15 +5,20 @@ import com.management.referee.data.RefereeDocumentMapper;
 import com.management.referee.data.RefereeRepository;
 import com.management.referee.domain.Referee;
 import com.management.referee.domain.RefereeChangedException;
+import com.management.referee.domain.RefereeInUseException;
 import com.management.referee.domain.RefereeNotFoundException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 /**
  * The referee aggregate: create, read, rename and delete, each one document.
  *
- * <p>A leaf: it knows nothing of matches. From #155 a match refers to referees by id, and deleting
- * one a match refers to is refused there.
+ * <p>Knows nothing of games. Whether a game refers to a referee comes through {@link
+ * RefereeReferences}, which the game feature implements.
  *
  * <p><strong>A rename is not retried.</strong> It sets a value, so a retry would overwrite a name
  * the caller never saw. A rename that loses to another write answers with the referee as it now
@@ -24,9 +29,11 @@ import org.springframework.stereotype.Service;
 public class RefereeService {
 
   private final RefereeRepository refereeRepository;
+  private final RefereeReferences references;
 
-  public RefereeService(RefereeRepository refereeRepository) {
+  public RefereeService(RefereeRepository refereeRepository, RefereeReferences references) {
     this.refereeRepository = refereeRepository;
+    this.references = references;
   }
 
   public Referee create(String name) {
@@ -36,6 +43,13 @@ public class RefereeService {
 
   public Referee get(String refereeId) {
     return RefereeDocumentMapper.toDomain(stored(refereeId));
+  }
+
+  /** The referees with these ids that exist, by id. A missing one is simply absent. */
+  public Map<String, Referee> findAll(Collection<String> refereeIds) {
+    return refereeRepository.findAllById(refereeIds).stream()
+        .map(RefereeDocumentMapper::toDomain)
+        .collect(Collectors.toMap(Referee::id, Function.identity()));
   }
 
   /**
@@ -56,8 +70,16 @@ public class RefereeService {
     }
   }
 
-  /** Deletes by id, with no version check: a delete does not depend on the name it removes. */
+  /**
+   * Deletes by id, refused while a game refers to the referee. No version check: a delete does not
+   * depend on the name it removes. A game created between the check and the delete is the accepted
+   * residual race: it reads the referee as unknown.
+   */
   public void delete(String refereeId) {
+    if (references.isRefereeReferred(refereeId)) {
+      throw new RefereeInUseException(
+          "A game refers to referee " + refereeId + ", so it cannot be deleted.");
+    }
     if (refereeRepository.removeById(refereeId) == 0) {
       throw notFound(refereeId);
     }

@@ -1,8 +1,12 @@
 package com.management.testsupport;
 
 import com.management.account.service.AccountService;
+import com.management.athlete.service.AthleteService;
+import com.management.config.KumiteGameProperties;
+import com.management.kumitegame.service.KumiteGameService;
 import com.management.referee.service.RefereeService;
 import com.management.security.SecurityConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
@@ -35,17 +39,25 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * <p><strong>The real security rules.</strong> Left alone, the slice applies the framework's
  * default security instead, because a configuration class is not part of it. Importing the real one
  * means every slice test goes through the real chain, and a test that writes names who is asking.
+ *
+ * <p><strong>The game settings, bound as in the application.</strong> A slice binds no settings
+ * record of its own, and the game controller and the exception handler read the side colours.
  */
 @WebMvcTest
 @Import(SecurityConfiguration.class)
+@EnableConfigurationProperties(KumiteGameProperties.class)
 @ActiveProfiles("test")
 public abstract class WebSliceTestBase {
 
   /** The chain reads accounts through this, so a slice decides who exists. */
   @MockitoBean private AccountService accountService;
 
-  /** Here rather than in each slice, so a slice that never calls it keeps the shared context. */
+  /** The feature services, here rather than in each slice, so every slice shares one context. */
   @MockitoBean private RefereeService refereeService;
+
+  @MockitoBean private AthleteService athleteService;
+
+  @MockitoBean private KumiteGameService kumiteGameService;
 
   protected AccountService accountService() {
     return accountService;
@@ -53,5 +65,13 @@ public abstract class WebSliceTestBase {
 
   protected RefereeService refereeService() {
     return refereeService;
+  }
+
+  protected AthleteService athleteService() {
+    return athleteService;
+  }
+
+  protected KumiteGameService kumiteGameService() {
+    return kumiteGameService;
   }
 }

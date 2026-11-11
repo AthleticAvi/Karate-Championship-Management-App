@@ -12,7 +12,7 @@ import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 /**
- * The account aggregate. A leaf service, like {@code PlayerService}.
+ * The account aggregate. A leaf service, like {@code AthleteService}.
  *
  * <p>Passwords arrive here already hashed: see {@link Account}.
  */
@@ -49,7 +49,7 @@ public class AccountService {
    * Removes an account, unless it is the last Admin.
    *
    * <p>Retried here, outside the transaction, because the framework retries nothing by itself.
-   * Sized like the scoring retries in {@code PlayerService}. Running out of attempts answers 409.
+   * Sized like the append retries in {@code KumiteGameWriter}. Running out of attempts answers 409.
    */
   @Retryable(
       predicate = TransientTransactionRetry.class,

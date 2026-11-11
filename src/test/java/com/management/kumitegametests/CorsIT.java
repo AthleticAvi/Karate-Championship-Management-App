@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.management.athlete.data.PlayerRepository;
+import com.management.athlete.data.AthleteRepository;
 import com.management.filters.RequestCorrelationFilter;
 import com.management.testsupport.IntegrationTestBase;
 import java.net.http.HttpRequest;
@@ -39,7 +39,7 @@ class CorsIT {
 
   private static final String LOCAL_ORIGIN = "http://localhost:5173";
   private static final String OTHER_ORIGIN = "https://other.example";
-  private static final String PLAYERS = "/api/v1/players";
+  private static final String ATHLETES = "/api/v1/athletes";
   private static final String LIVENESS = "/actuator/health/liveness";
   private static final String ALLOW_ORIGIN = "Access-Control-Allow-Origin";
   private static final String ALLOW_METHODS = "Access-Control-Allow-Methods";
@@ -66,7 +66,7 @@ class CorsIT {
   @Test
   void preflight_fromAllowedOrigin_getsTheAllowHeadersWithNoCredentials() throws Exception {
     HttpResponse<String> response =
-        send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "POST", "authorization,content-type"));
+        send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "POST", "authorization,content-type"));
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
@@ -80,7 +80,7 @@ class CorsIT {
   @Test
   void preflight_fromAllowedOrigin_allowsTheCorrelationHeader() throws Exception {
     HttpResponse<String> response =
-        send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "GET", CORRELATION_ID));
+        send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "GET", CORRELATION_ID));
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(header(response, ALLOW_HEADERS)).containsIgnoringCase(CORRELATION_ID);
@@ -88,7 +88,7 @@ class CorsIT {
 
   @Test
   void preflight_fromOtherOrigin_isRefused() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, PLAYERS, OTHER_ORIGIN, "POST"));
+    HttpResponse<String> response = send(preflight(dev, ATHLETES, OTHER_ORIGIN, "POST"));
 
     assertThat(response.statusCode()).isEqualTo(403);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
@@ -96,7 +96,7 @@ class CorsIT {
 
   @Test
   void preflight_forMethodTheApiDoesNotUse_isRefused() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "PATCH"));
+    HttpResponse<String> response = send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "PATCH"));
 
     assertThat(response.statusCode()).isEqualTo(403);
   }
@@ -104,14 +104,14 @@ class CorsIT {
   @Test
   void preflight_forHeaderTheApiDoesNotUse_isRefused() throws Exception {
     HttpResponse<String> response =
-        send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "POST", "x-not-used"));
+        send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "POST", "x-not-used"));
 
     assertThat(response.statusCode()).isEqualTo(403);
   }
 
   @Test
   void refusal_carriesItsIdAndIsNotProblemDetail() throws Exception {
-    HttpResponse<String> response = send(preflight(dev, PLAYERS, OTHER_ORIGIN, "POST"));
+    HttpResponse<String> response = send(preflight(dev, ATHLETES, OTHER_ORIGIN, "POST"));
 
     assertThat(response.headers().firstValue(CORRELATION_ID)).isPresent();
     assertThat(response.headers().firstValue("Content-Type")).isEmpty();
@@ -127,7 +127,7 @@ class CorsIT {
     log.addAppender(lines);
 
     try {
-      send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "POST"));
+      send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "POST"));
     } finally {
       log.detachAppender(lines);
     }
@@ -141,7 +141,7 @@ class CorsIT {
 
   @Test
   void request_fromAllowedOrigin_exposesTheIdAndLocation() throws Exception {
-    HttpResponse<String> response = send(createPlayer(dev, LOCAL_ORIGIN));
+    HttpResponse<String> response = send(createAthlete(dev, LOCAL_ORIGIN));
 
     assertThat(response.statusCode()).isEqualTo(201);
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
@@ -152,7 +152,7 @@ class CorsIT {
   /** A browser hides the body of an answer with no CORS headers, errors included. */
   @Test
   void failure_fromAllowedOrigin_isReadable() throws Exception {
-    HttpResponse<String> response = send(get(dev, PLAYERS + "/none", LOCAL_ORIGIN));
+    HttpResponse<String> response = send(get(dev, ATHLETES + "/none", LOCAL_ORIGIN));
 
     assertThat(response.statusCode()).isEqualTo(404);
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
@@ -162,7 +162,7 @@ class CorsIT {
   @Test
   void refusedRequest_fromAllowedOrigin_isReadable() throws Exception {
     HttpResponse<String> response =
-        send(fromOrigin(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("POST", noBody()));
+        send(fromOrigin(dev, ATHLETES + "/none", LOCAL_ORIGIN).method("POST", noBody()));
 
     assertThat(response.statusCode()).isEqualTo(401);
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
@@ -172,10 +172,10 @@ class CorsIT {
   @Test
   void realRequest_afterItsPreflight_stillNeedsCredentials() throws Exception {
     HttpResponse<String> preflight =
-        send(preflight(dev, PLAYERS, LOCAL_ORIGIN, "POST", "authorization,content-type"));
+        send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "POST", "authorization,content-type"));
     HttpResponse<String> request =
         send(
-            fromOrigin(dev, PLAYERS, LOCAL_ORIGIN)
+            fromOrigin(dev, ATHLETES, LOCAL_ORIGIN)
                 .header("Content-Type", "application/json")
                 .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}")));
 
@@ -193,28 +193,28 @@ class CorsIT {
 
   @Test
   void request_fromOtherOrigin_isRefusedBeforeAnythingIsStored() throws Exception {
-    PlayerRepository players = dev.getBean(PlayerRepository.class);
-    long before = players.count();
+    AthleteRepository athletes = dev.getBean(AthleteRepository.class);
+    long before = athletes.count();
 
-    HttpResponse<String> response = send(createPlayer(dev, OTHER_ORIGIN));
+    HttpResponse<String> response = send(createAthlete(dev, OTHER_ORIGIN));
 
     assertThat(response.statusCode()).isEqualTo(403);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
-    assertThat(players.count()).isEqualTo(before);
+    assertThat(athletes.count()).isEqualTo(before);
   }
 
   /** Only the listed methods pass, so a {@code HEAD} the mapping would serve is refused too. */
   @Test
   void headRequest_fromAllowedOrigin_isRefused() throws Exception {
     HttpResponse<String> response =
-        send(fromOrigin(dev, PLAYERS + "/none", LOCAL_ORIGIN).method("HEAD", noBody()));
+        send(fromOrigin(dev, ATHLETES + "/none", LOCAL_ORIGIN).method("HEAD", noBody()));
 
     assertThat(response.statusCode()).isEqualTo(403);
   }
 
   @Test
   void request_withNoOrigin_isNotCrossOrigin() throws Exception {
-    HttpResponse<String> response = send(request(dev, PLAYERS + "/none").GET());
+    HttpResponse<String> response = send(request(dev, ATHLETES + "/none").GET());
 
     assertThat(response.statusCode()).isEqualTo(404);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
@@ -223,7 +223,7 @@ class CorsIT {
   /** The server compares the origin with its own address, so this one is not cross-origin. */
   @Test
   void request_fromItsOwnOrigin_isNotCrossOrigin() throws Exception {
-    HttpResponse<String> response = send(get(prod, PLAYERS + "/none", addressOf(prod)));
+    HttpResponse<String> response = send(get(prod, ATHLETES + "/none", addressOf(prod)));
 
     assertThat(response.statusCode()).isEqualTo(404);
     assertThat(response.headers().firstValue(ALLOW_ORIGIN)).isEmpty();
@@ -231,8 +231,8 @@ class CorsIT {
 
   @Test
   void prod_refusesTheLocalOrigin() throws Exception {
-    HttpResponse<String> preflight = send(preflight(prod, PLAYERS, LOCAL_ORIGIN, "POST"));
-    HttpResponse<String> request = send(createPlayer(prod, LOCAL_ORIGIN));
+    HttpResponse<String> preflight = send(preflight(prod, ATHLETES, LOCAL_ORIGIN, "POST"));
+    HttpResponse<String> request = send(createAthlete(prod, LOCAL_ORIGIN));
 
     assertThat(preflight.statusCode()).isEqualTo(403);
     assertThat(request.statusCode()).isEqualTo(403);
@@ -242,7 +242,7 @@ class CorsIT {
   void prod_withAnOriginSet_allowsIt() throws Exception {
     try (ConfigurableApplicationContext context =
         boot("prod", Map.of("CORS_ALLOWED_ORIGINS", OTHER_ORIGIN))) {
-      HttpResponse<String> response = send(preflight(context, PLAYERS, OTHER_ORIGIN, "POST"));
+      HttpResponse<String> response = send(preflight(context, ATHLETES, OTHER_ORIGIN, "POST"));
 
       assertThat(response.statusCode()).isEqualTo(200);
       assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(OTHER_ORIGIN);
@@ -319,9 +319,9 @@ class CorsIT {
         .header("Access-Control-Request-Headers", headers);
   }
 
-  private static HttpRequest.Builder createPlayer(
+  private static HttpRequest.Builder createAthlete(
       ConfigurableApplicationContext context, String origin) {
-    return fromOrigin(context, PLAYERS, origin)
+    return fromOrigin(context, ATHLETES, origin)
         .header("Authorization", IntegrationTestBase.adminCredentials())
         .header("Content-Type", "application/json")
         .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}"));

@@ -7,14 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.management.athlete.service.PlayerService;
-import com.management.kumitegame.service.KumiteGameService;
 import com.management.testsupport.WebSliceTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -30,16 +27,12 @@ class RequestCorrelationSliceTest extends WebSliceTestBase {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private KumiteGameService kumiteGameService;
-
-  @MockitoBean private PlayerService playerService;
-
   @Test
   void unexpectedFailure_stillCarriesTheId() throws Exception {
-    given(playerService.getPlayer(anyString())).willThrow(new IllegalStateException("broken"));
+    given(athleteService().get(anyString())).willThrow(new IllegalStateException("broken"));
 
     mockMvc
-        .perform(get("/api/v1/players/player-1").header(HEADER, ID))
+        .perform(get("/api/v1/athletes/athlete-1").header(HEADER, ID))
         .andExpect(status().isInternalServerError())
         .andExpect(header().string(HEADER, ID));
   }
@@ -48,7 +41,7 @@ class RequestCorrelationSliceTest extends WebSliceTestBase {
   void rejectedRequest_stillCarriesTheId() throws Exception {
     mockMvc
         .perform(
-            post("/api/v1/players")
+            post("/api/v1/athletes")
                 .header(HEADER, ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))

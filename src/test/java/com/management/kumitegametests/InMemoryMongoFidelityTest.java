@@ -3,22 +3,21 @@ package com.management.kumitegametests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.management.athlete.domain.Player;
-import com.management.kumitegame.domain.GameState;
-import com.management.kumitegame.domain.KumiteGame;
-import com.management.kumitegame.domain.PlayerColor;
+import com.management.athlete.data.AthleteDocument;
+import com.management.athlete.data.AthleteDocumentMapper;
+import com.management.kumitegame.data.KumiteGameDocument;
+import com.management.kumitegame.data.KumiteGameDocumentMapper;
+import com.management.kumitegame.domain.ScoreLevel;
+import com.management.kumitegame.domain.Side;
 import com.management.testsupport.InMemoryMongo;
-import com.management.testsupport.KumiteGameBuilder;
-import com.management.testsupport.PlayerBuilder;
-import java.time.Duration;
-import java.util.Optional;
+import com.management.testsupport.TestGames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Proves the persistence double loses what a real database loses.
  *
- * <p>These tests are about the double itself, not about the domain. They exist because the previous
+ * <p>These tests are about the double itself, not about the domain. They exist because an earlier
  * double returned the same in-memory instance it was handed, which made the whole suite incapable
  * of failing for the most important class of defect.
  */
@@ -31,30 +30,30 @@ class InMemoryMongoFidelityTest {
     storage = new InMemoryMongo();
   }
 
-  @Test
-  void findById_afterSave_returnsDifferentInstance() {
-    KumiteGame saved = storage.save(KumiteGameBuilder.newGame().build());
+  private static KumiteGameDocument game() {
+    return KumiteGameDocumentMapper.toNewDocument(TestGames.game());
+  }
 
-    KumiteGame reloaded = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
-
-    assertThat(reloaded).isNotSameAs(saved);
-    assertThat(reloaded.getPlayerIds())
-        .as("nested structures must be distinct too, not shared references")
-        .isNotSameAs(saved.getPlayerIds());
+  private static AthleteDocument athlete(String name) {
+    return AthleteDocumentMapper.toNewDocument(name, 61.5);
   }
 
   @Test
-  void save_neverWritesTheTimerIntoTheDocument() {
-    KumiteGame game = KumiteGameBuilder.newGame().build();
+  void findById_afterSave_returnsDifferentInstance() {
+    KumiteGameDocument saved = storage.save(game());
 
-    assertThat(storage.writeForInspection(game).containsKey("timer"))
-        .as("GameTimer is never persisted; only remainingTime and startTime are")
-        .isFalse();
+    KumiteGameDocument reloaded =
+        storage.findById(KumiteGameDocument.class, saved.getId()).orElseThrow();
+
+    assertThat(reloaded).isNotSameAs(saved);
+    assertThat(reloaded.getAssignments())
+        .as("nested structures must be distinct too, not shared references")
+        .isNotSameAs(saved.getAssignments());
   }
 
   @Test
   void save_assignsAnIdentifier_whenTheEntityHasNone() {
-    KumiteGame unsaved = KumiteGameBuilder.newGame().build();
+    AthleteDocument unsaved = athlete("Kenji");
     assertThat(unsaved.getId()).isNull();
 
     assertThat(storage.save(unsaved).getId()).isNotNull();
@@ -62,44 +61,21 @@ class InMemoryMongoFidelityTest {
 
   @Test
   void findById_afterSave_preservesPersistedState() {
-    KumiteGame running =
-        KumiteGameBuilder.newGame().runningWithRemaining(Duration.ofSeconds(87)).build();
+    KumiteGameDocument saved = storage.save(game());
 
-    KumiteGame saved = storage.save(running);
-    KumiteGame reloaded = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
+    KumiteGameDocument reloaded =
+        storage.findById(KumiteGameDocument.class, saved.getId()).orElseThrow();
 
-    assertThat(reloaded.getGameState()).isEqualTo(GameState.RUNNING);
-    assertThat(reloaded.getRemainingTime()).isEqualTo(Duration.ofSeconds(87));
-    assertThat(reloaded.getStartTime()).isEqualTo(running.getStartTime());
-    assertThat(reloaded.getPlayerIds()).containsOnlyKeys(PlayerColor.RED, PlayerColor.BLUE);
-    assertThat(reloaded.getReferees()).hasSize(1);
-  }
-
-  @Test
-  void mutatingReloadedEntity_doesNotAffectStoredState() {
-    KumiteGame saved = storage.save(KumiteGameBuilder.newGame().build());
-
-    KumiteGame first = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
-    first.setWinner(PlayerColor.RED);
-
-    KumiteGame second = storage.findById(KumiteGame.class, saved.getId()).orElseThrow();
-    assertThat(second.getWinner()).isNull();
+    assertThat(reloaded).usingRecursiveComparison().isEqualTo(saved);
+    assertThat(KumiteGameDocumentMapper.toDomain(reloaded).settings().pointsFor(ScoreLevel.IPPON))
+        .isEqualTo(3);
+    assertThat(KumiteGameDocumentMapper.toDomain(reloaded).state().side(Side.AO).athleteId())
+        .isEqualTo(TestGames.AO_ATHLETE);
   }
 
   @Test
   void findById_forAnUnknownIdentifier_isEmpty() {
-    assertThat(storage.findById(KumiteGame.class, "does-not-exist")).isEmpty();
-  }
-
-  @Test
-  void delete_removesTheEntity() {
-    Player saved = storage.save(PlayerBuilder.newPlayer().named("Deleted Fighter").build());
-    assertThat(storage.count(Player.class)).isEqualTo(1);
-
-    storage.delete(saved);
-
-    assertThat(storage.count(Player.class)).isZero();
-    assertThat(storage.findById(Player.class, saved.getId())).isEmpty();
+    assertThat(storage.findById(KumiteGameDocument.class, "does-not-exist")).isEmpty();
   }
 
   /**
@@ -110,7 +86,7 @@ class InMemoryMongoFidelityTest {
    */
   @Test
   void delete_throughTheSavedInstance_removesTheEntity() {
-    Player fresh = PlayerBuilder.newPlayer().named("Doomed Fighter").build();
+    AthleteDocument fresh = athlete("Kenji");
     storage.save(fresh);
 
     assertThat(fresh.getId())
@@ -119,12 +95,12 @@ class InMemoryMongoFidelityTest {
 
     storage.delete(fresh);
 
-    assertThat(storage.count(Player.class)).isZero();
+    assertThat(storage.count(AthleteDocument.class)).isZero();
   }
 
   @Test
   void delete_forAnUnsavedEntity_isRejectedRatherThanIgnored() {
-    Player neverSaved = PlayerBuilder.newPlayer().named("Unsaved Fighter").build();
+    AthleteDocument neverSaved = athlete("Kenji");
 
     assertThatThrownBy(() -> storage.delete(neverSaved))
         .as("silently succeeding would let a deletion test pass against code that deletes nothing")
@@ -135,56 +111,30 @@ class InMemoryMongoFidelityTest {
   /** A second save of the same instance updates the document, as an upsert on an id does. */
   @Test
   void save_calledTwiceOnTheSameInstance_storesOneDocument() {
-    Player player = PlayerBuilder.newPlayer().named("Scoring Fighter").build();
+    AthleteDocument athlete = athlete("Kenji");
 
-    storage.save(player);
-    player.addPoint(com.management.athlete.domain.PointsType.IPPON);
-    storage.save(player);
+    storage.save(athlete);
+    storage.save(athlete);
 
-    assertThat(storage.count(Player.class))
-        .as("one fighter, saved twice, is one document")
+    assertThat(storage.count(AthleteDocument.class))
+        .as("one athlete, saved twice, is one document")
         .isEqualTo(1);
-    assertThat(
-            storage
-                .findById(Player.class, player.getId())
-                .orElseThrow()
-                .getPoints()
-                .getNumOfPoints())
-        .as("the second save updated the stored document")
-        .isEqualTo(3);
   }
 
   @Test
-  void playersAndGames_areStoredSeparately() {
-    storage.save(KumiteGameBuilder.newGame().build());
-    storage.save(PlayerBuilder.newPlayer().build());
+  void athletesAndGames_areStoredSeparately() {
+    storage.save(game());
+    storage.save(athlete("Kenji"));
 
-    assertThat(storage.count(KumiteGame.class)).isEqualTo(1);
-    assertThat(storage.count(Player.class)).isEqualTo(1);
+    assertThat(storage.count(KumiteGameDocument.class)).isEqualTo(1);
+    assertThat(storage.count(AthleteDocument.class)).isEqualTo(1);
   }
 
   @Test
   void clear_discardsEverything() {
-    storage.save(KumiteGameBuilder.newGame().build());
+    storage.save(game());
     storage.clear();
 
-    assertThat(storage.count(KumiteGame.class)).isZero();
-  }
-
-  @Test
-  void savedPlayerScore_survivesTheRoundTrip() {
-    Player scorer =
-        PlayerBuilder.newPlayer()
-            .named("Scoring Fighter")
-            .scoring(com.management.athlete.domain.PointsType.IPPON)
-            .withFouls(2)
-            .build();
-
-    Player saved = storage.save(scorer);
-    Optional<Player> reloaded = storage.findById(Player.class, saved.getId());
-
-    assertThat(reloaded).isPresent();
-    assertThat(reloaded.get().getPoints().getNumOfPoints()).isEqualTo(3);
-    assertThat(reloaded.get().getFouls().getNumOfFouls()).isEqualTo(2);
+    assertThat(storage.count(KumiteGameDocument.class)).isZero();
   }
 }

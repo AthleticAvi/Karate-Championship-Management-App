@@ -10,6 +10,8 @@ import com.management.account.domain.Account;
 import com.management.account.domain.AccountRole;
 import com.management.account.domain.LastAdminException;
 import com.management.account.service.AccountService;
+import com.management.athlete.data.AthleteDocumentMapper;
+import com.management.athlete.data.AthleteRepository;
 import com.management.testsupport.IntegrationTestBase;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -35,17 +37,7 @@ class AccountApiIT extends IntegrationTestBase {
   private static final String ACCOUNTS = "/api/v1/accounts";
   private static final String AUTHORIZATION = "Authorization";
   private static final String NEW_PASSWORD = "n3w-acc0unt-password";
-  private static final String MATCHES = "/api/v1/kumitegame";
-  private static final String NEW_MATCH =
-      """
-      {
-        "playersMap": {
-          "first": {"name": "Aka", "color": "RED"},
-          "second": {"name": "Ao", "color": "BLUE"}
-        },
-        "refereeList": ["Sato"]
-      }
-      """;
+  private static final String GAMES = "/api/v1/kumite-games";
   private static final int ROUNDS = 25;
 
   @LocalServerPort private int port;
@@ -53,6 +45,8 @@ class AccountApiIT extends IntegrationTestBase {
   @Autowired private AccountRepository accounts;
 
   @Autowired private AccountService accountService;
+
+  @Autowired private AthleteRepository athletes;
 
   private HttpRequest.Builder to(String path) {
     return HttpRequest.newBuilder(URI.create("http://localhost:" + port + path));
@@ -76,9 +70,17 @@ class AccountApiIT extends IntegrationTestBase {
     return send(to(ACCOUNTS + "/" + username).header(AUTHORIZATION, credentials).DELETE());
   }
 
-  private int statusOfNewMatch(String username, String password) throws Exception {
-    return send(post(MATCHES, NEW_MATCH).header(AUTHORIZATION, basic(username, password)))
-        .statusCode();
+  /** Creating a game is a Scorekeeper action, so it shows whether the account may act. */
+  private int statusOfNewGame(String username, String password) throws Exception {
+    String aka = athletes.save(AthleteDocumentMapper.toNewDocument("Aka", null)).getId();
+    String ao = athletes.save(AthleteDocumentMapper.toNewDocument("Ao", null)).getId();
+    String newGame =
+        """
+        {"format": "ELIMINATION", "medalGame": false, "extraGame": false,
+         "akaAthleteId": "%s", "aoAthleteId": "%s"}
+        """
+            .formatted(aka, ao);
+    return send(post(GAMES, newGame).header(AUTHORIZATION, basic(username, password))).statusCode();
   }
 
   @Test
@@ -88,7 +90,7 @@ class AccountApiIT extends IntegrationTestBase {
     assertThat(response.statusCode()).isEqualTo(201);
     assertThat(response.headers().firstValue("Location")).contains(ACCOUNTS + "/mat-one");
     assertThat(response.body()).doesNotContain(NEW_PASSWORD).doesNotContain("bcrypt");
-    assertThat(statusOfNewMatch("mat-one", NEW_PASSWORD)).isEqualTo(201);
+    assertThat(statusOfNewGame("mat-one", NEW_PASSWORD)).isEqualTo(201);
     assertThat(
             send(post(ACCOUNTS, "{}").header(AUTHORIZATION, basic("mat-one", NEW_PASSWORD)))
                 .statusCode())
@@ -119,8 +121,8 @@ class AccountApiIT extends IntegrationTestBase {
 
     assertThat(createAccount("mat-one", "another-password", "ADMIN").statusCode()).isEqualTo(409);
 
-    assertThat(statusOfNewMatch("mat-one", NEW_PASSWORD)).isEqualTo(201);
-    assertThat(statusOfNewMatch("mat-one", "another-password")).isEqualTo(401);
+    assertThat(statusOfNewGame("mat-one", NEW_PASSWORD)).isEqualTo(201);
+    assertThat(statusOfNewGame("mat-one", "another-password")).isEqualTo(401);
     assertThat(accounts.findById("mat-one").orElseThrow().getRole())
         .isEqualTo(AccountRole.SCOREKEEPER);
   }
@@ -128,11 +130,11 @@ class AccountApiIT extends IntegrationTestBase {
   @Test
   void deletedAccount_stopsWorkingOnItsNextRequest() throws Exception {
     createAccount("mat-one", NEW_PASSWORD, "SCOREKEEPER");
-    assertThat(statusOfNewMatch("mat-one", NEW_PASSWORD)).isEqualTo(201);
+    assertThat(statusOfNewGame("mat-one", NEW_PASSWORD)).isEqualTo(201);
 
     assertThat(deleteAccount("mat-one", adminCredentials()).statusCode()).isEqualTo(204);
 
-    assertThat(statusOfNewMatch("mat-one", NEW_PASSWORD)).isEqualTo(401);
+    assertThat(statusOfNewGame("mat-one", NEW_PASSWORD)).isEqualTo(401);
   }
 
   @Test

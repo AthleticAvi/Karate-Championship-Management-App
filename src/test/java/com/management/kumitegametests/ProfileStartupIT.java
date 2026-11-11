@@ -90,7 +90,7 @@ class ProfileStartupIT {
         start("prod", "--server.port=0", "--MONGO_URI=" + uri, ADMIN_NAME, ADMIN_PASSWORD)) {
       String port = context.getEnvironment().getProperty("local.server.port");
       HttpRequest request =
-          HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/players/none"))
+          HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/athletes/none"))
               .header("X-Correlation-ID", "prod-log-check")
               .build();
       try (HttpClient client = HttpClient.newHttpClient()) {
@@ -108,7 +108,7 @@ class ProfileStartupIT {
             .orElseThrow();
     assertThat(line.get("message").asString()).isEqualTo("Request completed");
     assertThat(line.get("correlationId").asString()).isEqualTo("prod-log-check");
-    assertThat(line.get("route").asString()).isEqualTo("/api/v1/players/{playerId}");
+    assertThat(line.get("route").asString()).isEqualTo("/api/v1/athletes/{athleteId}");
     assertThat(line.get("status").asInt()).isEqualTo(404);
   }
 
