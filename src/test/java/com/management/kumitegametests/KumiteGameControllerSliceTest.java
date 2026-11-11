@@ -1,6 +1,9 @@
 package com.management.kumitegametests;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,6 +46,7 @@ import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
+import com.management.kumitegame.service.VersionedGameRead;
 import com.management.referee.domain.Referee;
 import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGames;
@@ -50,13 +54,21 @@ import com.management.testsupport.WebSliceTestBase;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Every endpoint on {@code /api/v1/kumite-games}, at the HTTP boundary, and the wire format pinned
@@ -68,6 +80,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   private static final String GAMES = "/api/v1/kumite-games";
   private static final String GAME = GAMES + "/{gameId}";
+  private static final String FULL_VIEW = GAME + "/full-view";
   private static final Instant LATER = TestClock.NOW.plusSeconds(2);
 
   @Autowired private MockMvc mockMvc;
@@ -168,15 +181,87 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
       """
           .formatted(META_CREATED);
 
+  private static String tagFrom(ResultActions answer) {
+    String tag = answer.andReturn().getResponse().getHeader(HttpHeaders.ETAG);
+    assertThat(tag).as("the answer carries a tag").isNotNull();
+    return Objects.requireNonNull(tag);
+  }
+
+  /** The game at fixed versions: the game's, one athlete's and one referee's. */
+  private static VersionedGameRead versioned(GameRead read) {
+    return new VersionedGameRead(
+        read, 7, Map.of(TestGames.AKA_ATHLETE, 3L), Map.of(TestGames.REFEREE, 2L));
+  }
+
+  /** The scorekeeper's view written out, less who recorded each entry and every warning. */
+  private static String publicView(String fullView) {
+    ObjectNode game = (ObjectNode) JsonMapper.shared().readTree(fullView);
+    game.remove("warnings");
+    game.findParents("recordedBy").forEach(meta -> ((ObjectNode) meta).remove("recordedBy"));
+    game.findParents("raisedWarnings")
+        .forEach(meta -> ((ObjectNode) meta).remove("raisedWarnings"));
+    return game.toString();
+  }
+
   @Test
-  void get_returnsExactlyTheGame() throws Exception {
-    given(kumiteGameService().get("game-1")).willReturn(scored());
+  void fullView_returnsExactlyTheGame() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
+
+    mockMvc
+        .perform(get(FULL_VIEW, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+        .andExpect(content().json(SCORED_GAME, JsonCompareMode.STRICT));
+  }
+
+  /** The same game, without who recorded what and without warnings, and still the server's time. */
+  @Test
+  @WithAnonymousUser
+  void publicView_returnsTheGame_withNoRecorderAndNoWarnings() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
 
     mockMvc
         .perform(get(GAME, "game-1"))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(content().json(SCORED_GAME, JsonCompareMode.STRICT));
+        .andExpect(content().json(publicView(SCORED_GAME), JsonCompareMode.STRICT))
+        .andExpect(content().string(not(containsString("recordedBy"))))
+        .andExpect(content().string(not(containsString("raisedWarnings"))))
+        .andExpect(content().string(not(containsString("\"warnings\""))))
+        .andExpect(jsonPath("$.serverTime").value("2026-01-01T12:00:02Z"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {GAME, FULL_VIEW})
+  void read_withTheCurrentTag_isNotModified_withNoBody(String view) throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
+    String tag = tagFrom(mockMvc.perform(get(view, "game-1")).andExpect(status().isOk()));
+
+    mockMvc
+        .perform(get(view, "game-1").header(HttpHeaders.IF_NONE_MATCH, tag))
+        .andExpect(status().isNotModified())
+        .andExpect(header().string(HttpHeaders.ETAG, tag))
+        .andExpect(content().string(""));
+    assertThat(tag).startsWith("W/\"");
+  }
+
+  /** Each version the answer shows is in the tag: one changed version answers the body again. */
+  @Test
+  void read_withStaleTag_answersTheGameAndTheNewTag() throws Exception {
+    VersionedGameRead before = versioned(scored());
+    VersionedGameRead renamed =
+        new VersionedGameRead(
+            before.read(), 7, Map.of(TestGames.AKA_ATHLETE, 4L), Map.of(TestGames.REFEREE, 2L));
+    given(kumiteGameService().getVersioned("game-1")).willReturn(before, renamed);
+    String stale = tagFrom(mockMvc.perform(get(GAME, "game-1")));
+
+    String current =
+        tagFrom(
+            mockMvc
+                .perform(get(GAME, "game-1").header(HttpHeaders.IF_NONE_MATCH, stale))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("game-1")));
+    assertThat(current).isNotEqualTo(stale);
   }
 
   /**
@@ -195,13 +280,13 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         new NewResult("r1", Outcome.WIN, Side.AO, ResultReason.HANTEI, null, false),
         TestGames.SCOREKEEPER,
         LATER);
-    given(kumiteGameService().get("game-1"))
-        .willReturn(new GameRead(game, game.state(), Map.of(), Map.of(), LATER));
+    given(kumiteGameService().getVersioned("game-1"))
+        .willReturn(versioned(new GameRead(game, game.state(), Map.of(), Map.of(), LATER)));
 
     Map<String, Object> points =
         Map.of("outcome", "WIN", "winner", "AKA", "reason", "POINTS", "bothDisqualified", false);
     mockMvc
-        .perform(get(GAME, "game-1"))
+        .perform(get(FULL_VIEW, "game-1"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.suggestedResult", equalTo(points)))
         .andExpect(jsonPath("$.results[0].suggested", equalTo(points)))
@@ -508,12 +593,13 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   @Test
   void missingGame_isNotFound() throws Exception {
-    given(kumiteGameService().get(anyString()))
+    given(kumiteGameService().getVersioned(anyString()))
         .willThrow(new GameNotFoundException("No game has the id nope"));
 
     mockMvc
         .perform(get(GAME, "nope"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.title").value("Game not found"));
+    mockMvc.perform(get(FULL_VIEW, "nope")).andExpect(status().isNotFound());
   }
 }

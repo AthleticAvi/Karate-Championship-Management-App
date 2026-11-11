@@ -17,10 +17,12 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
@@ -49,6 +51,8 @@ class ApiDescriptionIT {
   private static final String ATHLETES = "/api/v1/athletes";
   private static final String GAMES = "/api/v1/kumite-games";
   private static final String GAME = GAMES + "/{gameId}";
+  private static final String FULL_VIEW = GAME + "/full-view";
+  private static final String PUBLIC_VIEW = "_Public";
   private static final String ATHLETE = ATHLETES + "/{athleteId}";
   private static final String REFEREE = "/api/v1/referees/{refereeId}";
 
@@ -108,7 +112,14 @@ class ApiDescriptionIT {
     assertThat(statusesOf(operation("get", ATHLETE))).containsExactly("200", "401", "404", "500");
     assertThat(statusesOf(operation("delete", ATHLETE)))
         .containsExactly("204", "401", "403", "404", "409", "500");
-    assertThat(statusesOf(operation("get", GAME))).containsExactly("200", "401", "404", "500");
+    for (String read : List.of(GAME, FULL_VIEW)) {
+      assertThat(statusesOf(operation("get", read)))
+          .as("a tagged read states its 304")
+          .containsExactly("200", "304", "401", "404", "500");
+      assertThat(response("get", read, "200").get("headers").propertyNames()).contains("ETag");
+      assertThat(response("get", read, "304").get("headers").propertyNames()).contains("ETag");
+      assertThat(response("get", read, "304").has("content")).isFalse();
+    }
     assertThat(statusesOf(operation("post", GAMES)))
         .containsExactly("201", "400", "401", "413", "415", "500");
     assertThat(statusesOf(operation("post", GAME + "/scores")))
@@ -143,7 +154,8 @@ class ApiDescriptionIT {
   @Test
   void everyOperationButPublicReads_needsTheScheme() {
     assertThat(operation("get", ATHLETE).has("security")).isFalse();
-    assertThat(operation("get", GAME).get("security").toString()).contains("basicAuth");
+    assertThat(operation("get", GAME).has("security")).isFalse();
+    assertThat(operation("get", FULL_VIEW).get("security").toString()).contains("basicAuth");
     assertThat(operation("post", ATHLETES).get("security").toString()).contains("basicAuth");
     assertThat(operation("post", GAME + "/scores").get("security").toString())
         .contains("basicAuth");
@@ -240,6 +252,12 @@ class ApiDescriptionIT {
 
       assertThat(names).containsExactly("gameId");
     }
+    for (String read : List.of(GAME, FULL_VIEW)) {
+      List<String> names = new ArrayList<>();
+      operation("get", read).get("parameters").forEach(p -> names.add(p.get("name").asString()));
+
+      assertThat(names).as("the request a tag is checked against").containsExactly("gameId");
+    }
   }
 
   @Test
@@ -281,9 +299,59 @@ class ApiDescriptionIT {
                 .collect(Collectors.toSet());
 
     assertThat(shapes).contains("AthleteRequest", "KumiteGameResponse", "ScoreResponse");
-    assertThat(description.get("components").get("schemas").propertyNames())
+    Collection<String> described = description.get("components").get("schemas").propertyNames();
+    Set<String> publicView =
+        described.stream().filter(name -> name.endsWith(PUBLIC_VIEW)).collect(Collectors.toSet());
+    assertThat(described)
         .containsExactlyInAnyOrderElementsOf(
-            Stream.concat(shapes.stream(), Stream.of("ProblemDetail")).toList());
+            Stream.of(shapes.stream(), publicView.stream(), Stream.of("ProblemDetail"))
+                .flatMap(Function.identity())
+                .toList());
+    assertThat(publicView)
+        .as("the generator names a schema reached through the public view after the view")
+        .contains("KumiteGameResponse" + PUBLIC_VIEW, "EntryMetaResponse" + PUBLIC_VIEW)
+        .allSatisfy(name ->
+            assertThat(shapes).contains(name.substring(0, name.length() - PUBLIC_VIEW.length())));
+  }
+
+  /** The public view's schema is the game less the recorder and the warnings, as really sent. */
+  @Test
+  void publicViewSchema_describesRealPublicAnswers() throws Exception {
+    String aka = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
+    String ao = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
+    HttpResponse<String> created =
+        send(
+            asAdmin(request(dev, GAMES))
+                .header("Content-Type", "application/json")
+                .POST(
+                    BodyPublishers.ofString(
+                        """
+                        {"format": "ELIMINATION", "medalGame": false, "extraGame": false,
+                         "akaAthleteId": "%s", "aoAthleteId": "%s"}
+                        """
+                            .formatted(aka, ao))));
+    String gameId = JsonMapper.shared().readTree(created.body()).get("game").get("id").asString();
+    HttpResponse<String> read = send(request(dev, GAMES + "/" + gameId).GET());
+    JsonNode game = JsonMapper.shared().readTree(read.body());
+
+    assertThat(read.statusCode()).isEqualTo(200);
+    assertThat(statusesOf(operation("get", GAME))).contains(String.valueOf(read.statusCode()));
+    assertThat(
+            response("get", GAME, "200")
+                .get("content")
+                .get("application/json")
+                .get("schema")
+                .get("$ref")
+                .asString())
+        .endsWith("KumiteGameResponse" + PUBLIC_VIEW);
+    assertThat(fieldsOf(read.body()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("KumiteGameResponse" + PUBLIC_VIEW).get("required")))
+        .doesNotContain("warnings");
+    assertThat(fieldsOf(game.get("assignments").get(0).get("meta").toString()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("EntryMetaResponse" + PUBLIC_VIEW).get("required")))
+        .doesNotContain("recordedBy", "raisedWarnings");
   }
 
   @Test

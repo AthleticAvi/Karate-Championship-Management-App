@@ -12,6 +12,7 @@ import com.management.testsupport.IntegrationTestBase;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +41,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
   @Autowired private AthleteRepository athletes;
   @Autowired private RefereeRepository referees;
   @Autowired private KumiteGameRepository games;
+  @Autowired private TestRestTemplate anonymous;
 
   private String aka;
   private String ao;
@@ -91,8 +93,32 @@ class KumiteGameApiIT extends IntegrationTestBase {
         .formatted(id, side);
   }
 
+  /** The full view, which every check on what was recorded reads. */
   private ResponseEntity<String> read(String gameId) {
-    return asScorekeeper().getForEntity(GAMES + "/" + gameId, String.class);
+    return asScorekeeper().getForEntity(GAMES + "/" + gameId + "/full-view", String.class);
+  }
+
+  /** The public view, read with no credentials, sending a tag when one is given. */
+  private ResponseEntity<String> readPublic(String gameId, @Nullable String tag) {
+    HttpHeaders headers = new HttpHeaders();
+    if (tag != null) {
+      headers.setIfNoneMatch(tag);
+    }
+    return anonymous.exchange(
+        GAMES + "/" + gameId, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+  }
+
+  private static String tagOf(ResponseEntity<String> answer) {
+    String tag = answer.getHeaders().getETag();
+    assertThat(tag).as("the answer carries a tag").isNotNull();
+    return Objects.requireNonNull(tag);
+  }
+
+  private void rename(String resource, String id, String body) {
+    ResponseEntity<String> renamed =
+        asAdmin()
+            .exchange("/api/v1/" + resource + "/" + id, HttpMethod.PUT, json(body), String.class);
+    assertThat(renamed.getStatusCode().value()).isEqualTo(200);
   }
 
   private Document stored(String gameId) {
@@ -490,5 +516,83 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(penalty.get("cancelled").asBoolean()).isTrue();
     assertThat(penalty.get("meta").get("raisedWarnings").get(0).asString())
         .isEqualTo("HANSOKU_WITHOUT_HANSOKU_CHUI");
+  }
+
+  /** Anyone may follow a game, without who recorded what and without warnings. */
+  @Test
+  void publicView_isReadWithNoCredentials_withNoRecorderAndNoWarnings() {
+    String gameId = create();
+    post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+
+    ResponseEntity<String> answer = readPublic(gameId, null);
+    ResponseEntity<String> fullView =
+        anonymous.getForEntity(GAMES + "/" + gameId + "/full-view", String.class);
+
+    assertThat(answer.getStatusCode().value()).isEqualTo(200);
+    JsonNode game = body(answer);
+    assertThat(game.get("aka").get("scores").get(0).get("meta").propertyNames())
+        .containsExactlyInAnyOrder("id", "order", "recordedAt");
+    assertThat(game.has("warnings")).isFalse();
+    assertThat(game.has("serverTime")).isTrue();
+    assertThat(answer.getBody()).doesNotContain("recordedBy", "raisedWarnings");
+    assertThat(fullView.getStatusCode().value()).isEqualTo(401);
+  }
+
+  /**
+   * An unchanged game answers 304 with no body. The tag changes when the game changes, and when an
+   * athlete or referee it names is renamed, because the names are read when the game is.
+   */
+  @Test
+  void tag_isNotModifiedUntilTheGameOrAnAthleteOrRefereeItNamesChanges() {
+    String gameId = create();
+    String created = tagOf(readPublic(gameId, null));
+
+    ResponseEntity<String> unchanged = readPublic(gameId, created);
+    assertThat(unchanged.getStatusCode().value()).isEqualTo(304);
+    assertThat(unchanged.getBody()).isNull();
+    assertThat(tagOf(unchanged)).isEqualTo(created);
+
+    post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+    ResponseEntity<String> scored = readPublic(gameId, created);
+    assertThat(scored.getStatusCode().value()).isEqualTo(200);
+    assertThat(body(scored).get("aka").get("total").asInt()).isEqualTo(1);
+    String afterScore = tagOf(scored);
+
+    rename("athletes", aka, "{\"name\": \"Kenji Ito\", \"weightKg\": 61.5}");
+    ResponseEntity<String> athleteRenamed = readPublic(gameId, afterScore);
+    assertThat(athleteRenamed.getStatusCode().value()).isEqualTo(200);
+    assertThat(body(athleteRenamed).get("aka").get("athlete").get("name").asString())
+        .isEqualTo("Kenji Ito");
+    String afterAthlete = tagOf(athleteRenamed);
+
+    rename("referees", referee, "{\"name\": \"Sato Ken\"}");
+    ResponseEntity<String> refereeRenamed = readPublic(gameId, afterAthlete);
+    assertThat(refereeRenamed.getStatusCode().value()).isEqualTo(200);
+    assertThat(body(refereeRenamed).get("panel").get(0).get("referee").get("name").asString())
+        .isEqualTo("Sato Ken");
+
+    assertThat(List.of(created, afterScore, afterAthlete, tagOf(refereeRenamed)))
+        .doesNotHaveDuplicates();
+    assertThat(readPublic(gameId, tagOf(refereeRenamed)).getStatusCode().value()).isEqualTo(304);
+  }
+
+  /** The full view is tagged the same way, for the scorekeeper's own polling. */
+  @Test
+  void fullView_isTagged_andAnswers304WhileUnchanged() {
+    String gameId = create();
+    String tag = tagOf(read(gameId));
+    HttpHeaders headers = new HttpHeaders();
+    headers.setIfNoneMatch(tag);
+
+    ResponseEntity<String> unchanged =
+        asScorekeeper()
+            .exchange(
+                GAMES + "/" + gameId + "/full-view",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
+
+    assertThat(unchanged.getStatusCode().value()).isEqualTo(304);
+    assertThat(unchanged.getBody()).isNull();
   }
 }

@@ -36,16 +36,18 @@ public final class ApiAccess {
   private static final String ACCOUNTS = ApiVersionConfiguration.PREFIX + AccountController.PATH;
 
   /**
-   * A game is read by a Scorekeeper or an Admin: the public view of a game is a later addition.
-   * Athletes follow the referee levels. A status change admits both, because which role a move
-   * needs depends on the game's status: the game refuses an Admin's move from a Scorekeeper.
+   * Anyone may read a game's public view; its full view, with who recorded what and the warnings,
+   * is a Scorekeeper's or an Admin's. Athletes follow the referee levels. A status change admits
+   * both, because which role a move needs depends on the game's status: the game refuses an Admin's
+   * move from a Scorekeeper.
    */
   public static final List<Rule> RULES =
       List.of(
           new Rule(HttpMethod.GET, ONE_ATHLETE, Level.PUBLIC),
           new Rule(HttpMethod.GET, ONE_REFEREE, Level.PUBLIC),
+          new Rule(HttpMethod.GET, ONE_GAME, Level.PUBLIC),
           new Rule(HttpMethod.POST, GAMES, Level.SCOREKEEPER),
-          new Rule(HttpMethod.GET, ONE_GAME, Level.SCOREKEEPER),
+          new Rule(HttpMethod.GET, ONE_GAME + KumiteGameController.FULL_VIEW, Level.SCOREKEEPER),
           new Rule(HttpMethod.PUT, ONE_GAME + "/settings", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/scores", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/penalties", Level.SCOREKEEPER),
