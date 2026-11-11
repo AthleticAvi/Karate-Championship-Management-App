@@ -21,17 +21,17 @@ READMEs below.
 | Correlation IDs, request logging | `src/main/java/com/management/filters/README.md` |
 | Errors and status codes | `[errors]` in `src/main/java/com/management/web/README.md` |
 | Authentication, roles, the first Admin | `src/main/java/com/management/security/README.md` |
-| Rules engine, how a match ends | `src/main/java/com/management/kumitegame/rules/README.md` |
+| Game rules: status matrix, warnings, the fold, the clock | `src/main/java/com/management/kumitegame/domain/README.md` |
 | Scoring across aggregates, concurrency | `src/main/java/com/management/kumitegame/service/README.md` |
-| Domain types, timer, versioned documents | `src/main/java/com/management/kumitegame/domain/README.md` |
-| Vocabulary, state transitions, known deviations | `src/main/java/com/management/kumitegame/domain/README.md` |
+| Domain types, vocabulary, statuses, stored data | `src/main/java/com/management/kumitegame/domain/README.md` |
 | Rule values and configuration | `src/main/java/com/management/config/README.md` |
 | Domain type apart from its stored document, the pattern to follow | `src/main/java/com/management/referee/README.md` |
+| Athletes, and refusing to delete one a game names | `src/main/java/com/management/athlete/README.md` |
 | MongoDB setup | `src/main/java/com/management/kumitegame/data/README.md` |
 | Test suites and layout | `src/test/java/com/management/README.md` |
 | Quality gates, baselines, hooks, MCP | `config/README.md` |
 | Contributor rules | `CONTRIBUTING.md` |
-| Business rules and where they come from | `[source]` in `src/main/java/com/management/kumitegame/rules/README.md` |
+| Business rules and where they come from | `[source]` in `src/main/java/com/management/kumitegame/domain/README.md` |
 
 Files use `## [tag] Title` sections and a generated `## Index`. Grep the tag and read that section:
 `grep -n "^## \[" <file>`.
@@ -43,13 +43,14 @@ One package per feature, `kumitegame`, `athlete`, `referee` and `account`, each 
 | Responsibility | Packages |
 |-----------|----------|
 | Gateways | `<feature>.web`, shared `web`, `filters`, `security` |
-| Business | `<feature>.service`, `kumitegame.rules`, `<feature>.domain` |
+| Business | `<feature>.service`, `<feature>.domain` |
 | Data | `<feature>.data` |
 | Wiring | `config`, `KumiteGameStarter` |
 
-`Controller -> Service -> Repository -> MongoDB`. Four aggregates, **KumiteGame**, **Player**,
-**Referee** and **Account**. `kumitegame` may use `athlete`; no other feature uses another.
-Services depend one way: `KumiteGameService -> PlayerService`. `ArchitectureTest` enforces this.
+`Controller -> Service -> Repository -> MongoDB`. Four aggregates, **KumiteGame**, **Athlete**,
+**Referee** and **Account**. `kumitegame` may use `athlete` and `referee`; no other feature uses
+another. Services depend one way: `KumiteGameService -> AthleteService, RefereeService`.
+`ArchitectureTest` enforces this.
 
 ## Stack
 

@@ -17,10 +17,24 @@ aggregate root, in its feature's `data` package.
 
 ## [owns] Owns
 
-`KumiteGameRepository` here, `PlayerRepository` in `athlete.data`, `RefereeRepository` with
-`RefereeDocument` and `RefereeDocumentMapper` in `referee.data`, and `AccountRepository` in
-`account.data`. `referee` stores a document apart from its domain type: see `[pattern]` in
-`src/main/java/com/management/referee/README.md`. Stored-form conversion sits in `converters/`: see its README.
+Each feature stores a document apart from its domain type, with a mapper beside it: see
+`[pattern]` in `src/main/java/com/management/referee/README.md`.
+
+| Feature | Repository | Document and mapper |
+|---|---|---|
+| `kumitegame` | `KumiteGameRepository` | `KumiteGameDocument`, `KumiteGameDocumentMapper` |
+| `athlete` | `AthleteRepository` | `AthleteDocument`, `AthleteDocumentMapper` |
+| `referee` | `RefereeRepository` | `RefereeDocument`, `RefereeDocumentMapper` |
+| `account` | `AccountRepository` | `Account` is stored as it is: it carries no Spring Data type |
+
+`KumiteGameDocument` stores enum values as plain strings and durations as whole milliseconds, so a
+name this build no longer knows reaches the mapper, the one place an old shape is absorbed. Its
+entries are nested records of its own, never the domain records, so a domain rename cannot change
+the stored shape unseen.
+
+**A nested property named `id` is stored as `_id`.** Spring Data maps it so in an embedded
+document too, so an entry's id is stored as `meta.entryId`. `RepresentationCharacterizationTest`
+pins it.
 
 ## [may-call] May call
 
@@ -64,14 +78,17 @@ aggregate root, in its feature's `data` package.
   the container on another port needs a matching member address in `rs.initiate`.
 - A wrong password starts the application with readiness DOWN (503), and every request that needs
   the datastore fails with a 500, including one with credentials, because they cannot be checked.
-- Collections: `kumiteGame`, `player`, `account`, and `referee`, named in `@Document` because the
-  class is `RefereeDocument`. Only `referee` documents carry `schemaVersion`, `createdAt` and
-  `modifiedAt`.
+- Collections: `kumiteGame`, `athlete`, `referee` and `account`, each named in `@Document`
+  because the classes end in `Document`. Every document but an account carries `version`,
+  `schemaVersion`, `createdAt` and `modifiedAt`. No index beyond `_id`.
+- **Deleting an athlete or referee a game names is refused** by
+  `existsByAssignmentsAthleteId` and `existsByAssignmentsRefereeId`, a collection scan of
+  `kumiteGame`, accepted at one championship's load until a measurement says otherwise.
 - Each feature's `data` package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring
-  Data adds a runtime null check to every repository. Today that only adds an interceptor, because
-  both interfaces are empty and `findById` returns `Optional`. It matters once a custom finder
-  exists: one that finds nothing would throw `EmptyResultDataAccessException`, which
-  `GlobalExceptionHandler` does not handle.
+  Data adds a runtime null check to every repository. The custom methods today return a count or a
+  boolean, and `findById` returns `Optional`, so it would only add an interceptor. A finder that
+  returns one document would matter: finding nothing would throw `EmptyResultDataAccessException`,
+  which `GlobalExceptionHandler` does not handle.
 
 ## [backup] Backup and restore
 
@@ -88,8 +105,8 @@ mongorestore --uri="$MONGO_URI" --archive=kumitedb.archive --gzip --drop
 `--drop` replaces each collection in the archive, so check the target first. A restore writes back
 to the database named in the archive. A database user with `readWrite` on it can run both.
 
-**Take the dump with no bout running.** Each collection is read at a different moment, so a dump
-taken during scoring can hold a game and a fighter that disagree, and `--oplog`, which would prevent
+**Take the dump with no game running.** Each collection is read at a different moment, so a dump
+taken during a game can hold a game that names an athlete the dump missed, and `--oplog`, which would prevent
 it, is refused on hosted free clusters. Anything written after the dump is lost on restore.
 
 ## [pending] Pending on hosted MongoDB
@@ -102,11 +119,5 @@ first Atlas cluster exists:
 
 ## [known-gaps] Known gaps against the ACID rules
 
-The rules are in `context/workflow/design/acid.md`. This code predates them. Each row is known debt,
-not a regression: new code meets the rules, and no gap grows.
-
-| Rule | Today | Fixed by |
-|---|---|---|
-| `[atomicity]` | A point saves on `Player`, then SENSHU or the result saves on `KumiteGame`: two writes | Milestone: Structure and engine |
-| `[consistency]` | `addPoint` checks the match, then writes a different document | Milestone: Structure and engine |
-| `[idempotency]` | A retried `add-point` scores twice | Milestone: Lifecycle and frontend |
+The rules are in `context/workflow/design/acid.md`. No gap is known today: every action on a game is
+one versioned write to one document, and an entry carries the id a retry is recognised by.

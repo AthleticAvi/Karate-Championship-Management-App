@@ -20,8 +20,8 @@ Typed settings, validated at startup.
 
 ## [owns] Owns
 
-`GameProperties`: a `@ConfigurationProperties("game")` record that binds every rule value from
-`game.*` in `application.properties`.
+`KumiteGameProperties`: a `@ConfigurationProperties("kumite-game")` record that binds every rule
+value a new game copies, and the colour each side is shown in. See `[facts]`.
 
 `DatastoreProperties`, `DatastoreConfiguration`, `DatastoreGuaranteeCheck` and `DatastoreAccepted`:
 see `[datastore]`.
@@ -39,14 +39,35 @@ is what a BSON date keeps, so a value in memory equals the value a reload return
 
 ## [facts] Rule values
 
-Never hardcode these. All come from configuration.
+Never hardcode these. All come from configuration, under `kumite-game.rules`, cited from WKF Kumite
+Competition Rules 2026.01. Each is validated at startup: a bad or missing value stops the
+application, and `KumiteGamePropertiesTest` proves it.
+
+**A game copies these when it is created and keeps its copy.** Rules read only the copy, so a value
+changed and redeployed reaches new games only, and a running or finished game never changes its
+rules. A game's copy may change through its settings resource, before it starts only.
+
+| Setting | Default | Key | Article |
+|---|---|---|---|
+| Duration | 120s; offered 90s, 120s, 180s, and any other positive one | `duration`, `durations-offered` | 5.1, 5.2 |
+| Point values | IPPON 3, WAZA_ARI 2, YUKO 1 | `point-values.ippon`, `.waza-ari`, `.yuko` | 8 |
+| Lead to win | 8 | `lead-to-win` | 7.7, 12.2.1 |
+| Final window | 15s | `final-window` | 12.2.8, 12.2.10 |
+| Late-score window | 1.5s after the clock reached zero | `late-score-window` | 8.10 |
+| CHUI limit | 3 | `chui-limit` | 10.3 |
+| Round-robin forfeit points | 4 | `round-robin-forfeit-points` | 10.7.1 |
+| Add-time steps | 10s, 20s, 30s, and any other positive one | `add-time-steps` | |
+| Medical time | 3m | `medical-time` | 11.2.3 |
+| Time-shown tolerance | 1s | `time-shown-tolerance` | |
+| Rulebook version | WKF 2026.01 | `rulebook-version` | |
 
 | Setting | Default | Key |
 |---|---|---|
-| Game duration | 120s, optional 90s and 180s | `game.default-duration`, `game.optional-durations` |
-| Winning score | 8, a trigger and never a cap | `game.winning-points` |
-| Foul limit | 4, ends the match against the offender | `game.fouls-ending-match` |
-| Clock increments | 10s and 30s | `game.clock-increments` |
+| Colour each side is shown in | AKA red, AO blue (Article 2.2) | `kumite-game.side-colours.aka`, `.ao` |
+
+A map key such as `waza-ari` binds to `WAZA_ARI`: the binder matches an enum name ignoring case,
+hyphens and underscores. A duration is a positive `java.time.Duration` such as `120s`, kept in a
+game as whole milliseconds.
 
 ## [datastore] Datastore guarantees
 
@@ -91,7 +112,8 @@ server can land in the moment before the context closes.
 `AuditingConfiguration` turns on Spring Data auditing, and its `DateTimeProvider` reads the `Clock`
 bean, so a stored instant is UTC in whole milliseconds and a test that replaces the clock fixes it.
 It is a class of its own, not an annotation on `KumiteGameStarter`, so a web slice does not start it.
-Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: today `RefereeDocument`.
+Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: `KumiteGameDocument`,
+`AthleteDocument` and `RefereeDocument`.
 
 ## [profiles] Profiles
 

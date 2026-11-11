@@ -32,7 +32,7 @@ The request line is `Request completed` at INFO, with these fields:
 | Field | Value |
 |---|---|
 | `method` | The HTTP method, or `OTHER` if it is not a standard one |
-| `route` | The mapped pattern, such as `/api/v1/players/{playerId}`, or `UNMATCHED` |
+| `route` | The mapped pattern, such as `/api/v1/athletes/{athleteId}`, or `UNMATCHED` |
 | `status` | The status answered, 500 if the chain threw before answering |
 | `durationMs` | Time spent in the chain |
 

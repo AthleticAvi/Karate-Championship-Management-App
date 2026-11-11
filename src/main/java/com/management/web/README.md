@@ -24,15 +24,17 @@ The inbound gateway. Accepts HTTP, delegates to a service, maps the result, retu
 
 This package holds what every feature's API shares: the version prefix, the role table, CORS, the
 API description and the error contract. Each feature keeps its controller, its request and response
-records and its mapper in its own `web` package: `kumitegame.web`, `athlete.web` and `account.web`.
+records and its mapper in its own `web` package: `kumitegame.web`, `athlete.web`, `referee.web`
+and `account.web`.
 
 ## [owns] Owns
 
 In the feature packages:
 
-- `KumiteGameController` at `/api/v1/kumitegame`: match creation, retrieval, points, fouls, winner
-  assignment, disqualification, KIKEN, referee override and clock extension.
-- `PlayerController` at `/api/v1/players`: player CRUD.
+- `KumiteGameController` at `/api/v1/kumite-games`: creates and reads games, and records each
+  action on one through a sub-resource that reads as a thing: `settings`, `scores`, `penalties`,
+  `clock-actions`, `assignments`, `amendments`, `results`.
+- `AthleteController` at `/api/v1/athletes`: creates, reads, updates and deletes athletes.
 - `RefereeController` at `/api/v1/referees`: creates, reads, renames and deletes referees.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
   because the encoder is a Spring Security type.
@@ -54,8 +56,9 @@ In this package:
 A feature's `web` package calls its own `service`, and the `domain` types its mapper reads and its
 records carry. Never `data` or `rules`.
 
-Three narrow additions: `config` for `CorsProperties`, the header name in `filters`, and `domain`
-enums for the values a documented parameter takes. `security` depends on this package, never the
+Three narrow additions: `config` for `CorsProperties` and the side colours in
+`KumiteGameProperties`, the header name in `filters`, and `domain` enums for the values a request
+or response carries. `security` depends on this package, never the
 reverse. `config` never depends back on this package, because
 services depend on `config`, so that would be a cycle. That is why the CORS wiring sits here.
 
@@ -69,14 +72,14 @@ A request on an old path, or on any other version, is refused before a controlle
 row in the role table, so it answers 401, or 403 with credentials.
 
 Persistence types do not cross the HTTP boundary in either direction. `KumiteGameMapper`,
-`PlayerMapper` and `RefereeMapper` are the only places a domain type becomes a response.
-`RefereeMapper` never sees a document: `referee` keeps its stored form in `data`.
+`AthleteMapper` and `RefereeMapper` are the only places a domain type becomes a response, and none
+sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | everything under `/api/v1/kumitegame` | `id`, `gameState`, `remainingSeconds`, `red`, `blue`, `referees`, `winner`, `endReason`, `overridden` |
-| `PlayerSummary` | nested as `red` / `blue` | `id`, `name`, `points`, `fouls` |
-| `PlayerResponse` | `/api/v1/players` | `id`, `name`, `points`, `fouls` |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}`, and `current` in a game's 409 | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `amendments`, `results`, `currentResult`, `warnings`, `serverTime` |
+| `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
+| `AthleteResponse` | `/api/v1/athletes`, and `current` in an update's 409 | `id`, `name`, `weightKg` |
 | `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
 | `AccountResponse` | `POST /api/v1/accounts` | `username`, `role`. Never a password or a hash |
 
@@ -88,12 +91,13 @@ live in the web packages and `security` already depends on it, so the reverse wo
 
 | Level | Endpoints under `/api/v1` |
 |---|---|
-| Public | `GET /kumitegame/{gameId}`, `GET /players/{playerId}`, `GET /referees/{refereeId}` |
-| Scorekeeper and Admin | `POST /kumitegame`, `add-point`, `remove-point`, `add-foul`, `remove-foul`, `kiken`, `add-time` |
-| Admin | `disqualify`, `override-winner`, `update-winner`, `POST /players`, `DELETE /players/{playerId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
+| Public | `GET /athletes/{athleteId}`, `GET /referees/{refereeId}` |
+| Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `assignments`, `amendments`, `results` |
+| Admin | `POST /athletes`, `PUT /athletes/{athleteId}`, `DELETE /athletes/{athleteId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
-Any Scorekeeper may act on any bout: there is no assignment model. Referees follow the `/players`
-levels, as their issue directs, because no plan states them: listed for the owner to confirm. A new endpoint needs a row here,
+Any Scorekeeper may act on any game: there is no assignment of scorekeepers. A game is read by a
+Scorekeeper or an Admin until the public view exists. Athletes follow the levels `/players` had,
+and the referees': listed for the owner to confirm. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
 compares it with the real mappings, so a new endpoint fails the build until someone decides. What
 each answer means is in the security README.
@@ -101,43 +105,46 @@ each answer means is in the security README.
 ## [identity] Who did it
 
 A controller that records who acted takes `java.security.Principal` and passes `getName()` down as a
-plain string: `override-winner` and `add-time`. `decidedBy` and `addedBy` are not in any request, and
-a body that still sends them is not refused: the field is not read, so it reaches no record.
-`Principal` is the JDK's type, so the description does not list it as a parameter and no Spring
-Security type comes near the signature. Points and fouls record no actor.
+plain string: every game mutation, which stores it as the entry's `recordedBy`. No request has room
+for it, and a body that still sends one is not refused: the field is not read. `Principal` is the
+JDK's type, so the description does not list it as a parameter and no Spring Security type comes
+near the signature.
 
 ## [wire-formats] Wire formats, and why
 
-A strict whole-body assertion in `KumiteGameControllerSliceTest` pins each of these. It is the only
-thing between this contract and a silent shift under a dependency upgrade.
+A strict whole-body assertion in `KumiteGameControllerSliceTest` pins these. It is the only thing
+between this contract and a silent shift under a dependency upgrade.
 
-- **The clock is `remainingSeconds`, a whole number.** Not a `Duration`, which Jackson can render as
-  `PT1M27S` or a decimal depending on configuration nobody here has set. An integer has one reading
-  and drives a countdown directly.
-- **No timestamp is exposed.** `startTime` is internal bookkeeping. If a timestamp is ever needed,
-  it goes out as an ISO-8601 UTC string: decided, so the question is not reopened.
-- **`winner` is a `PlayerColor` or `null`.** Never a sentence or placeholder. The client renders
-  the wording.
-- **Points and fouls are bare integers.** The `Points` and `Foul` wrappers exist so strategies have
-  something to mutate: an implementation detail.
-- **Referees are names.** A `List<String>`, until a referee has more than a name.
-- **Enums serialise as their names**, uppercase, exactly as declared.
+- **Durations are whole milliseconds, in fields named `...Ms`.** An integer has one reading and
+  drives a countdown directly. `remainingSeconds` is gone.
+- **Instants are ISO-8601 strings in UTC,** with millisecond precision: `recordedAt` on every
+  entry, and `serverTime`, the server's time when it answered.
+- **A clock is `running` and `remainingMs`,** the time left at `serverTime`. A screen counts down
+  from there and resyncs on every answer, so a public countdown does not drift.
+- **A side is `aka` or `ao`.** Its `colour` comes from configuration, so changing a colour changes
+  no code. Rules and storage know only the side.
+- **An athlete or referee a game names is `{id, name, known}`.** One deleted in the accepted race
+  reads `"name": null, "known": false`, never a 500.
+- **Every entry carries `meta`:** `id`, `order`, `recordedAt`, `recordedBy`, `raisedWarnings`. A
+  score or penalty also says whether it was `cancelled`.
+- **Enums serialise as their names**, uppercase, exactly as declared. An absent value is `null`.
 
 ## [mutations] Mutations return the new state
 
-Scoring, disqualification, KIKEN, override and add-time endpoints answer with the updated
-`KumiteGameResponse`, so a scoreboard never needs a follow-up read, including when the mutation
-finished the match. `PUT /api/v1/referees/{id}` answers the renamed `RefereeResponse`.
-`DELETE /api/v1/players/{id}`, `DELETE /api/v1/referees/{id}` and `DELETE /api/v1/accounts/{username}`
-answer 204 with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET` serves it:
-nothing reads an account back, and the path is what `DELETE` takes.
+Every game mutation answers `RecordedResponse`: the game as it now stands and the warnings the
+action raised, so a screen never needs a follow-up read. A create answers 201 with a `Location`;
+every other mutation 200, a retried one included, which answers the warnings stored with the first.
+`PUT /api/v1/athletes/{id}` and `PUT /api/v1/referees/{id}` answer the updated record.
+`DELETE /api/v1/athletes/{id}`, `DELETE /api/v1/referees/{id}` and `DELETE /api/v1/accounts/{username}`
+answer 204 with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET`
+serves it: nothing reads an account back, and the path is what `DELETE` takes.
 
 ## [validation] Validation at the boundary
 
 Request DTOs are records with Jakarta Bean Validation constraints, triggered by `@Valid` on
-`@RequestBody` parameters. `gameDuration` is an `Integer` of seconds, so non-numeric input dies at
-binding as a 400. The one-RED-one-BLUE rule is domain validation: see
-`kumitegame/service/README.md`.
+`@RequestBody` parameters: required fields, sizes, and a duration of zero or less. Rules that span
+fields, such as a WIN naming a winner or a medical timer naming its side, are domain validation and
+answer 400 as `InvalidGameRequestException`.
 
 Failures map to the table in `[errors]`.
 
@@ -205,17 +212,18 @@ every success. So:
 | A request body | 413, 415 |
 
 `POST /api/v1/accounts` states its own 409, because a body of its own can collide: the rules give a
-409 only to a path parameter. `PUT /api/v1/referees/{refereeId}` states its 409 to say that `current`
-holds the referee, in words only: the shared problem schema cannot list it, because a 400 does not
-carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409 on
-`DELETE /api/v1/referees/{refereeId}` comes from the rules and cannot happen yet.
+409 only to a path parameter. `PUT /api/v1/referees/{refereeId}`, `PUT /api/v1/athletes/{athleteId}`,
+and a game's `settings`, `clock-actions` and `results` state their 409 to say that `current` holds the
+record as it now stands, in words only: the shared problem schema cannot list it, because a 400 does
+not carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409
+on deleting an athlete or referee comes from the rules: a game names it.
 
 `ApiDescriptionIT` pins these rules, and compares 400, 401, 404 and the success codes with real
 answers. A 401 is on public reads too, because wrong credentials are refused there. A 403 is on Admin
 rows only, because a Scorekeeper row admits both roles an account can hold. Every row but a public
 one states the `basicAuth` scheme. The access rows come from `ApiAccess`.
 
-A 409 on `DELETE` or `update-winner` only comes from a concurrent update, and a 500 needs a fault, so
+A 409 from a concurrent update cannot be provoked on demand, and a 500 needs a fault, so
 those rest on reading `GlobalExceptionHandler`. A 405 belongs to no operation, and the chain answers
 an unlisted method first anyway, and a CORS refusal is never visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
 decided while writing the answer, after a write has already happened, and for a malformed `Accept` it
@@ -224,12 +232,10 @@ has no body. It is not a failure a client can treat as refused.
 The same class marks every field of a response as required, because a response always carries them,
 and adds `null` to the values of a nullable enum, which the generator leaves out.
 
-**Not in the description:** values that come from configuration, such as the allowed durations; the
-exact fighter count, which `@Size` on a map does not reach; the `X-Correlation-ID` a caller may send;
+**Not in the description:** values that come from configuration, such as the side colours; the `X-Correlation-ID` a caller may send;
 that a text field must not be blank, because `@Size` renders `minLength: 0` and `@Size(min = 1)` would
-add a second message to the `errors` body. A colour lists `RED` and `BLUE`, though lower case is also
-accepted. Required response fields follow direct references, so a list of a response type would need
-that walk extended.
+add a second message to the `errors` body. Required response fields follow references into lists,
+maps and nullable references, so nested response records are held to the same rule.
 
 **Documentation annotations stay in the web packages, never in a mapper.** `ArchitectureTest` fails on
 any other class using them.
@@ -245,16 +251,17 @@ because springdoc will not start without it.
 Each feature's `web` package holds the shapes of its part of the API: records that carry values and
 no logic.
 
-- `kumitegame.web`: `KumiteGameRequest`, `MatchFighterRequest`, `ClockAdjustmentRequest`,
-  `WinnerOverrideRequest`, `KumiteGameResponse`.
-- `athlete.web`: `PlayerRequest`, `PlayerResponse`, `PlayerSummary`. A match response nests
-  `PlayerSummary`, so `kumitegame.web` uses it.
+- `kumitegame.web`: `KumiteGameRequest` with `PanelMemberRequest`, `SettingsRequest`,
+  `ScoreRequest`, `PenaltyRequest`, `ClockActionRequest`, `AssignmentRequest`, `AmendmentRequest`,
+  `ResultRequest`, `RecordedResponse`, and `KumiteGameResponse` with its nested records.
+- `athlete.web`: `AthleteRequest`, the body of a create and an update, and `AthleteResponse`.
 - `referee.web`: `RefereeRequest`, the body of a create and a rename, and `RefereeResponse`.
 - `account.web`: `AccountRequest`, `AccountResponse`.
 
 They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a username has one home.
 
 - Name records `*Request` and `*Response`. A `DTO` suffix fails Checkstyle, as an abbreviation.
+- Every entry request carries `id`, made by the client and sent again on a retry.
 - `@Schema` on them feeds the API description and nothing else: see `[description]`.
 - Requests stop at the gateway. No `service` package imports them.
 - `AccountRequest` holds a password in clear, so its `toString` leaves it out. A password within the
@@ -263,18 +270,14 @@ They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a u
 
 ## [mappers] Mappers
 
-Each feature's mapper turns domain types into API responses, and requests into domain input. The
-only place a document becomes a response. A mapper reads `domain` types and its feature's records,
-never a `service`, `data` or `rules` package.
+Each feature's mapper turns domain types into API responses, and requests into domain input. A
+mapper reads `domain` types and its feature's records, never a `service`, `data` or `rules` package.
 
-- `KumiteGameMapper`: consumes `GameWithFighters`, produces `KumiteGameResponse`. Also turns
-  requests into `NewMatch`, `NewOverride` and `NewClockAdjustment`.
-- `PlayerMapper`: `Player` to `PlayerResponse`.
+- `KumiteGameMapper`: `GameRead` to `KumiteGameResponse`, `Recording` to `RecordedResponse`, each
+  request to its `New*` input. Takes the side colours as an argument: it holds no configuration.
+- `AthleteMapper`: `Athlete` to `AthleteResponse`. `GlobalExceptionHandler` uses it for `current`.
 - `RefereeMapper`: `Referee` to `RefereeResponse`. `GlobalExceptionHandler` uses it for `current`.
 - `AccountMapper`: `AccountRequest` and a hash to `NewAccount`, `Account` to `AccountResponse`.
-
-`KumiteGameMapper` keeps its own one-RED-one-BLUE check. `KumiteGameService` guards what enters the
-database, and the mapper guards what leaves it.
 
 ## [errors] Error contract
 
@@ -289,8 +292,6 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Failure | Status | Exception | Detail |
 |---|---|---|---|
 | Request fails Bean Validation | 400 | `MethodArgumentNotValidException` (framework) | generic, plus an `errors` extension property mapping each failing field path to its message |
-| Not a colour (`color=purple`) | 400 | `InvalidPlayerColorException` | the message |
-| Not a point type | 400 | `PointTypeNotFoundException` | the message |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
 | Missing or wrong credentials | 401 | `AuthenticationException` (framework) | fixed, the same for every cause |
@@ -300,11 +301,14 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Removing the last Admin | 409 | `LastAdminException` | the message |
 | A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
 | A referee rename that lost to another write | 409 | `RefereeChangedException` | fixed, plus a `current` extension property holding the referee as it now stands. Not retried |
-| A lifecycle call the match's state forbids | 409 | `IllegalStateTransitionException` | the message |
-| No such match | 404 | `GameNotFoundException` | the message |
+| An athlete update that lost to another write | 409 | `AthleteChangedException` | fixed, plus `current`, the athlete as it now stands. Not retried |
+| Setting the time, a result or a settings change that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
+| An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides | 409 | `ActionRefusedException` | the message |
+| Deleting an athlete or referee a game names | 409 | `AthleteInUseException`, `RefereeInUseException` | the message |
+| No such game | 404 | `GameNotFoundException` | the message |
 | No such account | 404 | `AccountNotFoundException` | the message |
 | No such referee | 404 | `RefereeNotFoundException` | the message |
-| No such fighter, or a real colour this match does not field | 404 | `PlayerNotFoundException` | the message |
+| No such athlete | 404 | `AthleteNotFoundException` | the message |
 | Accounts could not be read while checking credentials | 500 | `AuthenticationServiceException` (framework) | **generic**, message logged |
 | Anything else | 500 | catch-all | **generic**, message logged |
 
@@ -326,8 +330,8 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
   They answer 400 through the error dispatch, with a correlation ID, and are not problem details.
 - **A CORS refusal is not a problem detail.** It is the framework's 403, answered before Spring MVC:
   see `[cors]`.
-- The two colour failures differ on purpose: *not a colour* is the caller's mistake (400), *a colour
-  this match does not have* is a missing resource (404).
+- An athlete or referee that a new game or assignment names but that does not exist answers 400 as
+  `InvalidGameRequestException`, not 404: the resource addressed is the game.
 - **Only messages this project wrote are returned.** `InvalidGameRequestException` marks wording
   meant for the caller, so its detail is echoed. A bare `IllegalArgumentException` can come from
   anywhere, such as Spring Data's "The given id must not be null", so it answers 400 with a fixed
