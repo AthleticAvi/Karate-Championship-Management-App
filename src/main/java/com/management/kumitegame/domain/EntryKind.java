@@ -18,6 +18,7 @@ enum EntryKind {
   PENALTY,
   CLOCK_ACTION,
   AMENDMENT,
+  SENSHU_RECORD,
   ASSIGNMENT,
   SETTINGS_CHANGE,
   RESULT;
@@ -33,6 +34,13 @@ enum EntryKind {
               ALLOW,
               warn(Warning.SCORE_AFTER_RESULT));
       case PENALTY, AMENDMENT -> ALLOW;
+      case SENSHU_RECORD ->
+          row(
+              status,
+              warn(Warning.SENSHU_BEFORE_START),
+              ALLOW,
+              ALLOW,
+              warn(Warning.SENSHU_AFTER_RESULT));
       case CLOCK_ACTION ->
           row(status, ALLOW, ALLOW, ALLOW, warn(Warning.CLOCK_ACTION_AFTER_RESULT));
       case ASSIGNMENT ->

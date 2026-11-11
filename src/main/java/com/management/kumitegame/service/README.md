@@ -47,7 +47,7 @@ One game is one document, so every action is one atomic write, with no transacti
 
 | Operation | Atomic unit | Invariants | Guard | Acknowledgement |
 |---|---|---|---|---|
-| Score, penalty, clock action but SET_TIME, assignment, amendment | One `kumiteGame` document | `KumiteGame`: refusals, then warnings | Version, bounded retry | `w=majority` |
+| Score, penalty, clock action but SET_TIME, SENSHU record, assignment, amendment | One `kumiteGame` document | `KumiteGame`: refusals, then warnings | Version, bounded retry | `w=majority` |
 | SET_TIME, result, settings change | One `kumiteGame` document | `KumiteGame`: the status matrix | Version, no retry, 409 with the game as it stands | `w=majority` |
 | Create a game | One new `kumiteGame` document | Athletes and referees exist, read first | Insert | `w=majority` |
 | Create, update an athlete or referee | One document | The domain type | Version | `w=majority` |

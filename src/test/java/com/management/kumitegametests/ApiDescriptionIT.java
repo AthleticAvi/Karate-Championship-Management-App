@@ -113,6 +113,8 @@ class ApiDescriptionIT {
         .containsExactly("201", "400", "401", "413", "415", "500");
     assertThat(statusesOf(operation("post", GAME + "/scores")))
         .containsExactly("200", "400", "401", "404", "409", "413", "415", "500");
+    assertThat(statusesOf(operation("post", GAME + "/senshu-records")))
+        .containsExactly("200", "400", "401", "404", "409", "413", "415", "500");
     assertThat(response("put", GAME + "/settings", "409").get("description").asString())
         .contains("current");
     assertThat(response("post", GAME + "/clock-actions", "409").get("description").asString())
@@ -214,6 +216,7 @@ class ApiDescriptionIT {
             "ScoreRequest",
             "PenaltyRequest",
             "ClockActionRequest",
+            "SenshuRecordRequest",
             "AssignmentRequest",
             "AmendmentRequest",
             "ResultRequest",

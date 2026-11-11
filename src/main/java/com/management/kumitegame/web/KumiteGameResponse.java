@@ -13,6 +13,7 @@ import com.management.kumitegame.domain.PenaltyLevel;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
+import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * on every answer.
  *
  * @param exchange the number of main-clock starts so far
+ * @param senshuClosed SENSHU was withdrawn in the final window, so nobody should earn it again
  * @param currentResult the latest result; empty while none is recorded
  * @param warnings what the game itself shows: its format, or stored history skipped while folding
  * @param serverTime the server's time when this was read
@@ -47,6 +49,8 @@ public record KumiteGameResponse(
     List<PanelMemberResponse> panel,
     List<AssignmentResponse> assignments,
     List<ClockActionResponse> clockActions,
+    boolean senshuClosed,
+    List<SenshuRecordResponse> senshuRecords,
     List<AmendmentResponse> amendments,
     List<ResultResponse> results,
     @Nullable ResultResponse currentResult,
@@ -76,10 +80,12 @@ public record KumiteGameResponse(
    *
    * @param colour how the side is shown, from configuration
    * @param athlete the latest athlete put on this side; empty only in history that names none
+   * @param senshu whether this side holds SENSHU; never both sides
    */
   public record SideResponse(
       String colour,
       @Nullable ParticipantResponse athlete,
+      boolean senshu,
       ClockResponse medicalClock,
       int total,
       int ipponCount,
@@ -145,6 +151,20 @@ public record KumiteGameResponse(
       long timeShownMs,
       @Nullable Long amountMs,
       @Nullable PauseReason pauseReason,
+      EntryMetaResponse meta) {}
+
+  /**
+   * SENSHU awarded or withdrawn, as given.
+   *
+   * @param cancelled whether a CANCEL took it back
+   */
+  public record SenshuRecordResponse(
+      Side side,
+      SenshuRecordKind kind,
+      @Nullable String reason,
+      @Nullable Integer exchange,
+      @Nullable Long clockRemainingMs,
+      boolean cancelled,
       EntryMetaResponse meta) {}
 
   public record AmendmentResponse(

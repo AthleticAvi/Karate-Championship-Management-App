@@ -16,12 +16,14 @@ import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewPenalty;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewSenshuRecord;
 import com.management.kumitegame.domain.NewSettings;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.Penalty;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.Result;
 import com.management.kumitegame.domain.Score;
+import com.management.kumitegame.domain.SenshuRecord;
 import com.management.kumitegame.domain.Settings;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.SideState;
@@ -36,6 +38,7 @@ import com.management.kumitegame.web.KumiteGameResponse.ParticipantResponse;
 import com.management.kumitegame.web.KumiteGameResponse.PenaltyResponse;
 import com.management.kumitegame.web.KumiteGameResponse.ResultResponse;
 import com.management.kumitegame.web.KumiteGameResponse.ScoreResponse;
+import com.management.kumitegame.web.KumiteGameResponse.SenshuRecordResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SettingsResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SideResponse;
 import com.management.referee.domain.Referee;
@@ -83,6 +86,8 @@ public final class KumiteGameMapper {
             .toList(),
         game.assignments().stream().map(KumiteGameMapper::assignment).toList(),
         game.clockActions().stream().map(KumiteGameMapper::clockAction).toList(),
+        state.senshu().closed(),
+        game.senshuRecords().stream().map(record -> senshuRecord(record, state)).toList(),
         game.amendments().stream().map(KumiteGameMapper::amendment).toList(),
         game.results().stream().map(KumiteGameMapper::result).toList(),
         current == null ? null : result(current),
@@ -153,6 +158,16 @@ public final class KumiteGameMapper {
         request.pauseReason());
   }
 
+  public static NewSenshuRecord toNewSenshuRecord(SenshuRecordRequest request) {
+    return new NewSenshuRecord(
+        request.id(),
+        request.side(),
+        request.kind(),
+        request.reason(),
+        request.exchange(),
+        request.clockRemainingMs());
+  }
+
   public static NewAssignment toNewAssignment(AssignmentRequest request) {
     return new NewAssignment(
         request.id(),
@@ -204,6 +219,7 @@ public final class KumiteGameMapper {
     return new SideResponse(
         Objects.requireNonNull(colours.get(side), "every side has a colour"),
         athleteId == null ? null : athlete(athleteId, read.athletes()),
+        state.senshu().isHeldBy(side),
         clock(state.medicalClock(side), read.serverTime()),
         tally.total(),
         tally.ipponCount(),
@@ -268,6 +284,17 @@ public final class KumiteGameMapper {
         action.amountMs(),
         action.pauseReason(),
         meta(action.meta()));
+  }
+
+  private static SenshuRecordResponse senshuRecord(SenshuRecord record, GameState state) {
+    return new SenshuRecordResponse(
+        record.side(),
+        record.kind(),
+        record.reason(),
+        record.exchange(),
+        record.clockRemainingMs(),
+        state.isCancelled(record.id()),
+        meta(record.meta()));
   }
 
   private static AmendmentResponse amendment(Amendment amendment) {

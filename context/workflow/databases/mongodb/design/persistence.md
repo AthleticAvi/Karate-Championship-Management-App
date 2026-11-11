@@ -139,8 +139,12 @@ Retryable writes are on by default in current drivers, but they need a replica s
 - **Put an integer `schemaVersion` on every document from the first write.** Documents of several
   shapes then coexist in one collection, and code can tell them apart. Adding it later means
   guessing the shape of every old document.
-- **An additive change needs no new version.** A new optional field reads as absent on old
-  documents. Bump the version only when a field is renamed, moved or changes meaning.
+- **An additive change needs no new version only if no write replaces the whole document.** A new
+  optional field reads as absent on old documents. But a build that does not know the field ignores
+  it on read, and a save that replaces the document then drops it: after a rollback the data is
+  silently gone. With whole-document saves, bump the version for an added field too, so the older
+  build refuses the document instead. Otherwise bump it when a field is renamed, moved or changes
+  meaning.
 - **Absorb old shapes in one place:** the mapping between the stored document and the domain type.
   Otherwise every query must check every location a field has ever had, and a field stored at two
   levels needs two indexes.

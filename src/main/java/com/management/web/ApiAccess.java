@@ -49,6 +49,7 @@ public final class ApiAccess {
           new Rule(HttpMethod.POST, ONE_GAME + "/scores", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/penalties", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/clock-actions", Level.SCOREKEEPER),
+          new Rule(HttpMethod.POST, ONE_GAME + "/senshu-records", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/assignments", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/amendments", Level.SCOREKEEPER),
           new Rule(HttpMethod.POST, ONE_GAME + "/results", Level.SCOREKEEPER),

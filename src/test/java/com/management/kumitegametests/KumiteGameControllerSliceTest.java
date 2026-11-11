@@ -26,6 +26,7 @@ import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewSenshuRecord;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.PanelRole;
@@ -33,6 +34,7 @@ import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
+import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
@@ -66,8 +68,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @Autowired private MockMvc mockMvc;
 
   /**
-   * Started, with one WAZA_ARI to AKA. The AO athlete no longer exists: the accepted race with a
-   * delete, which reads as unknown.
+   * Started, with one WAZA_ARI and SENSHU to AKA. The AO athlete no longer exists: the accepted
+   * race with a delete, which reads as unknown.
    */
   private static GameRead scored() {
     KumiteGame game = TestGames.game();
@@ -77,6 +79,10 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         TestClock.NOW);
     game.recordScore(
         new NewScore("s1", Side.AKA, ScoreLevel.WAZA_ARI, ScoreSource.JUDGES, null, 118_000L),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordSenshu(
+        new NewSenshuRecord("k1", Side.AKA, SenshuRecordKind.AWARDED, null, null, 118_000L),
         TestGames.SCOREKEEPER,
         LATER);
     return new GameRead(
@@ -108,6 +114,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         "aka": {
           "colour": "red",
           "athlete": {"id": "athlete-aka", "name": "Kenji", "known": true},
+          "senshu": true,
           "medicalClock": {"running": false, "remainingMs": 180000},
           "total": 2, "ipponCount": 0, "wazaAriCount": 1, "chuiCount": 0, "hansokuChuiCount": 0,
           "scores": [{
@@ -121,6 +128,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         "ao": {
           "colour": "blue",
           "athlete": {"id": "athlete-ao", "name": null, "known": false},
+          "senshu": false,
           "medicalClock": {"running": false, "remainingMs": 180000},
           "total": 0, "ipponCount": 0, "wazaAriCount": 0, "chuiCount": 0, "hansokuChuiCount": 0,
           "scores": [], "penalties": []
@@ -137,6 +145,13 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         "clockActions": [
           {"timer": "MAIN", "side": null, "action": "START", "timeShownMs": 120000,
            "amountMs": null, "pauseReason": null, "meta": {"id": "c1", "order": 4, %1$s}}
+        ],
+        "senshuClosed": false,
+        "senshuRecords": [
+          {"side": "AKA", "kind": "AWARDED", "reason": null, "exchange": 1,
+           "clockRemainingMs": 118000, "cancelled": false,
+           "meta": {"id": "k1", "order": 6, "recordedAt": "2026-01-01T12:00:02Z",
+                    "recordedBy": "scorekeeper", "raisedWarnings": []}}
         ],
         "amendments": [], "results": [], "currentResult": null, "warnings": [],
         "serverTime": "2026-01-01T12:00:02Z"
@@ -207,6 +222,41 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.raisedWarnings[0]").value("CLOCK_REMAINING_OUT_OF_TOLERANCE"))
         .andExpect(jsonPath("$.game.id").value("game-1"));
+  }
+
+  @Test
+  void senshu_isMappedWhole_andAnswersTheGame() throws Exception {
+    NewSenshuRecord expected =
+        new NewSenshuRecord(
+            "k2", Side.AKA, SenshuRecordKind.WITHDRAWN, "avoiding combat", 1, 12_000L);
+    given(kumiteGameService().recordSenshu("game-1", expected, "kenta"))
+        .willReturn(new Recording(scored(), List.of(Warning.SENSHU_WITHDRAWN_NOT_HELD)));
+
+    mockMvc
+        .perform(
+            post(GAME + "/senshu-records", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"id": "k2", "side": "AKA", "kind": "WITHDRAWN", "reason": "avoiding combat",
+                     "exchange": 1, "clockRemainingMs": 12000}
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.raisedWarnings[0]").value("SENSHU_WITHDRAWN_NOT_HELD"))
+        .andExpect(jsonPath("$.game.aka.senshu").value(true));
+  }
+
+  @Test
+  void senshuWithoutKind_isRefusedNamingTheField() throws Exception {
+    mockMvc
+        .perform(
+            post(GAME + "/senshu-records", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"k2\", \"side\": \"AKA\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors.kind").exists());
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
   /** The recorder comes from the signed-in account: a body that names one is not read. */

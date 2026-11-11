@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
@@ -44,6 +45,7 @@ public final class KumiteGame {
   private final Map<Side, List<Penalty>> penalties = new EnumMap<>(Side.class);
   private final List<Assignment> assignments;
   private final List<ClockAction> clockActions;
+  private final List<SenshuRecord> senshuRecords;
   private final List<Amendment> amendments;
   private final List<Result> results;
 
@@ -58,6 +60,7 @@ public final class KumiteGame {
       Map<Side, List<Penalty>> penalties,
       List<Assignment> assignments,
       List<ClockAction> clockActions,
+      List<SenshuRecord> senshuRecords,
       List<Amendment> amendments,
       List<Result> results) {
     this.id = id;
@@ -71,6 +74,7 @@ public final class KumiteGame {
     }
     this.assignments = new ArrayList<>(assignments);
     this.clockActions = new ArrayList<>(clockActions);
+    this.senshuRecords = new ArrayList<>(senshuRecords);
     this.amendments = new ArrayList<>(amendments);
     this.results = new ArrayList<>(results);
   }
@@ -138,6 +142,7 @@ public final class KumiteGame {
         assignments,
         List.of(),
         List.of(),
+        List.of(),
         List.of());
   }
 
@@ -170,11 +175,12 @@ public final class KumiteGame {
     GameState state = state();
     List<Warning> raised = admit(EntryKind.SCORE, state);
     LateScore.check(state, now, settings, raised);
+    Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
+    SenshuWarnings.checkScore(score.side(), exchange, standingAward(state).orElse(null), raised);
     if (isCurrentExchange(score.exchange(), state)) {
       ClockTolerance.checkClockRemaining(
           state.mainClock(), score.clockRemainingMs(), now, settings, raised);
     }
-    Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
     scoresOf(score.side())
         .add(
             new Score(
@@ -199,6 +205,18 @@ public final class KumiteGame {
     GameState state = state();
     List<Warning> raised = admit(EntryKind.PENALTY, state);
     PenaltyLadder.check(state.side(penalty.side()), penalty.level(), settings, raised);
+    SenshuWarnings.checkPenalty(
+        state,
+        penalty.side(),
+        penalty.infraction(),
+        SenshuFold.inFinalWindow(
+            penalty.exchange(),
+            penalty.clockRemainingMs(),
+            state.currentExchange(),
+            state.mainClock(),
+            now,
+            settings),
+        raised);
     if (isCurrentExchange(penalty.exchange(), state)) {
       ClockTolerance.checkClockRemaining(
           state.mainClock(), penalty.clockRemainingMs(), now, settings, raised);
@@ -238,6 +256,48 @@ public final class KumiteGame {
             action.amountMs(),
             action.pauseReason(),
             next(action.id(), state, recordedBy, now, raised)));
+    return Recorded.applied(raised);
+  }
+
+  /**
+   * Records SENSHU as the officials awarded or withdrew it. Refused only when it would contradict
+   * itself: an AWARDED while a side holds SENSHU, since both cannot hold it. A WITHDRAWN from a
+   * side that does not hold it is recorded with a warning, and changes nothing.
+   */
+  public Recorded recordSenshu(NewSenshuRecord record, String recordedBy, Instant now) {
+    Optional<Recorded> replay =
+        replayOf(
+            record.id(),
+            found ->
+                found.entry() instanceof SenshuRecord stored && record.matches(stored, recordedBy));
+    if (replay.isPresent()) {
+      return replay.get();
+    }
+    GameState state = state();
+    Side holder = state.senshu().holder();
+    if (record.kind() == SenshuRecordKind.AWARDED && holder != null) {
+      throw new ActionRefusedException(
+          "SENSHU is held by " + holder + ": withdraw it before awarding it again.");
+    }
+    List<Warning> raised = admit(EntryKind.SENSHU_RECORD, state);
+    if (isCurrentExchange(record.exchange(), state)) {
+      ClockTolerance.checkClockRemaining(
+          state.mainClock(), record.clockRemainingMs(), now, settings, raised);
+    }
+    Integer exchange = record.exchange() != null ? record.exchange() : state.currentExchange();
+    if (record.kind() == SenshuRecordKind.AWARDED) {
+      SenshuWarnings.checkAward(state, exchange, scoresOf(record.side().opponent()), raised);
+    } else {
+      SenshuWarnings.checkWithdrawal(state, record.side(), raised);
+    }
+    senshuRecords.add(
+        new SenshuRecord(
+            record.side(),
+            record.kind(),
+            record.reason(),
+            exchange,
+            record.clockRemainingMs(),
+            next(record.id(), state, recordedBy, now, raised)));
     return Recorded.applied(raised);
   }
 
@@ -285,10 +345,11 @@ public final class KumiteGame {
   }
 
   /**
-   * Cancels a score or penalty, or acknowledges the warnings on any entry.
+   * Cancels a score, penalty or SENSHU record, or acknowledges the warnings on any entry.
    *
    * <p>Refused when it would contradict itself: a target that does not exist, a CANCEL of anything
-   * but a score or penalty (a CANCEL included), or a second CANCEL of the same target. To undo a
+   * but a score, penalty or SENSHU record (a CANCEL included), a second CANCEL of the same target,
+   * or a CANCEL of a withdrawal that would give SENSHU back while a later award stands. To undo a
    * mistaken cancel, record the entry again.
    */
   public Recorded recordAmendment(NewAmendment amendment, String recordedBy, Instant now) {
@@ -310,18 +371,36 @@ public final class KumiteGame {
                 new ActionRefusedException(
                     "No entry has the id " + amendment.targetId() + " in this game."));
     if (amendment.kind() == AmendmentKind.CANCEL) {
-      if (!(target instanceof Score || target instanceof Penalty)) {
+      if (!(target instanceof Score
+          || target instanceof Penalty
+          || target instanceof SenshuRecord)) {
         throw new ActionRefusedException(
-            "Only a score or a penalty can be cancelled, and "
+            "Only a score, a penalty or a SENSHU record can be cancelled, and "
                 + amendment.targetId()
-                + " is neither.");
+                + " is none of these.");
       }
       if (state.isCancelled(amendment.targetId())) {
         throw new ActionRefusedException(
             "Entry " + amendment.targetId() + " is already cancelled.");
       }
+      if (target instanceof SenshuRecord && wouldGiveSenshuToTwo(state, amendment.targetId())) {
+        throw new ActionRefusedException(
+            "Cancelling "
+                + amendment.targetId()
+                + " would give SENSHU back while a later award stands: cancel that award first.");
+      }
     }
     List<Warning> raised = admit(EntryKind.AMENDMENT, state);
+    if (amendment.kind() == AmendmentKind.CANCEL) {
+      cancelledScoreSide(amendment.targetId())
+          .filter(side -> state.senshu().isHeldBy(side))
+          .ifPresent(holder ->
+              SenshuWarnings.checkCancelledScore(
+                  scoresOf(holder),
+                  scoresOf(holder.opponent()),
+                  id -> !state.isCancelled(id) && !id.equals(amendment.targetId()),
+                  raised));
+    }
     amendments.add(
         new Amendment(
             amendment.kind(),
@@ -362,6 +441,52 @@ public final class KumiteGame {
     return Recorded.applied(raised);
   }
 
+  /**
+   * Whether SENSHU, replayed as this CANCEL would leave it, meets an award while a side holds it.
+   * Only a cancelled withdrawal can do that.
+   */
+  private boolean wouldGiveSenshuToTwo(GameState state, String targetId) {
+    List<SenshuRecord> inOrder =
+        senshuRecords.stream()
+            .sorted(Comparator.comparingInt(record -> record.meta().order()))
+            .toList();
+    Set<String> before = skippedIds(state);
+    return SenshuFold.replay(
+            inOrder, id -> state.isCancelled(id) || id.equals(targetId), record -> false)
+        .conflicting()
+        .stream()
+        .anyMatch(id -> !before.contains(id));
+  }
+
+  /**
+   * The award the holder holds SENSHU by: the latest AWARDED of the holder's side that is neither
+   * cancelled nor skipped by the fold.
+   */
+  private Optional<SenshuRecord> standingAward(GameState state) {
+    Set<String> skipped = skippedIds(state);
+    return senshuRecords.stream()
+        .filter(record -> record.kind() == SenshuRecordKind.AWARDED)
+        .filter(record -> state.senshu().isHeldBy(record.side()))
+        .filter(record -> !state.isCancelled(record.id()) && !skipped.contains(record.id()))
+        .max(Comparator.comparingInt(record -> record.meta().order()));
+  }
+
+  /** The entries the fold skipped as history it cannot fold as written. */
+  private static Set<String> skippedIds(GameState state) {
+    return state.warnings().stream()
+        .filter(warning -> warning.code() == Warning.HISTORY_INCONSISTENT)
+        .map(GameWarning::entryId)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  /** The side whose list holds the score this id names, if it names a score. */
+  private Optional<Side> cancelledScoreSide(String targetId) {
+    return Stream.of(Side.values())
+        .filter(side -> scoresOf(side).stream().anyMatch(score -> score.id().equals(targetId)))
+        .findFirst();
+  }
+
   /** Every entry, in the order it was recorded. */
   List<SidedEntry> entriesInOrder() {
     return entries()
@@ -376,7 +501,7 @@ public final class KumiteGame {
                 Stream.concat(scoresOf(side).stream(), penaltiesOf(side).stream())
                     .map(entry -> new SidedEntry(entry, side)));
     Stream<SidedEntry> unsided =
-        Stream.of(assignments, clockActions, amendments, results)
+        Stream.of(assignments, clockActions, senshuRecords, amendments, results)
             .flatMap(List::stream)
             .map(entry -> new SidedEntry(entry, null));
     return Stream.concat(sided, unsided);
@@ -509,6 +634,10 @@ public final class KumiteGame {
 
   public List<ClockAction> clockActions() {
     return Collections.unmodifiableList(clockActions);
+  }
+
+  public List<SenshuRecord> senshuRecords() {
+    return Collections.unmodifiableList(senshuRecords);
   }
 
   public List<Amendment> amendments() {

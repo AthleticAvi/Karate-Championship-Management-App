@@ -63,6 +63,7 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
           Map.entry("POST " + ONE_GAME + "/scores", SCOREKEEPER),
           Map.entry("POST " + ONE_GAME + "/penalties", SCOREKEEPER),
           Map.entry("POST " + ONE_GAME + "/clock-actions", SCOREKEEPER),
+          Map.entry("POST " + ONE_GAME + "/senshu-records", SCOREKEEPER),
           Map.entry("POST " + ONE_GAME + "/assignments", SCOREKEEPER),
           Map.entry("POST " + ONE_GAME + "/amendments", SCOREKEEPER),
           Map.entry("POST " + ONE_GAME + "/results", SCOREKEEPER),

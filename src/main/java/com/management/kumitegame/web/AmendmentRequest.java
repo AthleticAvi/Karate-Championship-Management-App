@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A correction: cancel a score or penalty, or acknowledge the warnings on an entry.
+ * A correction: cancel a score, penalty or SENSHU record, or acknowledge the warnings on an entry.
  *
  * @param id made by the client, one per action, and sent again on a retry of that action
  * @param targetId the entry it corrects

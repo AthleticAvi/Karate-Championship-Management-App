@@ -21,6 +21,7 @@ import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewPenalty;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewSenshuRecord;
 import com.management.kumitegame.domain.NewSettings;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.Recorded;
@@ -45,9 +46,9 @@ import org.springframework.stereotype.Service;
  * before anything is written.
  *
  * <p><strong>Appends retry, absolute actions do not.</strong> A score, penalty, clock action,
- * assignment or amendment goes through {@link KumiteGameWriter#append}. Setting the time, recording
- * a result and changing the settings set a value, so a lost race answers 409 with the game as it
- * now stands: see {@code [version-writes]} in {@code
+ * SENSHU record, assignment or amendment goes through {@link KumiteGameWriter#append}. Setting the
+ * time, recording a result and changing the settings set a value, so a lost race answers 409 with
+ * the game as it now stands: see {@code [version-writes]} in {@code
  * context/workflow/design/concurrency-consistency.md}.
  */
 @Service
@@ -127,6 +128,10 @@ public class KumiteGameService {
     return action.action() == ClockActionKind.SET_TIME
         ? absolute(gameId, record)
         : append(gameId, record);
+  }
+
+  public Recording recordSenshu(String gameId, NewSenshuRecord record, String recordedBy) {
+    return append(gameId, game -> game.recordSenshu(record, recordedBy, clock.instant()));
   }
 
   /** The athlete or referee it names must exist, and is read before anything is written. */

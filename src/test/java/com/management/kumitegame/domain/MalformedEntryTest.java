@@ -102,6 +102,7 @@ class MalformedEntryTest {
                     Timer.MEDICAL, null, ClockActionKind.START, 0, null, null, meta("c2", 6)),
                 new ClockAction(
                     Timer.MAIN, null, ClockActionKind.START, 120_000, null, null, meta("c3", 7))),
+            List.of(),
             List.of(
                 new Amendment(AmendmentKind.CANCEL, "a1", null, meta("m1", 8)),
                 new Amendment(AmendmentKind.ACKNOWLEDGE, "missing", null, meta("m2", 9))),
