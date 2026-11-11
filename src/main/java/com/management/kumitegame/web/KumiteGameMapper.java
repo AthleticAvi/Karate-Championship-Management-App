@@ -18,6 +18,7 @@ import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
 import com.management.kumitegame.domain.NewSenshuRecord;
 import com.management.kumitegame.domain.NewSettings;
+import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.Penalty;
 import com.management.kumitegame.domain.Recording;
@@ -27,6 +28,7 @@ import com.management.kumitegame.domain.SenshuRecord;
 import com.management.kumitegame.domain.Settings;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.SideState;
+import com.management.kumitegame.domain.StatusChange;
 import com.management.kumitegame.web.KumiteGameResponse.AmendmentResponse;
 import com.management.kumitegame.web.KumiteGameResponse.AssignmentResponse;
 import com.management.kumitegame.web.KumiteGameResponse.ClockActionResponse;
@@ -41,6 +43,7 @@ import com.management.kumitegame.web.KumiteGameResponse.ScoreResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SenshuRecordResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SettingsResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SideResponse;
+import com.management.kumitegame.web.KumiteGameResponse.StatusChangeResponse;
 import com.management.referee.domain.Referee;
 import java.time.Instant;
 import java.util.List;
@@ -91,6 +94,7 @@ public final class KumiteGameMapper {
         game.amendments().stream().map(KumiteGameMapper::amendment).toList(),
         game.results().stream().map(KumiteGameMapper::result).toList(),
         current == null ? null : result(current),
+        game.statusChanges().stream().map(KumiteGameMapper::statusChange).toList(),
         state.warnings().stream()
             .map(warning -> new GameWarningResponse(warning.code(), warning.entryId()))
             .toList(),
@@ -190,6 +194,10 @@ public final class KumiteGameMapper {
         request.reason(),
         request.reasonDetail(),
         request.bothDisqualified());
+  }
+
+  public static NewStatusChange toNewStatusChange(StatusChangeRequest request) {
+    return new NewStatusChange(request.id(), request.kind(), request.reason());
   }
 
   private static SettingsResponse settings(Settings settings) {
@@ -310,5 +318,9 @@ public final class KumiteGameMapper {
         result.reasonDetail(),
         result.bothDisqualified(),
         meta(result.meta()));
+  }
+
+  private static StatusChangeResponse statusChange(StatusChange change) {
+    return new StatusChangeResponse(change.kind(), change.reason(), meta(change.meta()));
   }
 }

@@ -8,6 +8,7 @@ import com.management.athlete.domain.AthleteInUseException;
 import com.management.athlete.domain.AthleteNotFoundException;
 import com.management.athlete.web.AthleteMapper;
 import com.management.config.KumiteGameProperties;
+import com.management.kumitegame.domain.ActionForbiddenException;
 import com.management.kumitegame.domain.ActionRefusedException;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameNotFoundException;
@@ -119,6 +120,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "This account may not do this.");
     problem.setTitle("Access denied");
     return problem;
+  }
+
+  /**
+   * An action the account's role may not take on the game as it stands. The role table admitted the
+   * endpoint, so the game decided, and the detail says which move needs an Admin.
+   */
+  @ExceptionHandler(ActionForbiddenException.class)
+  public ProblemDetail handleActionForbidden(ActionForbiddenException ex) {
+    return clientError(HttpStatus.FORBIDDEN, "Access denied", ex);
   }
 
   @ExceptionHandler(AccountNotFoundException.class)

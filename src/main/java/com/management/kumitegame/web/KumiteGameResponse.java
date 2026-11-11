@@ -15,6 +15,7 @@ import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.SenshuRecordKind;
 import com.management.kumitegame.domain.Side;
+import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.domain.Warning;
 import java.time.Instant;
@@ -31,7 +32,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param exchange the number of main-clock starts so far
  * @param senshuClosed SENSHU was withdrawn in the final window, so nobody should earn it again
- * @param currentResult the latest result; empty while none is recorded
+ * @param currentResult the latest result; empty while none is recorded, after a reopen of a DECIDED
+ *     game supersedes it, and on a VOIDED game
+ * @param statusChanges every approve, reopen and void, as given
  * @param warnings what the game itself shows: its format, or stored history skipped while folding
  * @param serverTime the server's time when this was read
  */
@@ -54,6 +57,7 @@ public record KumiteGameResponse(
     List<AmendmentResponse> amendments,
     List<ResultResponse> results,
     @Nullable ResultResponse currentResult,
+    List<StatusChangeResponse> statusChanges,
     List<GameWarningResponse> warnings,
     Instant serverTime) {
 
@@ -177,6 +181,9 @@ public record KumiteGameResponse(
       @Nullable String reasonDetail,
       boolean bothDisqualified,
       EntryMetaResponse meta) {}
+
+  public record StatusChangeResponse(
+      StatusChangeKind kind, @Nullable String reason, EntryMetaResponse meta) {}
 
   /**
    * A warning the game itself shows.

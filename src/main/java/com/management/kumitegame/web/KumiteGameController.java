@@ -1,12 +1,14 @@
 package com.management.kumitegame.web;
 
 import com.management.config.KumiteGameProperties;
+import com.management.kumitegame.domain.ActingRole;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.web.ApiVersionConfiguration;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import org.springframework.http.HttpStatus;
@@ -164,6 +166,44 @@ public class KumiteGameController {
     return answer(
         kumiteGameService.recordResult(
             gameId, KumiteGameMapper.toNewResult(result), principal.getName()));
+  }
+
+  /**
+   * Approves, reopens or voids. Absolute, so a lost race answers 409 with the game as it now
+   * stands.
+   *
+   * <p>The role table admits a Scorekeeper and an Admin, because which a move needs depends on the
+   * status: the game refuses an Admin's move from a Scorekeeper with a 403. The role goes down as a
+   * plain value, the way the account name does.
+   */
+  @ApiResponse(responseCode = "200", description = "OK")
+  @ApiResponse(
+      responseCode = "403",
+      description =
+          "Forbidden. Reopening an APPROVED game and voiding are an Admin's moves, whatever the role"
+              + " table admits",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(ref = "#/components/schemas/ProblemDetail")))
+  @ApiResponse(
+      responseCode = "409",
+      description = CURRENT_GAME,
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(ref = "#/components/schemas/ProblemDetail")))
+  @PostMapping("/{gameId}/status-changes")
+  public RecordedResponse recordStatusChange(
+      @PathVariable String gameId,
+      @Valid @RequestBody StatusChangeRequest change,
+      Principal principal,
+      HttpServletRequest request) {
+    ActingRole role =
+        request.isUserInRole(ActingRole.ADMIN.name()) ? ActingRole.ADMIN : ActingRole.SCOREKEEPER;
+    return answer(
+        kumiteGameService.recordStatusChange(
+            gameId, KumiteGameMapper.toNewStatusChange(change), role, principal.getName()));
   }
 
   private RecordedResponse answer(Recording recording) {

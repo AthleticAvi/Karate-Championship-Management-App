@@ -113,7 +113,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
     String gameId = create();
 
     Document stored = stored(gameId);
-    assertThat(stored.get("schemaVersion")).isEqualTo(2);
+    assertThat(stored.get("schemaVersion")).isEqualTo(3);
     assertThat(stored.get("version")).isEqualTo(1L);
     assertThat(stored.get("createdAt")).isInstanceOf(Date.class);
     assertThat(stored.get("modifiedAt")).isInstanceOf(Date.class);
@@ -337,6 +337,85 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(
             game.get("ao").get("scores").get(0).get("meta").get("raisedWarnings").get(0).asString())
         .isEqualTo("SENSHU_WHEN_BOTH_SCORED");
+  }
+
+  private static String statusChange(String id, String kind, String reason) {
+    return reason == null
+        ? "{\"id\": \"%s\", \"kind\": \"%s\"}".formatted(id, kind)
+        : "{\"id\": \"%s\", \"kind\": \"%s\", \"reason\": \"%s\"}".formatted(id, kind, reason);
+  }
+
+  private static int status(ResponseEntity<String> response) {
+    return response.getStatusCode().value();
+  }
+
+  private static String kiken(String id) {
+    return """
+    {"id": "%s", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN", "bothDisqualified": false}
+    """
+        .formatted(id);
+  }
+
+  /** The status table end to end: who may take each move, and what each answers. */
+  @Test
+  void approveReopenAndVoid_followTheStatusTable_andTheRoles() {
+    String gameId = create();
+    post(asScorekeeper(), gameId, "results", kiken("r1"));
+
+    ResponseEntity<String> reopened =
+        post(asScorekeeper(), gameId, "status-changes", statusChange("z1", "REOPEN", null));
+    assertThat(status(reopened)).isEqualTo(200);
+    JsonNode game = body(reopened).get("game");
+    assertThat(game.get("status").asString()).isEqualTo("NOT_STARTED");
+    assertThat(game.get("currentResult").isNull()).isTrue();
+    assertThat(game.get("results")).hasSize(1);
+
+    post(asScorekeeper(), gameId, "results", kiken("r2"));
+    ResponseEntity<String> approved =
+        post(asScorekeeper(), gameId, "status-changes", statusChange("z2", "APPROVE", null));
+    assertThat(body(approved).get("game").get("status").asString()).isEqualTo("APPROVED");
+    assertThat(status(post(asScorekeeper(), gameId, "scores", score("s1", "AKA"))))
+        .as("nothing is recorded on an APPROVED game")
+        .isEqualTo(409);
+
+    assertThat(
+            status(
+                post(
+                    asScorekeeper(),
+                    gameId,
+                    "status-changes",
+                    statusChange("z3", "REOPEN", "protest"))))
+        .as("a Scorekeeper cannot reopen an APPROVED game")
+        .isEqualTo(403);
+    assertThat(
+            status(post(asAdmin(), gameId, "status-changes", statusChange("z4", "REOPEN", null))))
+        .as("an Admin's reopen needs a reason")
+        .isEqualTo(400);
+    ResponseEntity<String> adminReopened =
+        post(asAdmin(), gameId, "status-changes", statusChange("z5", "REOPEN", "SHIKKAKU"));
+    assertThat(body(adminReopened).get("game").get("status").asString()).isEqualTo("DECIDED");
+
+    assertThat(
+            status(
+                post(asScorekeeper(), gameId, "status-changes", statusChange("z6", "VOID", "x"))))
+        .as("a Scorekeeper cannot void")
+        .isEqualTo(403);
+    assertThat(status(post(asAdmin(), gameId, "status-changes", statusChange("z7", "VOID", null))))
+        .as("a void needs a reason")
+        .isEqualTo(400);
+    ResponseEntity<String> voided =
+        post(asAdmin(), gameId, "status-changes", statusChange("z8", "VOID", "protest accepted"));
+    assertThat(status(voided)).isEqualTo(200);
+    assertThat(body(voided).get("game").get("status").asString()).isEqualTo("VOIDED");
+    assertThat(
+            status(post(asAdmin(), gameId, "status-changes", statusChange("z9", "VOID", "again"))))
+        .isEqualTo(409);
+
+    Document stored = stored(gameId);
+    assertThat(stored.getList("statusChanges", Document.class))
+        .extracting(change -> change.getString("kind"))
+        .containsExactly("REOPEN", "APPROVE", "REOPEN", "VOID");
+    assertThat(stored.getList("results", Document.class)).hasSize(2);
   }
 
   @Test
