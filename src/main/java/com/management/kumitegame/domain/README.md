@@ -25,7 +25,7 @@ is a stored document: see `[pattern]` in `src/main/java/com/management/referee/R
 Officials decide, the system records (WKF Kumite Competition Rules 2026.01, Articles 15.3, 15.6). An
 action is **refused** only when the data would contradict itself. A rule breach the system can see
 is **applied with a warning**. A judgement call is **recorded as given**. Only the scorekeeper ends
-a game, by recording a result.
+a game, by recording a result, and only an Admin annuls one.
 
 ## [owns] Owns
 
@@ -33,10 +33,10 @@ a game, by recording a result.
   `referee.domain`, `Account` in `account.domain`.
 - `kumitegame.domain`:
   - The entries `Score`, `Penalty`, `Assignment`, `ClockAction`, `SenshuRecord`, `Amendment`,
-    `Result`, each with an `EntryMeta`, composed rather than inherited. `Settings`, the rule values a game runs under.
+    `Result`, `StatusChange`, each with an `EntryMeta`, composed rather than inherited. `Settings`, the rule values a game runs under.
   - Business inputs `NewGame`, `NewSettings`, `NewScore`, `NewPenalty`, `NewClockAction`,
-    `NewSenshuRecord`, `NewAssignment`, `NewAmendment`, `NewResult`: what the client sent, mapped by
-    the gateway.
+    `NewSenshuRecord`, `NewAssignment`, `NewAmendment`, `NewResult`, `NewStatusChange`: what the
+    client sent, mapped by the gateway. `ActingRole`, the role the signed-in account acts under.
   - Derived values `GameState`, `SideState`, `ClockState`, `SenshuState`, `GameWarning`, folded by
     `GameFold`. `SenshuFold` replays the SENSHU records.
   - The rules: `EntryKind`, the status matrix, and one class per warning, `ClockTolerance`,
@@ -55,8 +55,8 @@ Other `domain` types: `kumitegame.domain` uses `athlete.domain` and `referee.dom
 ## [model] The game: entries, everything else derived
 
 A game stores only what happened: `format`, `medalGame`, `extraGame`, `settings`, each side's
-`scores` and `penalties`, `assignments`, `clockActions`, `senshuRecords`, `amendments` and
-`results`. Every entry
+`scores` and `penalties`, `assignments`, `clockActions`, `senshuRecords`, `amendments`, `results`
+and `statusChanges`. Every entry
 carries `meta`: the client's `id`, an `order` counted across the whole game, `recordedAt`,
 `recordedBy` and the `raisedWarnings`. Read by `order`, the lists tell the game.
 
@@ -84,7 +84,7 @@ id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`.
   that the scorekeeper saw an entry's warnings. Refused: a CANCEL of anything else, a second CANCEL
   of one target, a target that does not exist. To undo a mistaken CANCEL, record the entry again.
 - **Results are recorded as given.** Only a WIN names a winner. A later result supersedes the
-  current one, which stays in `results`.
+  current one, which stays in `results`. So does a reopen of a DECIDED game, and a void.
 - **The panel applies as given.** Adding a referee already on it changes the role, and removing
   one not on it changes nothing. One athlete on both sides is refused.
 
@@ -105,36 +105,72 @@ WKF Kumite terms are authoritative. `RED`, `BLUE`, Player, Foul, Points, Match a
 | Panel role | REFEREE, JUDGE, KANSA, VIDEO_REVIEW_JUDGE (Article 4.1) |
 | Outcome | WIN, DRAW, NO_RESULT |
 | Result reason | LEAD, POINTS, SENSHU, IPPON, WAZA_ARI, HANTEI, HIKIWAKE, HANSOKU, SHIKKAKU, KIKEN, DOUBLE_DISQUALIFICATION |
-| Status | NOT_STARTED, FIGHTING, TIME_UP, DECIDED |
+| Status | NOT_STARTED, FIGHTING, TIME_UP, DECIDED, APPROVED, VOIDED |
+| Status change | APPROVE, REOPEN, VOID |
 | Account roles | SCOREKEEPER, ADMIN |
 
 ## [status] Status and what each status accepts
+
+| Status | Means |
+|---|---|
+| NOT_STARTED | Created; the settings may change |
+| FIGHTING | The first START given |
+| TIME_UP | The clock reached zero, waiting for officials |
+| DECIDED | A result recorded |
+| APPROVED | The result signed off. Final |
+| VOIDED | Annulled. Final, and the record stays |
 
 | From | To | Entry that causes it |
 |---|---|---|
 | NOT_STARTED | FIGHTING | the first main-clock START |
 | FIGHTING | TIME_UP | a main-clock TIME_UP |
 | TIME_UP | FIGHTING | a main-clock ADD_TIME, RESTART or SET_TIME |
-| any | DECIDED | a result |
+| NOT_STARTED, FIGHTING, TIME_UP | DECIDED | a result |
+| DECIDED | APPROVED | APPROVE |
+| DECIDED | the status before the result | REOPEN, which supersedes the result |
+| APPROVED | DECIDED | REOPEN by an Admin, with a reason (Articles 13.4, 10.4.17) |
+| any but VOIDED | VOIDED | VOID by an Admin, with a reason (Article 13.4) |
 
-Only the main clock moves the status, and nothing moves it out of DECIDED: the clock never ends a
-game. Anything not in the table changes no status, such as START in TIME_UP, TIME_UP before the
-start, or any medical timer action.
+Only the main clock and the status changes move the status: the clock never ends a game. Anything
+not in the table changes no status, such as START in TIME_UP, TIME_UP before the start, a result
+while DECIDED, or any medical timer action.
+
+- **The status before the result** is where the clock has taken it. A clock action while DECIDED
+  is recorded with a warning and leaves the game DECIDED, but moves the status a reopen returns
+  to. A game decided by KIKEN before the start, then started, reopens to FIGHTING, so its rules
+  can no longer change.
+- **A reopen of an APPROVED game keeps its result.** DECIDED means a result stands, so it returns
+  to DECIDED with the same one. The scorekeeper then records a corrected result, which warns
+  `RESULT_WHILE_DECIDED` as any second result does, or reopens again to before the result.
+- **A void annuls the result.** It stays in `results`, and `currentResult` is empty.
+- **An Admin may do whatever a Scorekeeper may,** so an Admin may approve, and reopen a DECIDED
+  game, with no reason. A reason is needed only for an Admin's own moves.
+- **The role is a plain value.** The gateway passes `ActingRole`, named as the account roles, the
+  way it passes `recordedBy`. The role table admits both roles to the endpoint, and the game
+  refuses an Admin's move from a Scorekeeper with `ActionForbiddenException`, a 403. The status is
+  checked first, so a move the status refuses is a 409 whoever asks.
+- **Approve, reopen and void are absolute:** not retried, so a lost race answers 409 with the game
+  as it now stands. An entry id sent again still replays.
 
 `EntryKind` holds which actions each status accepts:
 
-| Entry | NOT_STARTED | FIGHTING | TIME_UP | DECIDED |
-|---|---|---|---|---|
-| score | warn | yes | yes, warn after the late-score window | warn |
-| penalty | yes | yes | yes | yes |
-| clock action | yes | yes | yes | warn |
-| SENSHU record | warn | yes | yes | warn |
-| amendment | yes | yes | yes | yes |
-| assignment | yes | warn | warn | warn |
-| settings change | yes | refuse | refuse | refuse |
-| result | yes for KIKEN, SHIKKAKU; warn otherwise | yes | yes | warn, and supersedes |
+| Entry | NOT_STARTED | FIGHTING | TIME_UP | DECIDED | APPROVED | VOIDED |
+|---|---|---|---|---|---|---|
+| score | warn | yes | yes, warn after the late-score window | warn | refuse | refuse |
+| penalty | yes | yes | yes | yes | refuse | refuse |
+| clock action | yes | yes | yes | warn | refuse | refuse |
+| SENSHU record | warn | yes | yes | warn | refuse | refuse |
+| amendment | yes | yes | yes | yes | refuse | refuse |
+| assignment | yes | warn | warn | warn | refuse | refuse |
+| settings change | yes | refuse | refuse | refuse | refuse | refuse |
+| result | yes for KIKEN, SHIKKAKU; warn otherwise | yes | yes | warn, and supersedes | refuse | refuse |
+| APPROVE | refuse | refuse | refuse | yes | refuse | refuse |
+| REOPEN | refuse | refuse | refuse | yes | Admin, reason | refuse |
+| VOID | Admin, reason | Admin, reason | Admin, reason | Admin, reason | Admin, reason | refuse |
 
-`KumiteGameTest` proves every cell.
+`KumiteGameTest` proves every cell. Stored history with an entry after APPROVED or VOIDED, or a
+status change that does not fit where it lands, still loads: the entry is skipped as
+`HISTORY_INCONSISTENT`.
 
 ## [clock] The clock
 
@@ -231,7 +267,8 @@ retries. The check runs per game, inside the versioned save:
   `context/workflow/databases/mongodb/design/persistence.md`.
 - **A new field raises the schema version too.** A build that does not know a field ignores it on
   read and drops it on its next save, so after a rollback the data is gone. Raised, the older build
-  refuses the game instead. Shape 2 added `senshuRecords`; a shape 1 game reads with none.
+  refuses the game instead. Shape 2 added `senshuRecords`, and shape 3 `statusChanges`; an older
+  game reads with none.
 - **The type hint follows the package.** Spring Data stores each document's class name in `_class`,
   so moving a document class changes it on every later write. A document whose name no longer loads
   still reads, through the declared type.
