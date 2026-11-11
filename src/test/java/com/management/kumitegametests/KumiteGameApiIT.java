@@ -283,6 +283,62 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(games.count()).isZero();
   }
 
+  /** SENSHU is stored as its records, and the holder and the closure are derived on each read. */
+  @Test
+  void senshu_isRecordedAsGiven_derivedOnRead_andWarnsOnTheEntry() {
+    String gameId = create();
+    post(
+        asScorekeeper(),
+        gameId,
+        "clock-actions",
+        """
+        {"id": "c1", "timer": "MAIN", "action": "START", "timeShownMs": 120000}
+        """);
+    post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+    ResponseEntity<String> awarded =
+        post(
+            asScorekeeper(),
+            gameId,
+            "senshu-records",
+            """
+            {"id": "k1", "side": "AKA", "kind": "AWARDED"}
+            """);
+
+    ResponseEntity<String> opposed = post(asScorekeeper(), gameId, "scores", score("s2", "AO"));
+    ResponseEntity<String> again =
+        post(
+            asScorekeeper(),
+            gameId,
+            "senshu-records",
+            """
+            {"id": "k2", "side": "AO", "kind": "AWARDED"}
+            """);
+
+    assertThat(awarded.getStatusCode().value()).isEqualTo(200);
+    assertThat(body(awarded).get("game").get("aka").get("senshu").asBoolean()).isTrue();
+    assertThat(body(opposed).get("raisedWarnings").get(0).asString())
+        .isEqualTo("SENSHU_WHEN_BOTH_SCORED");
+    assertThat(again.getStatusCode().value()).isEqualTo(409);
+    assertThat(stored(gameId).getList("senshuRecords", Document.class)).hasSize(1);
+
+    post(
+        asScorekeeper(),
+        gameId,
+        "amendments",
+        """
+        {"id": "m1", "kind": "CANCEL", "targetId": "k1", "reason": "video review"}
+        """);
+
+    JsonNode game = body(read(gameId));
+    assertThat(game.get("aka").get("senshu").asBoolean()).isFalse();
+    assertThat(game.get("ao").get("senshu").asBoolean()).isFalse();
+    assertThat(game.get("senshuClosed").asBoolean()).isFalse();
+    assertThat(game.get("senshuRecords").get(0).get("cancelled").asBoolean()).isTrue();
+    assertThat(
+            game.get("ao").get("scores").get(0).get("meta").get("raisedWarnings").get(0).asString())
+        .isEqualTo("SENSHU_WHEN_BOTH_SCORED");
+  }
+
   @Test
   void documentRoundTrip_throughMongo_keepsTheEntries() {
     String gameId = create();

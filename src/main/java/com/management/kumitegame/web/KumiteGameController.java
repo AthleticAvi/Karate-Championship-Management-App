@@ -119,6 +119,16 @@ public class KumiteGameController {
             gameId, KumiteGameMapper.toNewClockAction(action), principal.getName()));
   }
 
+  @PostMapping("/{gameId}/senshu-records")
+  public RecordedResponse recordSenshu(
+      @PathVariable String gameId,
+      @Valid @RequestBody SenshuRecordRequest record,
+      Principal principal) {
+    return answer(
+        kumiteGameService.recordSenshu(
+            gameId, KumiteGameMapper.toNewSenshuRecord(record), principal.getName()));
+  }
+
   @PostMapping("/{gameId}/assignments")
   public RecordedResponse recordAssignment(
       @PathVariable String gameId,
