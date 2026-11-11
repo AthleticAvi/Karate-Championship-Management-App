@@ -9,7 +9,6 @@ import com.management.referee.domain.RefereeInUseException;
 import com.management.referee.domain.RefereeNotFoundException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -47,9 +46,23 @@ public class RefereeService {
 
   /** The referees with these ids that exist, by id. A missing one is simply absent. */
   public Map<String, Referee> findAll(Collection<String> refereeIds) {
+    return findAllVersioned(refereeIds).entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, found -> found.getValue().referee()));
+  }
+
+  /**
+   * The referees with these ids that exist, by id, each with the version it is stored at. The
+   * referee and its version come from one read, so a tag built from them never pairs an old name
+   * with a newer version.
+   */
+  public Map<String, VersionedReferee> findAllVersioned(Collection<String> refereeIds) {
     return refereeRepository.findAllById(refereeIds).stream()
-        .map(RefereeDocumentMapper::toDomain)
-        .collect(Collectors.toMap(Referee::id, Function.identity()));
+        .collect(
+            Collectors.toMap(
+                RefereeDocument::getId,
+                stored ->
+                    new VersionedReferee(
+                        RefereeDocumentMapper.toDomain(stored), stored.getVersion())));
   }
 
   /**

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 
 import com.management.athlete.domain.Athlete;
 import com.management.athlete.service.AthleteService;
+import com.management.athlete.service.VersionedAthlete;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
@@ -44,8 +45,10 @@ import com.management.kumitegame.domain.SuggestedResult;
 import com.management.kumitegame.domain.Timer;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.kumitegame.service.KumiteGameWriter;
+import com.management.kumitegame.service.VersionedGameRead;
 import com.management.referee.domain.Referee;
 import com.management.referee.service.RefereeService;
+import com.management.referee.service.VersionedReferee;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.TestClock;
@@ -54,6 +57,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,12 +70,15 @@ import org.springframework.dao.OptimisticLockingFailureException;
  */
 class KumiteGameServiceTest {
 
+  private static final Athlete KENJI = new Athlete(TestGames.AKA_ATHLETE, "Kenji", null);
+  private static final Referee SATO = new Referee(TestGames.REFEREE, "Sato");
   private static final Map<String, Athlete> ATHLETES =
       Map.of(
-          TestGames.AKA_ATHLETE, new Athlete(TestGames.AKA_ATHLETE, "Kenji", null),
-          TestGames.AO_ATHLETE, new Athlete(TestGames.AO_ATHLETE, "Haruto", null));
-  private static final Map<String, Referee> REFEREES =
-      Map.of(TestGames.REFEREE, new Referee(TestGames.REFEREE, "Sato"));
+          TestGames.AKA_ATHLETE,
+          KENJI,
+          TestGames.AO_ATHLETE,
+          new Athlete(TestGames.AO_ATHLETE, "Haruto", null));
+  private static final Map<String, Referee> REFEREES = Map.of(TestGames.REFEREE, SATO);
 
   private final InMemoryMongo storage = new InMemoryMongo();
   private final KumiteGameRepository repository = FakeRepositories.kumiteGames(storage);
@@ -201,6 +208,34 @@ class KumiteGameServiceTest {
     assertThat(recording.game().referees()).isEqualTo(REFEREES);
     assertThat(recording.game().serverTime()).isEqualTo(TestClock.NOW);
     assertThat(recording.raisedWarnings()).isEmpty();
+  }
+
+  /**
+   * Each version comes from the record it describes: the game's from its document, each athlete's
+   * and referee's from the same lookup as its name. One that no longer exists is absent.
+   */
+  @Test
+  void getVersioned_readsTheGameWithTheVersionOfEveryRecordItShows() {
+    String gameId = created();
+    given(athletes.findAllVersioned(anyCollection()))
+        .willReturn(Map.of(TestGames.AKA_ATHLETE, new VersionedAthlete(KENJI, 4)));
+    given(referees.findAllVersioned(anyCollection()))
+        .willReturn(Map.of(TestGames.REFEREE, new VersionedReferee(SATO, 2)));
+    long stored = storage.findById(KumiteGameDocument.class, gameId).orElseThrow().getVersion();
+
+    VersionedGameRead versioned = service.getVersioned(gameId);
+
+    assertThat(versioned.gameVersion()).isEqualTo(stored);
+    assertThat(versioned.athleteVersions()).containsExactly(Map.entry(TestGames.AKA_ATHLETE, 4L));
+    assertThat(versioned.refereeVersions()).containsExactly(Map.entry(TestGames.REFEREE, 2L));
+    assertThat(versioned.read().athletes())
+        .containsOnlyKeys(TestGames.AKA_ATHLETE)
+        .containsEntry(TestGames.AKA_ATHLETE, KENJI);
+    assertThat(versioned.read().referees()).isEqualTo(REFEREES);
+    assertThat(versioned.read().game().id()).isEqualTo(gameId);
+    assertThat(versioned.read().serverTime()).isEqualTo(TestClock.NOW);
+    verify(athletes).findAllVersioned(Set.of(TestGames.AKA_ATHLETE, TestGames.AO_ATHLETE));
+    verify(referees).findAllVersioned(Set.of(TestGames.REFEREE));
   }
 
   @Test

@@ -10,7 +10,6 @@ import com.management.athlete.domain.AthleteNotFoundException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -49,9 +48,23 @@ public class AthleteService {
 
   /** The athletes with these ids that exist, by id. A missing one is simply absent. */
   public Map<String, Athlete> findAll(Collection<String> athleteIds) {
+    return findAllVersioned(athleteIds).entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, found -> found.getValue().athlete()));
+  }
+
+  /**
+   * The athletes with these ids that exist, by id, each with the version it is stored at. The
+   * athlete and its version come from one read, so a tag built from them never pairs an old name
+   * with a newer version.
+   */
+  public Map<String, VersionedAthlete> findAllVersioned(Collection<String> athleteIds) {
     return athleteRepository.findAllById(athleteIds).stream()
-        .map(AthleteDocumentMapper::toDomain)
-        .collect(Collectors.toMap(Athlete::id, Function.identity()));
+        .collect(
+            Collectors.toMap(
+                AthleteDocument::getId,
+                stored ->
+                    new VersionedAthlete(
+                        AthleteDocumentMapper.toDomain(stored), stored.getVersion())));
   }
 
   /**

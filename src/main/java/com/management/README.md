@@ -98,7 +98,5 @@ Exception types sit in the `domain` package of the feature that throws them, and
 
 ## [not-built] Not built yet
 
-- **The public view:** a later issue of the Structure and engine milestone.
-- **ETag on reads:** planned, not built.
 - **Push to screens:** a screen reads the game after each action. No WebSocket or Server-Sent Events.
 - **Frontend:** not started.

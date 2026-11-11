@@ -58,7 +58,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `web-frameworks/spring-boot/design/error-handling.md`: [response-format] [rules] [messages] [extension-fields] [verify] [sources]
 - `web-frameworks/spring-boot/design/layers.md`: [mapping] [contract] [stereotypes] [verify]
 - `web-frameworks/spring-boot/design/patterns.md`: [framework-provides] [add-a-rule] [enum-strategy] [verify]
-- `web-frameworks/spring-boot/design/service-exposure.md`: [conditional-reads] [verify] [sources]
+- `web-frameworks/spring-boot/design/service-exposure.md`: [conditional-reads] [json-views] [verify] [sources]
 - `web-frameworks/spring-boot/design/validation.md`: [two-kinds-two-places] [input-validation] [what-constraints-cannot-express] [domain-invariants] [failure-reporting] [trust-boundary] [verify] [sources]
 - `web-frameworks/spring-boot/standards/standards.md`: [framework-first] [rules] [do] [dont] [api-description] [package-layout] [verify]
 - `web-frameworks/spring-boot/testing/integration.md`: [purpose] [real-infrastructure-never-a] [rules] [concurrency-scenarios] [what-belongs-at-this] [verify]

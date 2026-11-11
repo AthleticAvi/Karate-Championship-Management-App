@@ -1,5 +1,6 @@
 package com.management.kumitegame.web;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import com.management.kumitegame.domain.AmendmentKind;
 import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
@@ -24,7 +25,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A game as the scorekeeper sees it: every entry, and everything derived from them.
+ * A game: every entry, and everything derived from them. The scorekeeper's view holds every field;
+ * the public view, the same record, leaves out the fields marked {@link GameViews.Scorekeeper}.
  *
  * <p>Durations are whole milliseconds, instants ISO-8601 in UTC. A running clock's {@code
  * remainingMs} is the time left at {@code serverTime}: a screen counts down from there, and resyncs
@@ -37,7 +39,8 @@ import org.jspecify.annotations.Nullable;
  * @param suggestedResult the result the rules point to now; the scorekeeper confirms it by
  *     recording a result. Empty while they point to none
  * @param statusChanges every approve, reopen and void, as given
- * @param warnings what the game itself shows: its format, or stored history skipped while folding
+ * @param warnings what the game itself shows: its format, or stored history skipped while folding;
+ *     left out of the public view
  * @param serverTime the server's time when this was read
  */
 public record KumiteGameResponse(
@@ -61,7 +64,7 @@ public record KumiteGameResponse(
     @Nullable ResultResponse currentResult,
     @Nullable SuggestedResultResponse suggestedResult,
     List<StatusChangeResponse> statusChanges,
-    List<GameWarningResponse> warnings,
+    @JsonView(GameViews.Scorekeeper.class) List<GameWarningResponse> warnings,
     Instant serverTime) {
 
   /** The rule values the game runs under. */
@@ -116,9 +119,18 @@ public record KumiteGameResponse(
   /** A referee on the panel now. */
   public record PanelMemberResponse(ParticipantResponse referee, PanelRole role) {}
 
-  /** What every entry carries. */
+  /**
+   * What every entry carries.
+   *
+   * @param recordedBy the account that recorded it; left out of the public view
+   * @param raisedWarnings what recording it raised; left out of the public view
+   */
   public record EntryMetaResponse(
-      String id, int order, Instant recordedAt, String recordedBy, List<Warning> raisedWarnings) {}
+      String id,
+      int order,
+      Instant recordedAt,
+      @JsonView(GameViews.Scorekeeper.class) String recordedBy,
+      @JsonView(GameViews.Scorekeeper.class) List<Warning> raisedWarnings) {}
 
   /**
    * A score as given.
