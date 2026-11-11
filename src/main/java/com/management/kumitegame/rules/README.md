@@ -66,10 +66,12 @@ order. Article 7.9 goes from a tied score straight to HANTEI: it describes only 
 `SuggestedResult` in `kumitegame.domain` decides it, so the result and every correction ask the
 same question.
 
-- The outcome, the reason and `bothDisqualified` match, and the winner too, unless the suggestion is
-  a HANTEI. A LEAD suggested and POINTS recorded differ: the reason is part of the result.
-- With no suggestion, only KIKEN and SHIKKAKU agree. Anything else ends a game the rules do not
-  point to an end of, such as a DRAW mid-game in elimination.
+- The outcome, the reason and the double disqualification match, and the winner too, unless the
+  suggestion is a HANTEI. A DOUBLE_DISQUALIFICATION counts as both disqualified, flag or not. A
+  LEAD suggested and POINTS recorded differ: the reason is part of the result.
+- KIKEN always agrees: the chain never suggests it, and a withdrawal decides whatever the score.
+- With no suggestion, SHIKKAKU agrees too. Anything else ends a game the rules do not point to an
+  end of, such as a DRAW mid-game in elimination.
 - A recorded result that does not agree warns `RESULT_DIFFERS_FROM_SUGGESTION`. A correction while
   DECIDED that changes or removes the suggestion, so that the result standing no longer agrees,
   warns `SUGGESTION_DIFFERS_FROM_RESULT`. Both are applied and recorded, and nothing reopens.

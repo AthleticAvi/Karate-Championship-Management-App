@@ -207,6 +207,52 @@ class SuggestionTest {
           .containsExactly(Warning.RESULT_WHILE_DECIDED);
     }
 
+    /** A withdrawal decides whatever the score, so KIKEN agrees even against a suggestion. */
+    @Test
+    void kiken_agrees_evenAgainstSuggestion() {
+      start();
+      score(Side.AKA, ScoreLevel.IPPON);
+      timeUp();
+
+      assertThat(result(Outcome.WIN, Side.AO, ResultReason.KIKEN).raisedWarnings()).isEmpty();
+      assertThat(current().suggested())
+          .isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.POINTS));
+    }
+
+    @Test
+    void shikkaku_againstSuggestionOfOtherReason_differs() {
+      start();
+      score(Side.AKA, ScoreLevel.IPPON);
+      timeUp();
+
+      assertThat(result(Outcome.WIN, Side.AO, ResultReason.SHIKKAKU).raisedWarnings())
+          .containsExactly(Warning.RESULT_DIFFERS_FROM_SUGGESTION);
+    }
+
+    /** DOUBLE_DISQUALIFICATION means both are disqualified, whether or not the flag is sent. */
+    @Test
+    void doubleDisqualification_agrees_withOrWithoutTheFlag() {
+      start();
+      penalty(Side.AKA, PenaltyLevel.HANSOKU);
+      penalty(Side.AO, PenaltyLevel.HANSOKU);
+
+      for (boolean flag : new boolean[] {false, true}) {
+        assertThat(
+                game.recordResult(
+                        new NewResult(
+                            id(),
+                            Outcome.NO_RESULT,
+                            null,
+                            ResultReason.DOUBLE_DISQUALIFICATION,
+                            null,
+                            flag),
+                        SK,
+                        at(30))
+                    .raisedWarnings())
+            .doesNotContain(Warning.RESULT_DIFFERS_FROM_SUGGESTION);
+      }
+    }
+
     @Test
     void drawInElimination_differs() {
       start();
@@ -303,6 +349,23 @@ class SuggestionTest {
 
       assertThat(score(Side.AKA, ScoreLevel.YUKO).raisedWarnings())
           .containsExactly(Warning.SCORE_AFTER_RESULT);
+    }
+
+    /** KIKEN decides whatever the score, so time up after it changes nothing that matters. */
+    @Test
+    void timeUpAfterKiken_raisesOnlyTheClockWarning() {
+      start();
+      score(Side.AKA, ScoreLevel.IPPON);
+      result(Outcome.WIN, Side.AO, ResultReason.KIKEN);
+
+      game.recordClockAction(
+          new NewClockAction(id(), Timer.MAIN, null, ClockActionKind.TIME_UP, 0, null, null),
+          SK,
+          at(120));
+
+      assertThat(state().suggested()).isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.POINTS));
+      assertThat(game.entriesInOrder().getLast().entry().meta().raisedWarnings())
+          .doesNotContain(Warning.SUGGESTION_DIFFERS_FROM_RESULT);
     }
 
     @Test

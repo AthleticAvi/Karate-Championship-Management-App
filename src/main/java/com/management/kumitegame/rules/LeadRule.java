@@ -1,6 +1,7 @@
 package com.management.kumitegame.rules;
 
 import com.management.kumitegame.domain.ResultReason;
+import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.SideState;
 import com.management.kumitegame.domain.Standing;
 import com.management.kumitegame.domain.SuggestedResult;
@@ -19,10 +20,10 @@ public class LeadRule implements SuggestionRule {
 
   @Override
   public Optional<SuggestedResult> suggest(Standing standing) {
-    if (Math.abs(Ahead.lead(standing, SideState::total)) < standing.settings().leadToWin()) {
+    int lead = Ahead.lead(standing, SideState::total);
+    if (Math.abs(lead) < standing.settings().leadToWin()) {
       return Optional.empty();
     }
-    return Ahead.on(standing, SideState::total)
-        .map(side -> SuggestedResult.win(side, ResultReason.LEAD));
+    return Optional.of(SuggestedResult.win(lead > 0 ? Side.AKA : Side.AO, ResultReason.LEAD));
   }
 }

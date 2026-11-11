@@ -2,6 +2,7 @@ package com.management.kumitegame.domain;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -36,10 +37,10 @@ final class EffectiveScores {
       return scores;
     }
     Side winner = result.winner();
-    EffectiveScore earned = winner == null ? null : scores.get(winner);
-    if (winner == null || earned == null || !FORFEITS.contains(result.reason())) {
+    if (winner == null || !FORFEITS.contains(result.reason())) {
       return scores;
     }
+    EffectiveScore earned = Objects.requireNonNull(scores.get(winner));
     int added = Math.max(0, settings.roundRobinForfeitPoints() - earned.total());
     scores.put(
         winner,

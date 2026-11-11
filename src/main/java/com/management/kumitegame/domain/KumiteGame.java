@@ -88,7 +88,7 @@ public final class KumiteGame {
     this.amendments = new ArrayList<>(amendments);
     this.results = new ArrayList<>(results);
     this.statusChanges = new ArrayList<>(statusChanges);
-    this.rules = rules;
+    this.rules = Objects.requireNonNull(rules);
   }
 
   /**
