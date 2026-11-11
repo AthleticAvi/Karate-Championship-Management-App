@@ -85,6 +85,7 @@ public record KumiteGameResponse(
       int ipponCount,
       int wazaAriCount,
       int chuiCount,
+      int hansokuChuiCount,
       List<ScoreResponse> scores,
       List<PenaltyResponse> penalties) {}
 

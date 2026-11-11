@@ -183,22 +183,20 @@ public class KumiteGameService {
   }
 
   private void requireAthletes(Collection<String> athleteIds) {
-    Set<String> found = athleteService.findAll(athleteIds).keySet();
-    athleteIds.stream()
-        .filter(id -> !found.contains(id))
-        .findFirst()
-        .ifPresent(missing -> {
-          throw new InvalidGameRequestException("No athlete has the id " + missing + ".");
-        });
+    requireAll(athleteIds, athleteService.findAll(athleteIds).keySet(), "athlete");
   }
 
   private void requireReferees(Collection<String> refereeIds) {
-    Set<String> found = refereeService.findAll(refereeIds).keySet();
-    refereeIds.stream()
+    requireAll(refereeIds, refereeService.findAll(refereeIds).keySet(), "referee");
+  }
+
+  /** Refuses the first id that was not found, before anything is written. */
+  private static void requireAll(Collection<String> ids, Set<String> found, String noun) {
+    ids.stream()
         .filter(id -> !found.contains(id))
         .findFirst()
         .ifPresent(missing -> {
-          throw new InvalidGameRequestException("No referee has the id " + missing + ".");
+          throw new InvalidGameRequestException("No " + noun + " has the id " + missing + ".");
         });
   }
 }

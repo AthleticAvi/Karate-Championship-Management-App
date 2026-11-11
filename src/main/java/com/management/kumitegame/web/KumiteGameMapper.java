@@ -209,6 +209,7 @@ public final class KumiteGameMapper {
         tally.ipponCount(),
         tally.wazaAriCount(),
         tally.chuiCount(),
+        tally.hansokuChuiCount(),
         read.game().scores(side).stream().map(score -> score(score, state)).toList(),
         read.game().penalties(side).stream().map(penalty -> penalty(penalty, state)).toList());
   }

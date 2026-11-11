@@ -297,6 +297,30 @@ class KumiteGameTest {
       assertThat(game.state().timeUpAt()).isNull();
     }
 
+    /** A START on a clock already running, such as a double tap, opens no new exchange. */
+    @Test
+    void startWhileRunning_opensNoExchange() {
+      start();
+      clock(ClockActionKind.START, 119_000, null, at(1));
+
+      assertThat(game.state().exchange()).isEqualTo(1);
+      clock(ClockActionKind.PAUSE, 110_000, null, at(10));
+      clock(ClockActionKind.START, 110_000, null, at(20));
+      assertThat(game.state().exchange()).isEqualTo(2);
+    }
+
+    /** Setting the clock to zero puts no time back, so the game stays TIME_UP. */
+    @Test
+    void setTimeToZero_afterZero_staysTimeUp() {
+      start();
+      clock(ClockActionKind.TIME_UP, 0, null, at(120));
+
+      clock(ClockActionKind.SET_TIME, 0, 0L, at(125));
+
+      assertThat(game.state().status()).isEqualTo(GameStatus.TIME_UP);
+      assertThat(game.state().timeUpAt()).isEqualTo(at(120));
+    }
+
     /** Only a result ends a game: no clock action takes it out of FIGHTING or TIME_UP. */
     @ParameterizedTest
     @EnumSource(ClockActionKind.class)
@@ -391,6 +415,30 @@ class KumiteGameTest {
       assertThat(score(Side.AKA, ScoreLevel.YUKO, 100_000L, at(10)).raisedWarnings())
           .containsExactly(Warning.CLOCK_REMAINING_OUT_OF_TOLERANCE);
       assertThat(score(Side.AKA, ScoreLevel.YUKO, 109_500L, at(10)).raisedWarnings()).isEmpty();
+    }
+
+    /** A video review names an earlier exchange, with the time of that exchange: not warned. */
+    @Test
+    void clockRemaining_ofEarlierExchange_isNotCheckedAgainstTheClockNow() {
+      start();
+      clock(ClockActionKind.PAUSE, 100_000, null, at(20));
+      clock(ClockActionKind.START, 100_000, null, at(30));
+
+      Recorded review =
+          game.recordScore(
+              new NewScore(
+                  id(), Side.AO, ScoreLevel.WAZA_ARI, ScoreSource.VIDEO_REVIEW, 1, 115_000L),
+              SK,
+              at(40));
+      Recorded current =
+          game.recordScore(
+              new NewScore(id(), Side.AO, ScoreLevel.YUKO, ScoreSource.JUDGES, 2, 115_000L),
+              SK,
+              at(40));
+
+      assertThat(review.raisedWarnings()).isEmpty();
+      assertThat(current.raisedWarnings())
+          .containsExactly(Warning.CLOCK_REMAINING_OUT_OF_TOLERANCE);
     }
 
     @Test

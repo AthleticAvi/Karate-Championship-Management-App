@@ -61,9 +61,12 @@ final class GameFold {
       skip(entry);
       return;
     }
+    Side side = placed.side();
     switch (entry) {
-      case Score score -> tally(placed).addScore(score, settings);
-      case Penalty penalty -> tally(placed).addPenalty(penalty);
+      case Score score when side != null -> tally(side).addScore(score, settings);
+      case Penalty penalty when side != null -> tally(side).addPenalty(penalty);
+      case Score score -> skip(score);
+      case Penalty penalty -> skip(penalty);
       case Assignment assignment -> assign(assignment);
       case ClockAction action -> clock(action);
       case Amendment amendment -> amend(amendment);
@@ -72,11 +75,6 @@ final class GameFold {
         status = GameStatus.DECIDED;
       }
     }
-  }
-
-  private Tally tally(SidedEntry placed) {
-    Side side = placed.side();
-    return tally(side == null ? Side.AKA : side);
   }
 
   /** Every side has a tally from construction on. */
@@ -122,22 +120,29 @@ final class GameFold {
                   action.action(), at, action.timeShownMs(), amountMs, settings.medicalTimeMs()));
       return;
     }
+    boolean wasRunning = mainClock.running();
     mainClock =
         mainClock.after(action.action(), at, action.timeShownMs(), amountMs, settings.durationMs());
-    if (action.action() == ClockActionKind.START) {
+    if (action.action() == ClockActionKind.START && !wasRunning) {
       exchange++;
     }
     moveStatus(action.action(), at);
   }
 
-  /** Only the main clock moves the status, and never out of DECIDED: only a result ends a game. */
+  /**
+   * Only the main clock moves the status, and never out of DECIDED: only a result ends a game. Time
+   * put back after zero returns to FIGHTING only if the clock then has time left, so SET_TIME to 0
+   * stays TIME_UP.
+   */
   private void moveStatus(ClockActionKind action, Instant at) {
     if (status == GameStatus.NOT_STARTED && action == ClockActionKind.START) {
       status = GameStatus.FIGHTING;
     } else if (status == GameStatus.FIGHTING && action == ClockActionKind.TIME_UP) {
       status = GameStatus.TIME_UP;
       timeUpAt = at;
-    } else if (status == GameStatus.TIME_UP && action.isPuttingTimeBack()) {
+    } else if (status == GameStatus.TIME_UP
+        && action.isPuttingTimeBack()
+        && mainClock.remainingAt(at) > 0) {
       status = GameStatus.FIGHTING;
       timeUpAt = null;
     }
@@ -156,9 +161,10 @@ final class GameFold {
       skip(amendment);
       return;
     }
+    Side targetSide = target.side();
     switch (target.entry()) {
-      case Score score -> tally(target).removeScore(score, settings);
-      case Penalty penalty -> tally(target).removePenalty(penalty);
+      case Score score when targetSide != null -> tally(targetSide).removeScore(score, settings);
+      case Penalty penalty when targetSide != null -> tally(targetSide).removePenalty(penalty);
       default -> {
         skip(amendment);
         return;

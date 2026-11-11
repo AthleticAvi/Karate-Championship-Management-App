@@ -170,8 +170,10 @@ public final class KumiteGame {
     GameState state = state();
     List<Warning> raised = admit(EntryKind.SCORE, state);
     LateScore.check(state, now, settings, raised);
-    ClockTolerance.checkClockRemaining(
-        state.mainClock(), score.clockRemainingMs(), now, settings, raised);
+    if (isCurrentExchange(score.exchange(), state)) {
+      ClockTolerance.checkClockRemaining(
+          state.mainClock(), score.clockRemainingMs(), now, settings, raised);
+    }
     Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
     scoresOf(score.side())
         .add(
@@ -197,8 +199,10 @@ public final class KumiteGame {
     GameState state = state();
     List<Warning> raised = admit(EntryKind.PENALTY, state);
     PenaltyLadder.check(state.side(penalty.side()), penalty.level(), settings, raised);
-    ClockTolerance.checkClockRemaining(
-        state.mainClock(), penalty.clockRemainingMs(), now, settings, raised);
+    if (isCurrentExchange(penalty.exchange(), state)) {
+      ClockTolerance.checkClockRemaining(
+          state.mainClock(), penalty.clockRemainingMs(), now, settings, raised);
+    }
     Integer exchange = penalty.exchange() != null ? penalty.exchange() : state.currentExchange();
     penaltiesOf(penalty.side())
         .add(
@@ -389,6 +393,14 @@ public final class KumiteGame {
           "Entry id " + entryId + " was already used for a different action in this game.");
     }
     return Optional.of(Recorded.replayOf(found.get().entry().meta()));
+  }
+
+  /**
+   * An entry for an earlier exchange, such as a video review, was sent with the time of that
+   * exchange, so the clock as it is now says nothing about it.
+   */
+  private static boolean isCurrentExchange(@Nullable Integer named, GameState state) {
+    return named == null || named.equals(state.currentExchange());
   }
 
   private static List<Warning> admit(EntryKind kind, GameState state) {

@@ -109,7 +109,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "colour": "red",
           "athlete": {"id": "athlete-aka", "name": "Kenji", "known": true},
           "medicalClock": {"running": false, "remainingMs": 180000},
-          "total": 2, "ipponCount": 0, "wazaAriCount": 1, "chuiCount": 0,
+          "total": 2, "ipponCount": 0, "wazaAriCount": 1, "chuiCount": 0, "hansokuChuiCount": 0,
           "scores": [{
             "level": "WAZA_ARI", "source": "JUDGES", "exchange": 1, "clockRemainingMs": 118000,
             "cancelled": false,
@@ -122,7 +122,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "colour": "blue",
           "athlete": {"id": "athlete-ao", "name": null, "known": false},
           "medicalClock": {"running": false, "remainingMs": 180000},
-          "total": 0, "ipponCount": 0, "wazaAriCount": 0, "chuiCount": 0,
+          "total": 0, "ipponCount": 0, "wazaAriCount": 0, "chuiCount": 0, "hansokuChuiCount": 0,
           "scores": [], "penalties": []
         },
         "panel": [{"referee": {"id": "referee-1", "name": "Sato", "known": true}, "role": "REFEREE"}],

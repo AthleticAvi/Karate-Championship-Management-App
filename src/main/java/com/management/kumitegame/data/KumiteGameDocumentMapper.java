@@ -54,7 +54,21 @@ public final class KumiteGameDocumentMapper {
     throw new IllegalStateException("Utility class cannot be instantiated");
   }
 
+  /**
+   * A stored value this build cannot read, such as an enum name it no longer has, is a fault in the
+   * stored data, never the caller's: it surfaces as an {@link IllegalStateException}, a 500, and
+   * not as the 400 an {@link IllegalArgumentException} would answer.
+   */
   public static KumiteGame toDomain(KumiteGameDocument document) {
+    try {
+      return read(document);
+    } catch (IllegalArgumentException unreadable) {
+      throw new IllegalStateException(
+          "Game " + document.getId() + " is stored in a form this build cannot read", unreadable);
+    }
+  }
+
+  private static KumiteGame read(KumiteGameDocument document) {
     if (document.getSchemaVersion() > KumiteGameDocument.CURRENT_SCHEMA_VERSION) {
       throw new IllegalStateException(
           "Game "

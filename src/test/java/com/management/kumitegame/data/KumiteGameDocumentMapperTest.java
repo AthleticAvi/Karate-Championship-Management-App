@@ -172,6 +172,33 @@ class KumiteGameDocumentMapperTest {
         .hasMessageContaining("schema version 2");
   }
 
+  /** A stored value this build cannot read is a fault in the data, never the caller's 400. */
+  @Test
+  void toDomain_withValueThisBuildDoesNotKnow_isServerFault() {
+    KumiteGameDocument current = KumiteGameDocumentMapper.toNewDocument(TestGames.game());
+    KumiteGameDocument unknown =
+        new KumiteGameDocument(
+            current.getId(),
+            1,
+            1,
+            "TEAM",
+            false,
+            false,
+            current.getSettings(),
+            current.getSides(),
+            current.getAssignments(),
+            current.getClockActions(),
+            current.getAmendments(),
+            current.getResults(),
+            CREATED,
+            MODIFIED);
+
+    assertThatThrownBy(() -> KumiteGameDocumentMapper.toDomain(unknown))
+        .isInstanceOf(IllegalStateException.class)
+        .isNotInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("cannot read");
+  }
+
   /** A list stored as absent, such as one added to the shape later, reads as empty. */
   @Test
   void absentLists_readAsEmpty() {

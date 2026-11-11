@@ -160,29 +160,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler(RefereeChangedException.class)
   public ProblemDetail handleRefereeChanged(RefereeChangedException ex) {
-    log.debug("Concurrent update (409): {}", ex.getMessage());
-    ProblemDetail problem =
-        ProblemDetail.forStatusAndDetail(
-            HttpStatus.CONFLICT,
-            "Someone else changed this referee at the same moment. It is returned as it now"
-                + " stands.");
-    problem.setTitle("Concurrent update");
-    problem.setProperty("current", RefereeMapper.toResponse(ex.current()));
-    return problem;
+    return changed(ex, "referee", RefereeMapper.toResponse(ex.current()));
   }
 
   /** An update that lost to another write: 409, with the athlete as it now stands. */
   @ExceptionHandler(AthleteChangedException.class)
   public ProblemDetail handleAthleteChanged(AthleteChangedException ex) {
-    log.debug("Concurrent update (409): {}", ex.getMessage());
-    ProblemDetail problem =
-        ProblemDetail.forStatusAndDetail(
-            HttpStatus.CONFLICT,
-            "Someone else changed this athlete at the same moment. It is returned as it now"
-                + " stands.");
-    problem.setTitle("Concurrent update");
-    problem.setProperty("current", AthleteMapper.toResponse(ex.current()));
-    return problem;
+    return changed(ex, "athlete", AthleteMapper.toResponse(ex.current()));
   }
 
   /**
@@ -193,15 +177,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler(GameChangedException.class)
   public ProblemDetail handleGameChanged(GameChangedException ex) {
-    log.debug("Concurrent update (409): {}", ex.getMessage());
-    ProblemDetail problem =
-        ProblemDetail.forStatusAndDetail(
-            HttpStatus.CONFLICT,
-            "Someone else changed this game at the same moment. It is returned as it now stands.");
-    problem.setTitle("Concurrent update");
-    problem.setProperty(
-        "current", KumiteGameMapper.toResponse(ex.current(), gameProperties.sideColours()));
-    return problem;
+    return changed(
+        ex, "game", KumiteGameMapper.toResponse(ex.current(), gameProperties.sideColours()));
   }
 
   @ExceptionHandler(AthleteInUseException.class)
@@ -341,6 +318,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail.forStatusAndDetail(
             HttpStatus.BAD_REQUEST, "The request contained an invalid value.");
     problem.setTitle("Invalid request");
+    return problem;
+  }
+
+  /** A write that lost to another: 409, with what it lost to in {@code current}. */
+  private static ProblemDetail changed(Exception ex, String noun, Object current) {
+    log.debug("Concurrent update (409): {}", ex.getMessage());
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "Someone else changed this "
+                + noun
+                + " at the same moment. It is returned as it now stands.");
+    problem.setTitle("Concurrent update");
+    problem.setProperty("current", current);
     return problem;
   }
 

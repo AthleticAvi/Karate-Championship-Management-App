@@ -66,7 +66,9 @@ id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`.
 
 - **Athletes and panel are assignment entries.** The game is created with an athlete on each side
   and an optional panel, of any size. Changes after the start are recorded with a warning.
-- **Points come from the settings map,** never from an entry or the code.
+- **Points come from the settings map,** never from an entry or the code. Totals are folded with
+  the game's current settings, so a settings change before the start also prices a score recorded
+  before the start, which already warned.
 - **The exchange** is the number of main-clock starts. A score or penalty takes the current one,
   or an earlier one the client names, as a video review may. Empty before the start.
 - **A penalty's level is recorded as given,** never derived from a count (Article 10.3). In
@@ -133,7 +135,7 @@ it runs, the time left, and the instant that was true. All times are whole milli
 
 | Action | Runs after | Time left after | Exchange |
 |---|---|---|---|
-| START | yes | unchanged | +1, main clock only |
+| START | yes | unchanged | +1, main clock only, unless it was running |
 | PAUSE | no | the time shown | unchanged |
 | RESTART | no | the duration, or the medical time | unchanged |
 | ADD_TIME | unchanged | plus the amount | unchanged |
@@ -143,7 +145,9 @@ it runs, the time left, and the instant that was true. All times are whole milli
 - **The time shown is the fact.** Every clock action carries what the screen showed, and the server
   warns when it is further from the derived clock than the tolerance.
 - **TIME_UP is the screen's report of zero.** A second one changes nothing. Time put back after
-  zero returns the game to FIGHTING.
+  zero returns the game to FIGHTING, but only if the clock then has time left: SET_TIME to 0 stays
+  TIME_UP.
+- A START on a clock already running, such as a double tap, opens no new exchange.
 - A PAUSE of a clock already paused keeps the time it had.
 - The medical timer runs per side (Article 11.3) and never touches the status.
 
@@ -154,7 +158,7 @@ A warning is applied, stored on the entry and returned. It is never confirmed fi
 | Warning | When | Article |
 |---|---|---|
 | `TIME_SHOWN_OUT_OF_TOLERANCE` | A clock action's time shown is outside the tolerance | |
-| `CLOCK_REMAINING_OUT_OF_TOLERANCE` | A score's or penalty's clock remaining is outside it | |
+| `CLOCK_REMAINING_OUT_OF_TOLERANCE` | A score's or penalty's clock remaining is outside it. Not checked for an earlier exchange a video review names | |
 | `SCORE_BEFORE_START`, `SCORE_AFTER_RESULT` | The status matrix | |
 | `SCORE_AFTER_LATE_SCORE_WINDOW` | A score in TIME_UP later than the window after the zero | 8.10 |
 | `CHUI_OVER_LIMIT` | A CHUI past the limit; a cancelled one does not count | 10.3 |
@@ -176,6 +180,8 @@ retries. The check runs per game, inside the versioned save:
 
 ## [stored] Stored data
 
+- **A stored value this build cannot read** answers 500, never the caller's 400: the mapper turns
+  it into an `IllegalStateException`.
 - **The data was dropped.** Games and players stored before this model were deleted with no
   migration: there was no production data. Drop the local `kumiteGame` and `player` collections.
 - **After the December championship there is real data.** From then on, every change to a stored
