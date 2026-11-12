@@ -52,11 +52,14 @@ class SecurityRulesSliceTest extends WebSliceTestBase {
   private static final String REFEREES = "/api/v1/referees";
   private static final String ONE_REFEREE = REFEREES + "/{refereeId}";
 
-  /** Anyone reads a game's public view; its full view is a Scorekeeper's. */
+  /** Anyone lists and reads, a game as its public view; a game's full view is a Scorekeeper's. */
   private static final Map<String, String> TABLE =
       Map.ofEntries(
+          Map.entry("GET " + ATHLETES, PUBLIC),
           Map.entry("GET " + ONE_ATHLETE, PUBLIC),
+          Map.entry("GET " + REFEREES, PUBLIC),
           Map.entry("GET " + ONE_REFEREE, PUBLIC),
+          Map.entry("GET " + GAMES, PUBLIC),
           Map.entry("GET " + ONE_GAME, PUBLIC),
           Map.entry("POST " + GAMES, SCOREKEEPER),
           Map.entry("GET " + ONE_GAME + "/full-view", SCOREKEEPER),

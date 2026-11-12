@@ -13,6 +13,7 @@
 - [validation] Validation at the boundary
 - [cors] Cross-origin calls
 - [conditional-reads] Two views of a game, and their tag
+- [lists] Lists: pages, filters and order
 - [description] API description
 - [shapes] Request and response records
 - [mappers] Mappers
@@ -32,12 +33,13 @@ and `account.web`.
 
 In the feature packages:
 
-- `KumiteGameController` at `/api/v1/kumite-games`: creates games, serves the public view and the
-  full view of one, and records each action on one through a sub-resource that reads as a thing:
-  `settings`, `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`,
-  `results`, `status-changes`. See `[conditional-reads]` for the two views.
-- `AthleteController` at `/api/v1/athletes`: creates, reads, updates and deletes athletes.
-- `RefereeController` at `/api/v1/referees`: creates, reads, renames and deletes referees.
+- `KumiteGameController` at `/api/v1/kumite-games`: creates and lists games, serves the public view
+  and the full view of one, and records each action on one through a sub-resource that reads as a
+  thing: `settings`, `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`,
+  `amendments`, `results`, `status-changes`. See `[conditional-reads]` for the two views and
+  `[lists]` for the list.
+- `AthleteController` at `/api/v1/athletes`: creates, lists, reads, updates and deletes athletes.
+- `RefereeController` at `/api/v1/referees`: creates, lists, reads, renames and deletes referees.
 - `AccountController` at `/api/v1/accounts`: creates and removes accounts. Hashes the password here,
   because the encoder is a Spring Security type.
 
@@ -81,6 +83,8 @@ sees a document: each feature keeps its stored form in `data`.
 |---|---|---|
 | `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, and `warnings`. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
+| `PagedModel` of `KumiteGameSummaryResponse` | `GET /api/v1/kumite-games` | `content`, the summaries, and `page`. A summary is `id`, `status`, `aka` and `ao`, each `colour` and `athlete`, and `currentResult`: `outcome`, `winner`, `reason`, `bothDisqualified`. See `[lists]` |
+| `PagedModel` of `AthleteResponse`, of `RefereeResponse` | `GET /api/v1/athletes`, `GET /api/v1/referees` | `content` and `page`: see `[lists]` |
 | `AthleteResponse` | `/api/v1/athletes`, and `current` in an update's 409 | `id`, `name`, `weightKg` |
 | `RefereeResponse` | `/api/v1/referees`, and `current` in a rename's 409 | `id`, `name` |
 | `AccountResponse` | `POST /api/v1/accounts` | `username`, `role`. Never a password or a hash |
@@ -93,7 +97,7 @@ live in the web packages and `security` already depends on it, so the reverse wo
 
 | Level | Endpoints under `/api/v1` |
 |---|---|
-| Public | `GET /athletes/{athleteId}`, `GET /referees/{refereeId}`, `GET /kumite-games/{gameId}` |
+| Public | `GET /athletes`, `GET /athletes/{athleteId}`, `GET /referees`, `GET /referees/{refereeId}`, `GET /kumite-games`, `GET /kumite-games/{gameId}` |
 | Scorekeeper and Admin | `POST /kumite-games`, `GET /kumite-games/{gameId}/full-view`, `PUT /kumite-games/{gameId}/settings`, `POST /kumite-games/{gameId}/` `scores`, `penalties`, `clock-actions`, `senshu-records`, `assignments`, `amendments`, `results`, `status-changes` |
 | Admin | `POST /athletes`, `PUT /athletes/{athleteId}`, `DELETE /athletes/{athleteId}`, `POST /referees`, `PUT /referees/{refereeId}`, `DELETE /referees/{refereeId}`, `POST /accounts`, `DELETE /accounts/{username}` |
 
@@ -102,6 +106,8 @@ both roles because the role a move needs depends on the game's status: reopening
 and voiding are an Admin's, and the game refuses them to a Scorekeeper with a 403. See `[status]`
 in `src/main/java/com/management/kumitegame/domain/README.md`. Anyone may read a game's public
 view; its full view, with who recorded what and the warnings, is a Scorekeeper's or an Admin's.
+Anyone may list athletes, referees and games, the last as summaries that hold nothing the public view
+leaves out.
 Athletes follow the levels `/players` had,
 and the referees': listed for the owner to confirm. A new endpoint needs a row here,
 and until it has one it is refused to everyone. `SecurityRulesSliceTest` writes the table out and
@@ -235,6 +241,39 @@ writing are saved, which this load allows.
 browser's own cache keeps nothing to revalidate, and the CORS rules neither allow `If-None-Match`
 nor expose `ETag`. A browser on another origin cannot use the tag yet. See `[cors]`.
 
+## [lists] Lists: pages, filters and order
+
+| List | Filters | Order |
+|---|---|---|
+| `GET /api/v1/athletes`, `GET /api/v1/referees` | `name`: any part of it, in any case, matched as written | By name, then id |
+| `GET /api/v1/kumite-games` | `status`, repeated for any of several; `athleteId`, on either side now | Newest first, then id |
+
+**One page shape, the framework's.** Each answers Spring Data's `PagedModel`: `content`, and `page`
+with `size`, `number`, `totalElements` and `totalPages`. The caller sends `page`, counted from 0, and
+`size`. A size past the most allowed is cut to it, not refused: see `[server]` in the config README.
+A page past the end is empty, with the totals, however far past: a page that starts beyond what
+MongoDB can skip, an `int`, is answered empty without asking it, because the skip would wrap and
+answer the first page. A blank `name` or `athleteId` filters nothing, and spaces around either are dropped.
+
+**The order is the server's.** A caller's `sort` is read by the framework and then dropped, so a
+page never shifts with what another caller asked, and the description leaves it out. Names sort by
+code point, so `anna` comes after `Zoe`.
+
+**A game list carries summaries, not games.** Anyone may list games, so a summary holds no entry:
+nothing in it names who recorded what, raises a warning or carries free text, such as a result's
+`reasonDetail`. Read the game for the rest.
+
+**A game list filters on what the entries fold to.** The status and the athlete on each side are
+never stored, so the service reads and folds every game that may match, then cuts the page: see
+`[facts]` in `src/main/java/com/management/kumitegame/data/README.md`. A game whose athlete was
+replaced lists under the one on the side now, not the one replaced. A status that does not exist
+answers 400.
+
+**A game this build cannot read is left out of every list,** with a warning naming it, such as one a
+newer build stored before a rollback. Reading that game alone still fails. A document Spring Data
+cannot build at all, such as one with no `version`, fails before the mapper and still answers 500 to
+every list.
+
 ## [description] API description
 
 Generated from the code by springdoc, at `/v3/api-docs` and `/v3/api-docs.yaml`, under `dev` only:
@@ -261,6 +300,7 @@ every success. So:
 | A path parameter, on anything but `GET` | 409 |
 | A request body | 413, 415 |
 
+`GET /api/v1/kumite-games` states its own 400, for a status that does not exist, and so its 200.
 `POST /api/v1/accounts` states its own 409, because a body of its own can collide: the rules give a
 409 only to a path parameter. `PUT /api/v1/referees/{refereeId}`, `PUT /api/v1/athletes/{athleteId}`,
 and a game's `settings`, `clock-actions` and `results` state their 409 to say that `current` holds the
@@ -310,7 +350,8 @@ because springdoc will not start without it.
 Each feature's `web` package holds the shapes of its part of the API: records that carry values and
 no logic.
 
-- `kumitegame.web`: `KumiteGameRequest` with `PanelMemberRequest`, `SettingsRequest`,
+- `kumitegame.web`: `KumiteGameSummaryResponse` with its nested records, a game in a list.
+  `KumiteGameRequest` with `PanelMemberRequest`, `SettingsRequest`,
   `ScoreRequest`, `PenaltyRequest`, `ClockActionRequest`, `SenshuRecordRequest`,
   `AssignmentRequest`, `AmendmentRequest`,
   `ResultRequest`, `StatusChangeRequest`, `RecordedResponse`, and `KumiteGameResponse` with its nested records.
@@ -333,7 +374,7 @@ They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a u
 Each feature's mapper turns domain types into API responses, and requests into domain input. A
 mapper reads `domain` types and its feature's records, never a `service`, `data` or `rules` package.
 
-- `KumiteGameMapper`: `GameRead` to `KumiteGameResponse`, `Recording` to `RecordedResponse`, each
+- `KumiteGameMapper`: `GameRead` to `KumiteGameResponse` and to `KumiteGameSummaryResponse`, `Recording` to `RecordedResponse`, each
   request to its `New*` input. Takes the side colours as an argument: it holds no configuration.
 - `AthleteMapper`: `Athlete` to `AthleteResponse`. `GlobalExceptionHandler` uses it for `current`.
 - `RefereeMapper`: `Referee` to `RefereeResponse`. `GlobalExceptionHandler` uses it for `current`.
@@ -352,6 +393,7 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Failure | Status | Exception | Detail |
 |---|---|---|---|
 | Request fails Bean Validation | 400 | `MethodArgumentNotValidException` (framework) | generic, plus an `errors` extension property mapping each failing field path to its message |
+| A query value that does not convert, such as a status that does not exist | 400 | `TypeMismatchException` (framework) | fixed, naming the parameter and never the value sent |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
 | Missing or wrong credentials | 401 | `AuthenticationException` (framework) | fixed, the same for every cause |

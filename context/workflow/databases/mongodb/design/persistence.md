@@ -1,6 +1,6 @@
 # MongoDB Persistence
 
-Applies when: defining a document, mapping fields, object construction on read, indexes, transactions, local database setup, versioning, schemaVersion, schema migration, ACID, write concern, read concern, journaling, replica set, standalone, retryable writes, durability
+Applies when: defining a document, mapping fields, object construction on read, indexes, paging, skip, text search, transactions, local database setup, versioning, schemaVersion, schema migration, ACID, write concern, read concern, journaling, replica set, standalone, retryable writes, durability
 Status: enforced
 Framework-first: the repository abstraction, mapping layer, auditing, index declaration and optimistic locking are all provided. Direct driver calls in a service are a defect.
 Builds on: `design/acid.md`, `design/concurrency-consistency.md`
@@ -163,6 +163,15 @@ Add an index when a query filters on something other than the identifier, never 
 Derive them from the queries that exist: list the repository methods, index what they filter and sort on, confirm with the engine's query plan that the index is actually used.
 
 **The exception is a constraint.** A unique index that enforces an invariant earns its place without a query: it is a rule, not a speed-up. Say which invariant it enforces, and prove it with a test that a duplicate is refused.
+
+**A match anywhere in a text, in any case, uses no index.** An unanchored, case-insensitive pattern
+scans whatever index it is given, so declaring one costs writes and saves nothing. At small volumes
+the scan is the honest choice: say so where the query is documented.
+
+**A paged read wraps past the largest skip.** The skip is a 32-bit value in common object mappers,
+while a page offset, page number times size, is computed as a 64-bit one. A page past about two
+billion items is cut to 32 bits and answers another page, often the first, with no error. Answer
+such a page empty before querying, and test it with the largest page number the API accepts.
 
 Automatic index creation from annotations is off by default in current versions. Creating indexes as an explicit deployment step is preferable beyond development, because it makes index changes reviewable and lets them be applied without a redeploy.
 

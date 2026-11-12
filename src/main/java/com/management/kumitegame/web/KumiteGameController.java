@@ -3,6 +3,7 @@ package com.management.kumitegame.web;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.domain.ActingRole;
+import com.management.kumitegame.domain.GameStatus;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.kumitegame.service.VersionedGameRead;
@@ -15,9 +16,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.util.Set;
 import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.context.ApplicationContext;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.WebRequest;
 
@@ -88,6 +94,35 @@ public class KumiteGameController {
     return ResponseEntity.status(HttpStatus.CREATED)
         .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.game().id())
         .body(created);
+  }
+
+  /**
+   * A page of games, newest first, each as a summary: anyone may find a game. Filtered by status,
+   * any of those given, and by an athlete on a side now. A blank athlete filters nothing.
+   *
+   * <p>The 400 is for a status that does not exist. Stating it stops the generator adding the 200,
+   * so that is stated too.
+   */
+  @ApiResponse(responseCode = "200", description = "OK")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Bad Request. A status that does not exist",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(ref = "#/components/schemas/ProblemDetail")))
+  @GetMapping
+  public PagedModel<KumiteGameSummaryResponse> listGames(
+      @RequestParam(required = false) @Nullable Set<GameStatus> status,
+      @RequestParam(required = false) @Nullable String athleteId,
+      @ParameterObject Pageable pageable) {
+    return new PagedModel<>(
+        kumiteGameService
+            .list(
+                status == null ? Set.of() : status,
+                athleteId == null || athleteId.isBlank() ? null : athleteId.strip(),
+                pageable)
+            .map(read -> KumiteGameMapper.toSummary(read, properties.sideColours())));
   }
 
   /**

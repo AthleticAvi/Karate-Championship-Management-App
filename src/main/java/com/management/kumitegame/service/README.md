@@ -17,10 +17,11 @@ covers the `service` package of each feature.
 
 ## [owns] Owns
 
-- `KumiteGameService`, in `kumitegame.service`: creates and reads games, and records every action
-  on one. Reads the athletes and referees a game names, and composes `GameRead`. Builds every game
-  with the `ResultRules` bean from `kumitegame.rules`, as `KumiteGameWriter` does, so each read and
-  action sees the suggestion. `getVersioned` adds, as `VersionedGameRead`, the version of the game
+- `KumiteGameService`, in `kumitegame.service`: creates, lists and reads games, and records every
+  action on one. Reads the athletes and referees a game names, and composes `GameRead`; a list
+  reads them once for the whole page, and filters on what the entries fold to: see `[lists]` in
+  the web README. Builds every game with the `ResultRules` bean from `kumitegame.rules`, as
+  `KumiteGameWriter` does, so each read and action sees the suggestion. `getVersioned` adds, as `VersionedGameRead`, the version of the game
   and of each athlete and referee it shows, each from the same read as what it describes: the
   gateway builds the game's tag from them. See `[conditional-reads]` in the web README.
 - `KumiteGameWriter`, in `kumitegame.service`: reads a game, applies an action, saves it against the

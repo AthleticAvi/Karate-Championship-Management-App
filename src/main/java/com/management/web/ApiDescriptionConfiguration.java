@@ -45,6 +45,7 @@ class ApiDescriptionConfiguration {
   private static final String PROBLEM_SCHEMA = "ProblemDetail";
   private static final String NULL_TYPE = "null";
   private static final String BASIC_SCHEME = "basicAuth";
+  private static final String SORT = "sort";
 
   @Bean
   OpenApiCustomizer apiDescriptionCustomizer() {
@@ -66,6 +67,7 @@ class ApiDescriptionConfiguration {
                   addFailures(method, operation);
                   addAccess(ApiAccess.levelOf(method.name(), path), operation);
                   addHeaders(operation);
+                  removeOrder(operation);
                 }));
     schemas.put(PROBLEM_SCHEMA, problemSchema());
     description
@@ -212,6 +214,19 @@ class ApiDescriptionConfiguration {
                 HttpHeaders.LOCATION, header("The relative path of what was created"));
           }
         });
+  }
+
+  /**
+   * A list takes the framework's page request, which the generator describes with an order. No list
+   * reads one: each keeps its own, so a page never shifts with what another caller asked.
+   */
+  private static void removeOrder(Operation operation) {
+    if (operation.getParameters() != null) {
+      operation
+          .getParameters()
+          .removeIf(
+              parameter -> "query".equals(parameter.getIn()) && SORT.equals(parameter.getName()));
+    }
   }
 
   private static Header header(String description) {

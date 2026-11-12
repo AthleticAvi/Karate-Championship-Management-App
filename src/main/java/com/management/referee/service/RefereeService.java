@@ -8,9 +8,15 @@ import com.management.referee.domain.RefereeChangedException;
 import com.management.referee.domain.RefereeInUseException;
 import com.management.referee.domain.RefereeNotFoundException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,6 +33,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class RefereeService {
 
+  /** By name, then by id, so two referees with one name keep their place between pages. */
+  private static final Sort BY_NAME = Sort.by("name", "id");
+
   private final RefereeRepository refereeRepository;
   private final RefereeReferences references;
 
@@ -42,6 +51,24 @@ public class RefereeService {
 
   public Referee get(String refereeId) {
     return RefereeDocumentMapper.toDomain(stored(refereeId));
+  }
+
+  /**
+   * A page of the referees whose name contains {@code name}, in any case, or of every referee when
+   * it is empty. Always in name order: the caller picks the page and its size, never the order.
+   *
+   * <p>A page that starts past what the datastore can skip, an int, is empty without asking it: the
+   * skip would wrap and answer another page.
+   */
+  public Page<Referee> list(String name, Pageable pageable) {
+    PageRequest request = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), BY_NAME);
+    if (request.getOffset() > Integer.MAX_VALUE) {
+      return new PageImpl<>(
+          List.of(), request, refereeRepository.countByNameContainingIgnoreCase(name));
+    }
+    return refereeRepository
+        .findByNameContainingIgnoreCase(name, request)
+        .map(RefereeDocumentMapper::toDomain);
   }
 
   /** The referees with these ids that exist, by id. A missing one is simply absent. */

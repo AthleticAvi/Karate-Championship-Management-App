@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Creates, reads, updates and deletes athletes, each kept once, outside any game. */
@@ -40,6 +44,17 @@ public class AthleteController {
     return ResponseEntity.status(HttpStatus.CREATED)
         .header("Location", ApiVersionConfiguration.PREFIX + PATH + "/" + created.id())
         .body(created);
+  }
+
+  /**
+   * A page of athletes in name order, those whose name contains {@code name} in any case, or every
+   * athlete without it.
+   */
+  @GetMapping
+  public PagedModel<AthleteResponse> listAthletes(
+      @RequestParam(defaultValue = "") String name, @ParameterObject Pageable pageable) {
+    return new PagedModel<>(
+        athleteService.list(name.strip(), pageable).map(AthleteMapper::toResponse));
   }
 
   @GetMapping("/{athleteId}")
