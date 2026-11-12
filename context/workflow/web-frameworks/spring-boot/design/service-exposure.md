@@ -30,6 +30,10 @@ Builds on: `design/service-exposure.md`
   `Cache-Control`. A browser then never sends `If-None-Match` by itself. Script on another origin
   can send it only when CORS allows that request header, and read the tag only when CORS exposes
   `ETag`. Decide both when a browser is meant to use the tag.
+- **Spring Security writes no `Cache-Control` on a 304.** A handler that sets its own policy with
+  `ResponseEntity.cacheControl` sets it on the 304 as well, because a cache replaces the headers it
+  kept with the 304's. `CacheControl.empty()` writes nothing and leaves Spring Security's default
+  in place.
 - **A tag built from stored versions alone survives a redeploy.** If a deploy can change what the
   same stored data reads as, such as configuration or derived values, add something that changes
   with each start, such as the application context's start date.

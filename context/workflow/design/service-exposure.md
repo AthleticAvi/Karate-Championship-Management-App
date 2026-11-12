@@ -84,7 +84,9 @@ Omit a field entirely rather than specify a format nobody consumes.
   in from other records at read time. A tag built from one record's version alone serves a stale
   304 after a change to a record it embeds. Build it from every version the response depends on.
 - **Decide the tag before building the body** where possible. A tag hashed from the finished body
-  saves bandwidth, not work.
+  saves bandwidth, not work. Defer whatever is derived from the records too, not only the
+  serialisation: read the versions with the records, hand back the derivation unbuilt, and build
+  it only after the tag check. Reading again for the body would let the body and the tag differ.
 - **Preconditions on writes (`If-Match`, answering 412) guard against lost updates** from a client
   editing a stale view. They also refuse a client's own second action sent before the first
   answer arrived. Use them where a person edits a resource at leisure, not on a stream of quick
