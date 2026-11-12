@@ -20,7 +20,7 @@ It follows the referee's split of domain type, stored document and mapper: see `
 
 | Layer | Types |
 |---|---|
-| `web` | `AthleteController` at `/api/v1/athletes`, `AthleteRequest`, `AthleteResponse`, `AthleteMapper` |
+| `web` | `AthleteController` at `/api/v1/athletes`, which also lists and searches them by name, `AthleteRequest`, `AthleteResponse`, `AthleteMapper` |
 | `service` | `AthleteService`, `AthleteReferences`, `VersionedAthlete`: an athlete with its stored version, for a game's tag |
 | `domain` | `Athlete`, `AthleteNotFoundException`, `AthleteChangedException`, `AthleteInUseException` |
 | `data` | `AthleteDocument`, `AthleteRepository`, `AthleteDocumentMapper` |
@@ -46,5 +46,5 @@ stands, in `current`. Values already stored write nothing.
 included. A game created between the check and the delete is the accepted residual race: it reads
 the athlete as unknown.
 
-Who may call each endpoint follows the levels `/api/v1/players` had: a read is public, everything
-else is Admin.
+Who may call each endpoint follows the levels `/api/v1/players` had: a read or a list is public,
+everything else is Admin.

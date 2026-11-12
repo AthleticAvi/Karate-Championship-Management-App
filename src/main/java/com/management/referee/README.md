@@ -18,7 +18,7 @@ split.
 
 | Layer | Types |
 |---|---|
-| `web` | `RefereeController` at `/api/v1/referees`, `RefereeRequest`, `RefereeResponse`, `RefereeMapper` |
+| `web` | `RefereeController` at `/api/v1/referees`, which also lists and searches them by name, `RefereeRequest`, `RefereeResponse`, `RefereeMapper` |
 | `service` | `RefereeService`, `RefereeReferences`, `VersionedReferee`: a referee with its stored version, for a game's tag |
 | `domain` | `Referee`, `RefereeNotFoundException`, `RefereeChangedException`, `RefereeInUseException` |
 | `data` | `RefereeDocument`, `RefereeRepository`, `RefereeDocumentMapper` |

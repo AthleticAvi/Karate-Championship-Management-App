@@ -81,6 +81,15 @@ pins it.
 - Collections: `kumiteGame`, `athlete`, `referee` and `account`, each named in `@Document`
   because the classes end in `Document`. Every document but an account carries `version`,
   `schemaVersion`, `createdAt` and `modifiedAt`. No index beyond `_id`.
+- **Every list scans its collection, and no index is declared for one.** A name search,
+  `findByNameContainingIgnoreCase` on `athlete` and `referee`, matches anywhere in the name in any
+  case, which no index can serve. A game list reads every game, or every game that ever named the
+  athlete through `findByAssignmentsAthleteId`, because the status and the sides are folded and
+  never stored. At one championship's load, tens to hundreds of small documents, a scan is enough.
+  Measure before adding one.
+- **A derived `Containing` query is safe from the caller's text.** Spring Data quotes it before
+  building the pattern, so a `.` or a `(` is matched as written. A hand-written `$regex` query would
+  not be: `RefereeApiIT` fails on one.
 - **Deleting an athlete or referee a game names is refused** by
   `existsByAssignmentsAthleteId` and `existsByAssignmentsRefereeId`, a collection scan of
   `kumiteGame`, accepted at one championship's load until a measurement says otherwise.

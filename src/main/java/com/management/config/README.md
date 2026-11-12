@@ -155,6 +155,8 @@ here.
 | Longest wait on shutdown | 20s | `spring.lifecycle.timeout-per-shutdown-phase` | Room for a normal request and a slow datastore operation, under a usual 30s kill. A request retrying through an outage can outlast it |
 | Form filter | off | `spring.mvc.formcontent.filter.enabled` | It reads a form `PUT` whole, with no limit |
 | Multipart | off | `spring.servlet.multipart.enabled` | No endpoint takes an upload |
+| Items in a list page, unless asked | 20 | `spring.data.web.pageable.default-page-size` | Boot's default, stated on purpose |
+| Most items in a list page | 100 | `spring.data.web.pageable.max-page-size` | A larger size asked for is cut to this, not refused. Boot's default is 2000 |
 
 **Tomcat has no limit on a JSON body.** Its size settings cover forms and headers only. The JSON
 parser enforces the limit as it reads, so a body not read as JSON is not covered: the form and

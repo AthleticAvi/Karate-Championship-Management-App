@@ -100,3 +100,5 @@ Exception types sit in the `domain` package of the feature that throws them, and
 
 - **Push to screens:** a screen reads the game after each action. No WebSocket or Server-Sent Events.
 - **Frontend:** not started.
+- **Tags on lists:** a list answers in full every time, with no `ETag` and no 304. Only one game's
+  views are tagged: see `[conditional-reads]` in `web/README.md`.
