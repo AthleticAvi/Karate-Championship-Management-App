@@ -1,6 +1,6 @@
 # Error Handling
 
-Applies when: mapping an exception to a response, exception handler, problem detail, error body shape, catch-all
+Applies when: mapping an exception to a response, type mismatch, query parameter conversion, exception handler, problem detail, error body shape, catch-all
 Status: enforced
 Framework-first: RFC 9457 problem details are a first-class framework type with a base handler class that already maps every framework exception. Never invent an error body.
 Builds on: `design/service-exposure.md`
@@ -58,6 +58,11 @@ Override the base class's binding-failure hook to add per-field detail as an ext
 The detail field is read by a developer integrating against the API. It states what was wrong and what would be acceptable. It never contains a stack trace, an internal identifier, a class name, or anything derived from a secret.
 
 Never reflect unvalidated client input back into a message verbatim.
+
+**The framework's own 400 for a query or path value that does not convert repeats the value.** The
+base handler answers a type mismatch, such as an unknown enum name in a query parameter, with
+`Failed to convert 'status' with value: '...'`. Override `handleTypeMismatch` with a detail that
+names the parameter only. It surfaces with the first parameter that is not a plain string.
 
 ## [extension-fields] Extension fields
 
