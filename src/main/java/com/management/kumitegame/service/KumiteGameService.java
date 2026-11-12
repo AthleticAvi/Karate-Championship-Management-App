@@ -137,25 +137,25 @@ public class KumiteGameService {
   }
 
   /**
-   * The game as {@link #get} reads it, with the version of every stored record it shows, so a
-   * reader can tell whether anything it shows has changed. Each version is read with what it
-   * describes: the game's with the game, an athlete's or a referee's with its name.
+   * The version of every stored record the game's read shows, so a reader can tell whether anything
+   * it shows has changed, and the read as {@link #get} gives it, folded only when asked. Each
+   * version is read with what it describes: the game's with the game, an athlete's or a referee's
+   * with its name. Nothing is read again for the fold, so the read matches the versions.
    */
   public VersionedGameRead getVersioned(String gameId) {
     KumiteGameDocument stored = stored(gameId);
     KumiteGame game = KumiteGameDocumentMapper.toDomain(stored, rules);
     Map<String, VersionedAthlete> athletes = athleteService.findAllVersioned(athleteIds(game));
     Map<String, VersionedReferee> referees = refereeService.findAllVersioned(refereeIds(game));
-    GameRead read =
-        read(
-            game,
-            valuesOf(athletes, VersionedAthlete::athlete),
-            valuesOf(referees, VersionedReferee::referee));
     return new VersionedGameRead(
-        read,
         stored.getVersion(),
         valuesOf(athletes, VersionedAthlete::version),
-        valuesOf(referees, VersionedReferee::version));
+        valuesOf(referees, VersionedReferee::version),
+        () ->
+            read(
+                game,
+                valuesOf(athletes, VersionedAthlete::athlete),
+                valuesOf(referees, VersionedReferee::referee)));
   }
 
   /**

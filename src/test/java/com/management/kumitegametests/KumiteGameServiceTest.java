@@ -37,6 +37,7 @@ import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultReason;
+import com.management.kumitegame.domain.ResultRules;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.Side;
@@ -58,6 +59,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -236,6 +238,43 @@ class KumiteGameServiceTest {
     assertThat(versioned.read().serverTime()).isEqualTo(TestClock.NOW);
     verify(athletes).findAllVersioned(Set.of(TestGames.AKA_ATHLETE, TestGames.AO_ATHLETE));
     verify(referees).findAllVersioned(Set.of(TestGames.REFEREE));
+  }
+
+  /**
+   * The versions are read without folding the history: a caller answering 304 needs nothing more.
+   * The fold, when asked for, reads nothing again, so the read matches the versions.
+   */
+  @Test
+  void getVersioned_foldsOnlyWhenTheReadIsAskedFor() {
+    final String gameId = created();
+    clearInvocations(athletes, referees);
+    given(athletes.findAllVersioned(anyCollection())).willReturn(Map.of());
+    given(referees.findAllVersioned(anyCollection())).willReturn(Map.of());
+    AtomicInteger folds = new AtomicInteger();
+    ResultRules counted =
+        standing -> {
+          folds.incrementAndGet();
+          return TestGames.rules().suggest(standing);
+        };
+    final KumiteGameService watched =
+        new KumiteGameService(
+            repository,
+            new KumiteGameWriter(repository, counted),
+            athletes,
+            referees,
+            properties(Duration.ofMinutes(2), 3),
+            counted,
+            TestClock.FIXED);
+
+    VersionedGameRead versioned = watched.getVersioned(gameId);
+    assertThat(folds).as("the versions alone fold nothing").hasValue(0);
+
+    versioned.read();
+    assertThat(folds).as("the read folds").hasValue(1);
+    verify(athletes).findAllVersioned(anyCollection());
+    verify(referees).findAllVersioned(anyCollection());
+    verify(athletes, never()).findAll(anyCollection());
+    verify(referees, never()).findAll(anyCollection());
   }
 
   @Test
