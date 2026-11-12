@@ -29,8 +29,10 @@ import org.jspecify.annotations.Nullable;
  * the public view, the same record, leaves out the fields marked {@link GameViews.Scorekeeper}.
  *
  * <p>Durations are whole milliseconds, instants ISO-8601 in UTC. A running clock's {@code
- * remainingMs} is the time left at {@code serverTime}: a screen counts down from there, and resyncs
- * on every answer.
+ * remainingMs} is the time left at {@code serverTime}: a screen counts down from there by the time
+ * elapsed since this answer arrived, and starts again only from an answer with a new tag. A 304, or
+ * a browser's cached copy of this answer, keeps the countdown going: see {@code [countdown]} in
+ * {@code src/main/java/com/management/web/README.md}.
  *
  * @param exchange the number of main-clock starts so far
  * @param senshuClosed SENSHU was withdrawn in the final window, so nobody should earn it again

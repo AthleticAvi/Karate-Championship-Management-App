@@ -21,9 +21,10 @@ covers the `service` package of each feature.
   action on one. Reads the athletes and referees a game names, and composes `GameRead`; a list
   reads them once for the whole page, and filters on what the entries fold to: see `[lists]` in
   the web README. Builds every game with the `ResultRules` bean from `kumitegame.rules`, as
-  `KumiteGameWriter` does, so each read and action sees the suggestion. `getVersioned` adds, as `VersionedGameRead`, the version of the game
+  `KumiteGameWriter` does, so each read and action sees the suggestion. `getVersioned` answers, as `VersionedGameRead`, the version of the game
   and of each athlete and referee it shows, each from the same read as what it describes: the
-  gateway builds the game's tag from them. See `[conditional-reads]` in the web README.
+  gateway builds the game's tag from them. The fold waits until the gateway asks for the read, and
+  reads nothing again, so a 304 costs only those reads. See `[conditional-reads]` in the web README.
 - `KumiteGameWriter`, in `kumitegame.service`: reads a game, applies an action, saves it against the
   version it read. Appends retry; absolute actions do not. See `[writes]`.
 - `GameReferences`, in `kumitegame.service`: answers `AthleteReferences` and `RefereeReferences`,

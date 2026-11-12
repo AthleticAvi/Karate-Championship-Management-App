@@ -13,6 +13,7 @@
 - [validation] Validation at the boundary
 - [cors] Cross-origin calls
 - [conditional-reads] Two views of a game, and their tag
+- [countdown] Keeping time between changes
 - [lists] Lists: pages, filters and order
 - [description] API description
 - [shapes] Request and response records
@@ -136,7 +137,7 @@ between this contract and a silent shift under a dependency upgrade.
 - **Instants are ISO-8601 strings in UTC,** with millisecond precision: `recordedAt` on every
   entry, and `serverTime`, the server's time when it answered.
 - **A clock is `running` and `remainingMs`,** the time left at `serverTime`. A screen counts down
-  from there and resyncs on every answer, so a public countdown does not drift.
+  from there, and starts again only from an answer with a new tag: see `[countdown]`.
 - **A side is `aka` or `ao`.** Its `colour` comes from configuration, so changing a colour changes
   no code. Rules and storage know only the side.
 - **An athlete or referee a game names is `{id, name, known}`.** One deleted in the accepted race
@@ -175,10 +176,10 @@ fixed here, because it follows from what the API is, and no deployment tunes it.
 |---|---|---|
 | Path | `/api/v1/*` only | The actuator and the description answer as if CORS did not exist |
 | Methods | `GET`, `POST`, `PUT`, `DELETE` | The ones the API uses. A cross-origin `HEAD` is refused too, though the mapping would serve it |
-| Request headers | `Authorization`, `Content-Type`, `X-Correlation-ID` | Credentials, JSON, and the ID a caller may send |
-| Exposed headers | `X-Correlation-ID`, `Location` | A browser hides every other header from code. A create answers with `Location`, so a client needs it to find what it made |
+| Request headers | `Authorization`, `Content-Type`, `If-None-Match`, `X-Correlation-ID` | Credentials, JSON, a game's tag sent back by code, and the ID a caller may send |
+| Exposed headers | `X-Correlation-ID`, `Location`, `ETag`, `Date` | A browser hides every other header from code, except a short list that holds `Cache-Control`. A create answers with `Location`, so a client needs it to find what it made. A poller reads a game's tag, and `Date` is the only server time a 304 carries |
 | Credentials | off | There are no cookies or sessions. `Authorization` is set by the caller, and this flag is not what allows it |
-| Max age | not set | A browser repeats a preflight after about 5 seconds |
+| Max age | not set | A browser repeats a preflight after about 5 seconds. A poller that lets the browser's cache send the tag needs none: see `[countdown]` |
 
 An origin not on the list gets a 403 before anything runs, on a preflight and on a real request. The
 body is the framework's `Invalid CORS request`, with no content type: not a problem detail, and no
@@ -220,9 +221,9 @@ mutation and the game in a 409 need no marking. Jackson 3 leaves out every unmar
 view by default, so `spring.jackson.mapper.default-view-inclusion=true` keeps them: without it the
 public view is `{}`, and the strict slice test fails.
 
-**Both reads carry a weak `ETag`.** The handler decides it before the body is built, with the
-framework's `WebRequest.checkNotModified`; a current `If-None-Match` answers 304 with no body and
-the tag. It is a digest over:
+**Both reads carry a weak `ETag`.** The handler decides it before the game is folded or the body
+built, with the framework's `WebRequest.checkNotModified`; a current `If-None-Match` answers 304
+with no body and the tag. It is a digest over:
 
 - the view, so a tag from one view never answers 304 on the other;
 - the application's start, because a redeploy can change what a stored game reads as, such as the
@@ -234,12 +235,51 @@ the tag. It is a digest over:
 Each version is read with what it describes, so the tag never pairs an old name with a new version.
 The tag is weak because `serverTime`, and a running clock's `remainingMs`, differ between two
 answers at the same versions. The 304 carries no `serverTime`: the caller keeps the answer it holds,
-with that answer's own time. The fold and the reads still run on a 304; only the mapping and the
-writing are saved, which this load allows.
+with that answer's own time, and `Date` gives the server's time to the second.
 
-**Not built:** Spring Security sends `Cache-Control: no-cache, no-store` on every answer, so a
-browser's own cache keeps nothing to revalidate, and the CORS rules neither allow `If-None-Match`
-nor expose `ETag`. A browser on another origin cannot use the tag yet. See `[cors]`.
+**A 304 costs the reads of the versions and nothing more.** `getVersioned` reads the game and the
+athletes and referees it names, each with its version, and folds the history only when the handler
+asks for the read, which it does after the tag check. Nothing is read again for the fold, so a body
+always matches its tag.
+
+**Cache policy.** The public view answers `Cache-Control: no-cache`, on its 200 and its 304: a
+browser keeps it and asks with the tag before showing it again. It is the same for every caller, so
+a shared cache may keep it too. The full view sets none, so Spring Security's `no-cache, no-store,
+max-age=0, must-revalidate` stands on its 200, and nothing keeps who recorded what. Spring Security
+writes nothing on a 304, which is why the public view sets its own policy on both answers: a cache
+takes a 304's headers in place of those it held. Every other answer, an error on the public path
+included, keeps Spring Security's `no-store`.
+
+## [countdown] Keeping time between changes
+
+The server never ticks: a clock is `remainingMs` at `serverTime`, and an unchanged game answers 304.
+A screen polling the public view keeps its countdown right this way:
+
+1. **Hold the last full answer and its tag.** Count a running clock down from its `remainingMs` by
+   the time elapsed since that answer arrived, measured with a monotonic clock such as
+   `performance.now()`. Never by counting timer ticks: a browser slows timers in a hidden tab.
+2. **An unchanged tag changes nothing.** Keep counting from the held answer. Never start again from
+   that answer's `remainingMs`, or the countdown jumps back by the time since it arrived.
+3. **A new tag replaces the answer.** Start counting again from its `remainingMs`.
+4. **`Date` is the server's time on every answer, a 304 included,** to the second. `serverTime` is
+   the same to the millisecond, on a full answer only. A screen that checks its clock against the
+   server's reads `Date` between changes.
+
+**Two ways to poll, the same rule.**
+
+- **Let the browser's cache send the tag:** a plain `fetch` with the default cache mode. The browser
+  sends `If-None-Match` itself, takes the 304, and hands code a 200 with the body it kept: the same
+  `serverTime` and `remainingMs` as the first time, with the 304's headers, so the same `ETag` and a
+  new `Date`. That is why a screen compares the tag before it believes the body. No preflight: a tag
+  the browser sends does not count.
+- **Send the tag from code:** `If-None-Match` set on the request. The browser then leaves its cache
+  out, and code sees the 304 itself, with no body. The header is not one a browser sends freely, so
+  each such poll from another origin needs a preflight, repeated about every 5 seconds: see
+  `[cors]`.
+
+A one-off check in headless Chrome, from another origin, showed both: three cached polls each read
+200 with the first `serverTime` and a later `Date` while the server logged 304s, and a poll with the
+tag set by code read 304 with `Date`.
 
 ## [lists] Lists: pages, filters and order
 
@@ -312,7 +352,7 @@ A game's `status-changes` states its 403 and its 409 too: its row is at Scorekee
 game refuses an Admin's move from a Scorekeeper.
 
 Both views of a game state their 200 and 304, each with the `ETag` header, and the 304 with no
-content. The public view's handler names a JSON view, so the generator writes a second schema for
+content. The public view states its `Cache-Control` on both. The public view's handler names a JSON view, so the generator writes a second schema for
 every record it reaches, named after the view: `KumiteGameResponse_Public`, `EntryMetaResponse_Public`
 and the rest. Those lack the fields the view leaves out, and `ApiDescriptionIT` compares them with
 a real public answer.
