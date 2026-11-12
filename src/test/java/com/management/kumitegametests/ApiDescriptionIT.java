@@ -54,7 +54,13 @@ class ApiDescriptionIT {
   private static final String FULL_VIEW = GAME + "/full-view";
   private static final String PUBLIC_VIEW = "_Public";
   private static final String ATHLETE = ATHLETES + "/{athleteId}";
-  private static final String REFEREE = "/api/v1/referees/{refereeId}";
+  private static final String REFEREES = "/api/v1/referees";
+  private static final String REFEREE = REFEREES + "/{refereeId}";
+
+  /** How the generator names the framework's page of a shape, and what it says of the page. */
+  private static final String PAGE = "PagedModel";
+
+  private static final String PAGE_METADATA = "PageMetadata";
 
   private static final String ACCOUNTS = "/api/v1/accounts";
 
@@ -302,9 +308,15 @@ class ApiDescriptionIT {
     Collection<String> described = description.get("components").get("schemas").propertyNames();
     Set<String> publicView =
         described.stream().filter(name -> name.endsWith(PUBLIC_VIEW)).collect(Collectors.toSet());
+    Set<String> pages =
+        described.stream().filter(name -> name.startsWith(PAGE)).collect(Collectors.toSet());
     assertThat(described)
         .containsExactlyInAnyOrderElementsOf(
-            Stream.of(shapes.stream(), publicView.stream(), Stream.of("ProblemDetail"))
+            Stream.of(
+                    shapes.stream(),
+                    publicView.stream(),
+                    pages.stream(),
+                    Stream.of("ProblemDetail", PAGE_METADATA))
                 .flatMap(Function.identity())
                 .toList());
     assertThat(publicView)
@@ -312,6 +324,72 @@ class ApiDescriptionIT {
         .contains("KumiteGameResponse" + PUBLIC_VIEW, "EntryMetaResponse" + PUBLIC_VIEW)
         .allSatisfy(name ->
             assertThat(shapes).contains(name.substring(0, name.length() - PUBLIC_VIEW.length())));
+    assertThat(pages)
+        .as("the framework's page of a shape is named after the shape it holds")
+        .containsExactlyInAnyOrder(
+            PAGE + "AthleteResponse", PAGE + "RefereeResponse", PAGE + "KumiteGameSummaryResponse")
+        .allSatisfy(name -> assertThat(shapes).contains(name.substring(PAGE.length())));
+  }
+
+  /** A list takes the page, its size and its filters, and never an order: the server keeps one. */
+  @Test
+  void lists_arePublic_takeTheirFilters_andNoOrder() {
+    assertThat(statusesOf(operation("get", ATHLETES))).containsExactly("200", "401", "500");
+    assertThat(statusesOf(operation("get", REFEREES))).containsExactly("200", "401", "500");
+    assertThat(statusesOf(operation("get", GAMES)))
+        .as("a status that does not exist is refused")
+        .containsExactly("200", "400", "401", "500");
+    assertThat(parametersOf(operation("get", ATHLETES)))
+        .containsExactlyInAnyOrder("name", "page", "size");
+    assertThat(parametersOf(operation("get", REFEREES)))
+        .containsExactlyInAnyOrder("name", "page", "size");
+    assertThat(parametersOf(operation("get", GAMES)))
+        .containsExactlyInAnyOrder("status", "athleteId", "page", "size");
+    for (String list : List.of(ATHLETES, REFEREES, GAMES)) {
+      assertThat(operation("get", list).has("security")).as(list).isFalse();
+    }
+  }
+
+  /** The page and each summary, as really sent, against the schemas the description states. */
+  @Test
+  void pageSchema_describesRealLists() throws Exception {
+    String aka = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
+    String ao = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
+    send(
+        asAdmin(request(dev, GAMES))
+            .header("Content-Type", "application/json")
+            .POST(
+                BodyPublishers.ofString(
+                    """
+                    {"format": "ELIMINATION", "medalGame": false, "extraGame": false,
+                     "akaAthleteId": "%s", "aoAthleteId": "%s"}
+                    """
+                        .formatted(aka, ao))));
+    HttpResponse<String> list = send(request(dev, GAMES).GET());
+    JsonNode page = JsonMapper.shared().readTree(list.body());
+
+    assertThat(list.statusCode()).isEqualTo(200);
+    assertThat(
+            response("get", GAMES, "200")
+                .get("content")
+                .get("application/json")
+                .get("schema")
+                .get("$ref")
+                .asString())
+        .endsWith(PAGE + "KumiteGameSummaryResponse");
+    assertThat(fieldsOf(list.body()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema(PAGE + "KumiteGameSummaryResponse").get("required")));
+    assertThat(fieldsOf(page.get("page").toString()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema(PAGE_METADATA).get("required")));
+    JsonNode summary = page.get("content").get(0);
+    assertThat(fieldsOf(summary.toString()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("KumiteGameSummaryResponse").get("required")));
+    assertThat(fieldsOf(summary.get("aka").toString()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("SideSummaryResponse").get("required")));
+    assertThat(summary.get("currentResult").isNull()).isTrue();
   }
 
   /** The public view's schema is the game less the recorder and the warnings, as really sent. */
@@ -468,6 +546,10 @@ class ApiDescriptionIT {
 
   private static JsonNode schema(String name) {
     return description.get("components").get("schemas").get(name);
+  }
+
+  private static List<String> parametersOf(JsonNode operation) {
+    return operation.get("parameters").valueStream().map(p -> p.get("name").asString()).toList();
   }
 
   private static List<String> statusesOf(JsonNode operation) {

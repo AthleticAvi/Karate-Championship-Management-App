@@ -17,9 +17,12 @@ import com.management.referee.domain.Referee;
 import com.management.referee.domain.RefereeChangedException;
 import com.management.referee.domain.RefereeNotFoundException;
 import com.management.testsupport.WebSliceTestBase;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.json.JsonCompareMode;
@@ -65,6 +68,50 @@ class RefereeControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.errors.name").value("a referee needs a name"));
 
     then(refereeService()).shouldHaveNoInteractions();
+  }
+
+  /** The page and its size come from the caller, and the answer says where it sits among all. */
+  @Test
+  void list_returnsThePage_withWhereItSits() throws Exception {
+    given(refereeService().list("sa", PageRequest.of(1, 5)))
+        .willReturn(
+            new PageImpl<>(List.of(new Referee("referee-1", "Sato")), PageRequest.of(1, 5), 6));
+
+    mockMvc
+        .perform(get(REFEREES).param("name", "sa").param("page", "1").param("size", "5"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+        .andExpect(
+            content()
+                .json(
+                    """
+                    {
+                      "content": [{ "id": "referee-1", "name": "Sato" }],
+                      "page": {"size": 5, "number": 1, "totalElements": 6, "totalPages": 2}
+                    }
+                    """,
+                    JsonCompareMode.STRICT));
+  }
+
+  @Test
+  void list_withNothingAsked_searchesEveryName_onTheFirstPageOf20() throws Exception {
+    given(refereeService().list("", PageRequest.of(0, 20)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+    mockMvc.perform(get(REFEREES)).andExpect(status().isOk());
+
+    then(refereeService()).should().list("", PageRequest.of(0, 20));
+  }
+
+  /** A size past the configured most is cut to it, not refused. */
+  @Test
+  void list_withSizePastTheMost_asksFor100() throws Exception {
+    given(refereeService().list("", PageRequest.of(0, 100)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+
+    mockMvc.perform(get(REFEREES).param("size", "5000")).andExpect(status().isOk());
+
+    then(refereeService()).should().list("", PageRequest.of(0, 100));
   }
 
   @Test

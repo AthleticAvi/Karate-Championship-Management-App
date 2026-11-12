@@ -8,11 +8,17 @@ import com.management.athlete.domain.AthleteChangedException;
 import com.management.athlete.domain.AthleteInUseException;
 import com.management.athlete.domain.AthleteNotFoundException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 /**
@@ -29,6 +35,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class AthleteService {
 
+  /** By name, then by id, so two athletes with one name keep their place between pages. */
+  private static final Sort BY_NAME = Sort.by("name", "id");
+
   private final AthleteRepository athleteRepository;
   private final AthleteReferences references;
 
@@ -44,6 +53,24 @@ public class AthleteService {
 
   public Athlete get(String athleteId) {
     return AthleteDocumentMapper.toDomain(stored(athleteId));
+  }
+
+  /**
+   * A page of the athletes whose name contains {@code name}, in any case, or of every athlete when
+   * it is empty. Always in name order: the caller picks the page and its size, never the order.
+   *
+   * <p>A page that starts past what the datastore can skip, an int, is empty without asking it: the
+   * skip would wrap and answer another page.
+   */
+  public Page<Athlete> list(String name, Pageable pageable) {
+    PageRequest request = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), BY_NAME);
+    if (request.getOffset() > Integer.MAX_VALUE) {
+      return new PageImpl<>(
+          List.of(), request, athleteRepository.countByNameContainingIgnoreCase(name));
+    }
+    return athleteRepository
+        .findByNameContainingIgnoreCase(name, request)
+        .map(AthleteDocumentMapper::toDomain);
   }
 
   /** The athletes with these ids that exist, by id. A missing one is simply absent. */

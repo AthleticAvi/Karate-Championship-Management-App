@@ -10,6 +10,7 @@ import com.management.referee.data.RefereeDocumentMapper;
 import com.management.referee.data.RefereeRepository;
 import com.management.testsupport.IntegrationTestBase;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -425,6 +426,115 @@ class KumiteGameApiIT extends IntegrationTestBase {
     {"id": "%s", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN", "bothDisqualified": false}
     """
         .formatted(id);
+  }
+
+  /** The ids a list answers, in its order. Read with no credentials: anyone may list games. */
+  private List<String> listed(String query) {
+    ResponseEntity<String> answer = anonymous.getForEntity(GAMES + query, String.class);
+    assertThat(status(answer)).isEqualTo(200);
+    return body(answer)
+        .get("content")
+        .valueStream()
+        .map(game -> game.get("id").asString())
+        .toList();
+  }
+
+  /**
+   * One game per status a list tells apart, and one whose AO athlete was replaced: the filters read
+   * the status and the sides the entries fold to, which nothing stores.
+   */
+  @Test
+  void list_filtersByStatusAndByTheAthleteOnEitherSideNow_newestFirst() {
+    String replaced = create();
+    String ren = athletes.save(AthleteDocumentMapper.toNewDocument("Ren", null)).getId();
+    post(
+        asScorekeeper(),
+        replaced,
+        "assignments",
+        """
+        {"id": "a1", "kind": "ATHLETE", "side": "AO", "athleteId": "%s"}
+        """
+            .formatted(ren));
+    String fighting = create();
+    post(
+        asScorekeeper(),
+        fighting,
+        "clock-actions",
+        """
+        {"id": "c1", "timer": "MAIN", "action": "START", "timeShownMs": 120000}
+        """);
+    String decided = create();
+    post(asScorekeeper(), decided, "results", kiken("r1"));
+    List<String> newestFirst =
+        games.findAll().stream()
+            .sorted(
+                Comparator.comparing(KumiteGameDocument::getCreatedAt)
+                    .reversed()
+                    .thenComparing(KumiteGameDocument::getId))
+            .map(KumiteGameDocument::getId)
+            .toList();
+
+    assertThat(listed("")).containsExactlyElementsOf(newestFirst);
+    assertThat(listed("?sort=createdAt,asc"))
+        .as("the order is the server's, whatever the caller asks")
+        .containsExactlyElementsOf(newestFirst);
+    assertThat(listed("?status=FIGHTING")).containsExactly(fighting);
+    assertThat(listed("?status=NOT_STARTED&status=DECIDED"))
+        .containsExactlyInAnyOrder(replaced, decided);
+    assertThat(listed("?athleteId=" + ao))
+        .as("a game whose AO athlete was replaced no longer lists under the one replaced")
+        .containsExactlyInAnyOrder(fighting, decided);
+    assertThat(listed("?athleteId=" + ren)).containsExactly(replaced);
+    assertThat(listed("?athleteId=" + aka + "&status=FIGHTING")).containsExactly(fighting);
+    assertThat(listed("?athleteId=nobody")).isEmpty();
+  }
+
+  @Test
+  void list_isPaged_andSaysWhereThePageSits() {
+    for (int game = 0; game < 3; game++) {
+      create();
+    }
+
+    JsonNode first = body(anonymous.getForEntity(GAMES + "?size=2", String.class));
+    JsonNode last = body(anonymous.getForEntity(GAMES + "?page=1&size=2", String.class));
+
+    assertThat(first.get("content").size()).isEqualTo(2);
+    assertThat(last.get("content").size()).isEqualTo(1);
+    assertThat(last.get("page").toString())
+        .isEqualTo("{\"size\":2,\"number\":1,\"totalElements\":3,\"totalPages\":2}");
+    assertThat(listed("?page=5&size=2")).isEmpty();
+    assertThat(listed("?page=2147483647&size=100")).isEmpty();
+    assertThat(listed("?athleteId=")).as("a blank athlete is no filter").hasSize(3);
+  }
+
+  /** A summary names who fights and how it ended, and nothing of who recorded it or why. */
+  @Test
+  void list_answersSummaries_withNoRecorderAndNoFreeText() {
+    String gameId = create();
+    post(
+        asScorekeeper(),
+        gameId,
+        "results",
+        """
+        {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN",
+         "reasonDetail": "AO could not go on", "bothDisqualified": false}
+        """);
+
+    ResponseEntity<String> answer = anonymous.getForEntity(GAMES, String.class);
+    JsonNode summary = body(answer).get("content").get(0);
+
+    assertThat(summary.get("aka").get("athlete").get("name").asString()).isEqualTo("Kenji");
+    assertThat(summary.get("ao").get("athlete").get("name").asString()).isEqualTo("Haruto");
+    assertThat(summary.get("status").asString()).isEqualTo("DECIDED");
+    assertThat(summary.get("currentResult").get("reason").asString()).isEqualTo("KIKEN");
+    assertThat(answer.getBody())
+        .doesNotContain("AO could not go on", SCOREKEEPER, "recordedBy", "warnings");
+  }
+
+  @Test
+  void list_withStatusThatDoesNotExist_isBadRequest() {
+    assertThat(status(anonymous.getForEntity(GAMES + "?status=PAUSED", String.class)))
+        .isEqualTo(400);
   }
 
   /** The status table end to end: who may take each move, and what each answers. */

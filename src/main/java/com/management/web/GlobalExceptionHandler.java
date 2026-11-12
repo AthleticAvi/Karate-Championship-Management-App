@@ -23,6 +23,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -241,6 +242,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail.forStatusAndDetail(status, "The request failed validation.");
     problem.setTitle("Invalid request");
     problem.setProperty("errors", errors);
+    return handleExceptionInternal(ex, problem, headers, status, request);
+  }
+
+  /**
+   * A query value that does not convert, such as a game status that does not exist.
+   *
+   * <p>The framework's detail repeats the value the caller sent. Only a message this project wrote
+   * is returned, so the detail names the parameter alone.
+   */
+  @Override
+  protected @Nullable ResponseEntity<Object> handleTypeMismatch(
+      TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(
+            status, "The value of " + ex.getPropertyName() + " is not one it accepts.");
     return handleExceptionInternal(ex, problem, headers, status, request);
   }
 

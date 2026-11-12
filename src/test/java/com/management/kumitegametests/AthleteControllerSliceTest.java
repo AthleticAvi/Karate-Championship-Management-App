@@ -18,9 +18,12 @@ import com.management.athlete.domain.AthleteChangedException;
 import com.management.athlete.domain.AthleteInUseException;
 import com.management.athlete.domain.AthleteNotFoundException;
 import com.management.testsupport.WebSliceTestBase;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.json.JsonCompareMode;
@@ -84,6 +87,51 @@ class AthleteControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.errors.weightKg").exists());
 
     then(athleteService()).shouldHaveNoInteractions();
+  }
+
+  /** The page and its size come from the caller, and the answer says where it sits among all. */
+  @Test
+  void list_returnsThePage_withWhereItSits() throws Exception {
+    given(athleteService().list("sa", PageRequest.of(1, 5)))
+        .willReturn(
+            new PageImpl<>(
+                List.of(new Athlete("athlete-1", "Kenji", 61.5)), PageRequest.of(1, 5), 6));
+
+    mockMvc
+        .perform(get(ATHLETES).param("name", "sa").param("page", "1").param("size", "5"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+        .andExpect(
+            content()
+                .json(
+                    """
+                    {
+                      "content": [{ "id": "athlete-1", "name": "Kenji", "weightKg": 61.5 }],
+                      "page": {"size": 5, "number": 1, "totalElements": 6, "totalPages": 2}
+                    }
+                    """,
+                    JsonCompareMode.STRICT));
+  }
+
+  @Test
+  void list_withNothingAsked_searchesEveryName_onTheFirstPageOf20() throws Exception {
+    given(athleteService().list("", PageRequest.of(0, 20)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+    mockMvc.perform(get(ATHLETES)).andExpect(status().isOk());
+
+    then(athleteService()).should().list("", PageRequest.of(0, 20));
+  }
+
+  /** A size past the configured most is cut to it, not refused. */
+  @Test
+  void list_withSizePastTheMost_asksFor100() throws Exception {
+    given(athleteService().list("", PageRequest.of(0, 100)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+
+    mockMvc.perform(get(ATHLETES).param("size", "5000")).andExpect(status().isOk());
+
+    then(athleteService()).should().list("", PageRequest.of(0, 100));
   }
 
   @Test

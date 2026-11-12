@@ -26,6 +26,7 @@ import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameFormat;
 import com.management.kumitegame.domain.GameNotFoundException;
 import com.management.kumitegame.domain.GameRead;
+import com.management.kumitegame.domain.GameStatus;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewClockAction;
@@ -55,11 +56,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithAnonymousUser;
@@ -201,6 +205,96 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     game.findParents("raisedWarnings")
         .forEach(meta -> ((ObjectNode) meta).remove("raisedWarnings"));
     return game.toString();
+  }
+
+  /**
+   * Decided by KIKEN before the start, with a reason in free text. The AO athlete no longer exists.
+   */
+  private static GameRead decided() {
+    KumiteGame game = TestGames.game();
+    game.recordResult(
+        new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, "AO could not go on", false),
+        TestGames.SCOREKEEPER,
+        LATER);
+    return new GameRead(
+        game,
+        game.state(),
+        Map.of(TestGames.AKA_ATHLETE, new Athlete(TestGames.AKA_ATHLETE, "Kenji", 61.5)),
+        Map.of(TestGames.REFEREE, new Referee(TestGames.REFEREE, "Sato")),
+        LATER);
+  }
+
+  /**
+   * Anyone may list games, so a summary holds nothing the public view leaves out: no recorder, no
+   * warning, and no free text, such as a result's detail.
+   */
+  @Test
+  @WithAnonymousUser
+  void list_answersSummaries_withNoRecorderWarningOrFreeText() throws Exception {
+    given(
+            kumiteGameService()
+                .list(
+                    Set.of(GameStatus.DECIDED, GameStatus.APPROVED),
+                    TestGames.AKA_ATHLETE,
+                    PageRequest.of(0, 20)))
+        .willReturn(new PageImpl<>(List.of(decided()), PageRequest.of(0, 20), 1));
+
+    mockMvc
+        .perform(
+            get(GAMES)
+                .param("status", "DECIDED", "APPROVED")
+                .param("athleteId", TestGames.AKA_ATHLETE))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+        .andExpect(
+            content()
+                .json(
+                    """
+                    {
+                      "content": [{
+                        "id": "game-1", "status": "DECIDED",
+                        "aka": {
+                          "colour": "red",
+                          "athlete": {"id": "athlete-aka", "name": "Kenji", "known": true}
+                        },
+                        "ao": {
+                          "colour": "blue",
+                          "athlete": {"id": "athlete-ao", "name": null, "known": false}
+                        },
+                        "currentResult": {
+                          "outcome": "WIN", "winner": "AKA", "reason": "KIKEN",
+                          "bothDisqualified": false
+                        }
+                      }],
+                      "page": {"size": 20, "number": 0, "totalElements": 1, "totalPages": 1}
+                    }
+                    """,
+                    JsonCompareMode.STRICT));
+  }
+
+  @Test
+  void list_withNoFilter_asksForEveryStatusAndAnyAthlete() throws Exception {
+    given(kumiteGameService().list(Set.of(), null, PageRequest.of(2, 3)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(2, 3), 0));
+
+    mockMvc
+        .perform(get(GAMES).param("page", "2").param("size", "3"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content").isEmpty());
+
+    then(kumiteGameService()).should().list(Set.of(), null, PageRequest.of(2, 3));
+  }
+
+  @Test
+  void list_withStatusThatDoesNotExist_isRefusedAsBadRequest() throws Exception {
+    mockMvc
+        .perform(get(GAMES).param("status", "PAUSED"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.detail").value("The value of status is not one it accepts."))
+        .andExpect(content().string(not(containsString("PAUSED"))));
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
   @Test

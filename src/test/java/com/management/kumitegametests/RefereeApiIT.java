@@ -91,6 +91,55 @@ class RefereeApiIT extends IntegrationTestBase {
     return stored.getFirst();
   }
 
+  /** The names a list answers, in its order. Read with no credentials: anyone may list. */
+  private List<String> listed(String query) throws Exception {
+    HttpResponse<String> answer = send(to(REFEREES + query).GET());
+    assertThat(answer.statusCode()).isEqualTo(200);
+    return json(answer).get("content").valueStream().map(r -> r.get("name").asString()).toList();
+  }
+
+  @Test
+  void list_findsAnyPartOfTheName_inAnyCase_inNameOrder() throws Exception {
+    for (String name : List.of("Sato", "Tanaka", "Masaki", "Kasai")) {
+      create(name);
+    }
+
+    assertThat(listed("")).containsExactly("Kasai", "Masaki", "Sato", "Tanaka");
+    assertThat(listed("?sort=name,desc"))
+        .as("the order is the server's, whatever the caller asks")
+        .containsExactly("Kasai", "Masaki", "Sato", "Tanaka");
+    assertThat(listed("?name=SA")).containsExactly("Kasai", "Masaki", "Sato");
+    assertThat(listed("?name=tanaka")).containsExactly("Tanaka");
+    assertThat(listed("?name=Suzuki")).isEmpty();
+  }
+
+  /** A dot or a bracket is a character of a name, never part of a pattern. */
+  @Test
+  void list_matchesTheNameAsWritten_neverAsPattern() throws Exception {
+    create("Sato");
+    create("A. Sato (senior)");
+
+    assertThat(listed("?name=.")).containsExactly("A. Sato (senior)");
+    assertThat(listed("?name=%28")).containsExactly("A. Sato (senior)");
+    assertThat(listed("?name=S.to")).isEmpty();
+  }
+
+  @Test
+  void list_isPaged_andCutsSizePastTheMost() throws Exception {
+    for (String name : List.of("Sato", "Tanaka", "Kasai")) {
+      create(name);
+    }
+
+    assertThat(listed("?page=1&size=2")).containsExactly("Tanaka");
+    assertThat(json(send(to(REFEREES + "?page=1&size=2").GET())).get("page").toString())
+        .isEqualTo("{\"size\":2,\"number\":1,\"totalElements\":3,\"totalPages\":2}");
+    assertThat(json(send(to(REFEREES + "?size=5000").GET())).get("page").get("size").asInt())
+        .isEqualTo(100);
+    assertThat(listed("?page=2147483647&size=100"))
+        .as("a page whose first item lies past what the datastore can skip is empty")
+        .isEmpty();
+  }
+
   @Test
   void create_thenRead_answersTheSameReferee() throws Exception {
     HttpResponse<String> created = create("Sato");

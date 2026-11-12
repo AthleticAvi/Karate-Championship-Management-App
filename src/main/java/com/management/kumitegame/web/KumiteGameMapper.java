@@ -48,6 +48,8 @@ import com.management.kumitegame.web.KumiteGameResponse.SettingsResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SideResponse;
 import com.management.kumitegame.web.KumiteGameResponse.StatusChangeResponse;
 import com.management.kumitegame.web.KumiteGameResponse.SuggestedResultResponse;
+import com.management.kumitegame.web.KumiteGameSummaryResponse.ResultSummaryResponse;
+import com.management.kumitegame.web.KumiteGameSummaryResponse.SideSummaryResponse;
 import com.management.referee.domain.Referee;
 import java.time.Instant;
 import java.util.List;
@@ -105,6 +107,20 @@ public final class KumiteGameMapper {
             .map(warning -> new GameWarningResponse(warning.code(), warning.entryId()))
             .toList(),
         now);
+  }
+
+  /** A game as a list shows it: where it stands, who fights, and the result that stands. */
+  public static KumiteGameSummaryResponse toSummary(GameRead read, Map<Side, String> colours) {
+    Result current = read.state().currentResult();
+    return new KumiteGameSummaryResponse(
+        read.game().id(),
+        read.state().status(),
+        sideSummary(Side.AKA, read, colours),
+        sideSummary(Side.AO, read, colours),
+        current == null
+            ? null
+            : new ResultSummaryResponse(
+                current.outcome(), current.winner(), current.reason(), current.bothDisqualified()));
   }
 
   public static NewGame toNewGame(KumiteGameRequest request) {
@@ -231,7 +247,7 @@ public final class KumiteGameMapper {
     SideState tally = state.side(side);
     String athleteId = tally.athleteId();
     return new SideResponse(
-        Objects.requireNonNull(colours.get(side), "every side has a colour"),
+        colour(side, colours),
         athleteId == null ? null : athlete(athleteId, read.athletes()),
         state.senshu().isHeldBy(side),
         clock(state.medicalClock(side), read.serverTime()),
@@ -243,6 +259,17 @@ public final class KumiteGameMapper {
         effectiveScore(state.effectiveScore(side)),
         read.game().scores(side).stream().map(score -> score(score, state)).toList(),
         read.game().penalties(side).stream().map(penalty -> penalty(penalty, state)).toList());
+  }
+
+  private static SideSummaryResponse sideSummary(
+      Side side, GameRead read, Map<Side, String> colours) {
+    String athleteId = read.state().side(side).athleteId();
+    return new SideSummaryResponse(
+        colour(side, colours), athleteId == null ? null : athlete(athleteId, read.athletes()));
+  }
+
+  private static String colour(Side side, Map<Side, String> colours) {
+    return Objects.requireNonNull(colours.get(side), "every side has a colour");
   }
 
   private static ParticipantResponse athlete(String id, Map<String, Athlete> athletes) {
