@@ -254,9 +254,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @Override
   protected @Nullable ResponseEntity<Object> handleTypeMismatch(
       TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    String parameter = ex.getPropertyName();
     ProblemDetail problem =
         ProblemDetail.forStatusAndDetail(
-            status, "The value of " + ex.getPropertyName() + " is not one it accepts.");
+            status,
+            parameter == null
+                ? "A value sent is not one it accepts."
+                : "The value of " + parameter + " is not one it accepts.");
+    problem.setTitle("Invalid request");
     return handleExceptionInternal(ex, problem, headers, status, request);
   }
 

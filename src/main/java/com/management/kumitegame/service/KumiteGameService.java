@@ -42,11 +42,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -71,6 +74,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class KumiteGameService {
+
+  private static final Logger log = LoggerFactory.getLogger(KumiteGameService.class);
 
   /** Newest first, then by id, so games created in one instant keep their place between pages. */
   private static final Sort NEWEST_FIRST =
@@ -169,12 +174,13 @@ public class KumiteGameService {
         athleteId == null
             ? kumiteGameRepository.findAll(NEWEST_FIRST)
             : kumiteGameRepository.findByAssignmentsAthleteId(athleteId, NEWEST_FIRST);
-    List<KumiteGame> matching =
+    List<Folded> matching =
         stored.stream()
-            .map(document -> KumiteGameDocumentMapper.toDomain(document, rules))
-            .filter(game -> matches(game.state(), statuses, athleteId))
+            .flatMap(document -> readable(document).stream())
+            .map(game -> new Folded(game, game.state()))
+            .filter(folded -> matches(folded.state(), statuses, athleteId))
             .toList();
-    List<KumiteGame> page =
+    List<Folded> page =
         matching.stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).toList();
     Map<String, Athlete> athletes =
         athleteService.findAll(idsOf(page, KumiteGameService::athleteIds));
@@ -182,8 +188,13 @@ public class KumiteGameService {
         refereeService.findAll(idsOf(page, KumiteGameService::refereeIds));
     return new PageImpl<>(
         page.stream()
-            .map(game ->
-                read(game, named(athletes, athleteIds(game)), named(referees, refereeIds(game))))
+            .map(folded ->
+                new GameRead(
+                    folded.game(),
+                    folded.state(),
+                    named(athletes, athleteIds(folded.game())),
+                    named(referees, refereeIds(folded.game())),
+                    clock.instant()))
             .toList(),
         PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), NEWEST_FIRST),
         matching.size());
@@ -274,12 +285,29 @@ public class KumiteGameService {
             || athleteId.equals(state.side(Side.AO).athleteId()));
   }
 
-  private static Set<String> idsOf(
-      List<KumiteGame> games, Function<KumiteGame, Set<String>> idsOfOne) {
+  /**
+   * The stored game, or none when this build cannot read it, such as one stored by a newer build. A
+   * list leaves it out and logs it, so one game never takes every list down: reading that game
+   * alone still fails.
+   */
+  private Optional<KumiteGame> readable(KumiteGameDocument document) {
+    try {
+      return Optional.of(KumiteGameDocumentMapper.toDomain(document, rules));
+    } catch (RuntimeException unreadable) {
+      log.warn(
+          "Game {} is left out of a list: this build cannot read it", document.getId(), unreadable);
+      return Optional.empty();
+    }
+  }
+
+  private static Set<String> idsOf(List<Folded> games, Function<KumiteGame, Set<String>> idsOfOne) {
     return games.stream()
-        .flatMap(game -> idsOfOne.apply(game).stream())
+        .flatMap(folded -> idsOfOne.apply(folded.game()).stream())
         .collect(Collectors.toSet());
   }
+
+  /** A game with what its entries fold to, folded once for both the filter and the read. */
+  private record Folded(KumiteGame game, GameState state) {}
 
   /** Those of {@code byId} that one game names, so its read holds only its own. */
   private static <T> Map<String, T> named(Map<String, T> byId, Set<String> ids) {

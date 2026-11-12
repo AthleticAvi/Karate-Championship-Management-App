@@ -120,7 +120,7 @@ public class KumiteGameController {
         kumiteGameService
             .list(
                 status == null ? Set.of() : status,
-                athleteId == null || athleteId.isBlank() ? null : athleteId,
+                athleteId == null || athleteId.isBlank() ? null : athleteId.strip(),
                 pageable)
             .map(read -> KumiteGameMapper.toSummary(read, properties.sideColours())));
   }

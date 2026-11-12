@@ -53,7 +53,8 @@ public class AthleteController {
   @GetMapping
   public PagedModel<AthleteResponse> listAthletes(
       @RequestParam(defaultValue = "") String name, @ParameterObject Pageable pageable) {
-    return new PagedModel<>(athleteService.list(name, pageable).map(AthleteMapper::toResponse));
+    return new PagedModel<>(
+        athleteService.list(name.strip(), pageable).map(AthleteMapper::toResponse));
   }
 
   @GetMapping("/{athleteId}")

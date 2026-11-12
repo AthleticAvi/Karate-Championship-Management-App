@@ -291,6 +291,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .perform(get(GAMES).param("status", "PAUSED"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.title").value("Invalid request"))
         .andExpect(jsonPath("$.detail").value("The value of status is not one it accepts."))
         .andExpect(content().string(not(containsString("PAUSED"))));
 

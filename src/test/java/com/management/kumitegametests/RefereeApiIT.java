@@ -110,6 +110,10 @@ class RefereeApiIT extends IntegrationTestBase {
         .containsExactly("Kasai", "Masaki", "Sato", "Tanaka");
     assertThat(listed("?name=SA")).containsExactly("Kasai", "Masaki", "Sato");
     assertThat(listed("?name=tanaka")).containsExactly("Tanaka");
+    assertThat(listed("?name=%20tanaka%20"))
+        .as("spaces around it are not part of it")
+        .containsExactly("Tanaka");
+    assertThat(listed("?name=%20%20")).as("a blank name filters nothing").hasSize(4);
     assertThat(listed("?name=Suzuki")).isEmpty();
   }
 

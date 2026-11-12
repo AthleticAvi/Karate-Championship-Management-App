@@ -531,6 +531,20 @@ class KumiteGameApiIT extends IntegrationTestBase {
         .doesNotContain("AO could not go on", SCOREKEEPER, "recordedBy", "warnings");
   }
 
+  /** Such as one stored by a newer build before a rollback: reading it fails, listing does not. */
+  @Test
+  void list_leavesOutGameThisBuildCannotRead() {
+    String readable = create();
+    Document newer =
+        new Document(stored(readable))
+            .append("_id", "from-a-newer-build")
+            .append("schemaVersion", KumiteGameDocument.CURRENT_SCHEMA_VERSION + 1);
+    mongoTemplate.getCollection(COLLECTION).insertOne(newer);
+
+    assertThat(listed("")).containsExactly(readable);
+    assertThat(status(read("from-a-newer-build"))).isEqualTo(500);
+  }
+
   @Test
   void list_withStatusThatDoesNotExist_isBadRequest() {
     assertThat(status(anonymous.getForEntity(GAMES + "?status=PAUSED", String.class)))

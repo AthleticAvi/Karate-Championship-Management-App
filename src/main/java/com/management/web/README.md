@@ -253,7 +253,7 @@ with `size`, `number`, `totalElements` and `totalPages`. The caller sends `page`
 `size`. A size past the most allowed is cut to it, not refused: see `[server]` in the config README.
 A page past the end is empty, with the totals, however far past: a page that starts beyond what
 MongoDB can skip, an `int`, is answered empty without asking it, because the skip would wrap and
-answer the first page. A blank `name` or `athleteId` filters nothing.
+answer the first page. A blank `name` or `athleteId` filters nothing, and spaces around either are dropped.
 
 **The order is the server's.** A caller's `sort` is read by the framework and then dropped, so a
 page never shifts with what another caller asked, and the description leaves it out. Names sort by
@@ -268,6 +268,11 @@ never stored, so the service reads and folds every game that may match, then cut
 `[facts]` in `src/main/java/com/management/kumitegame/data/README.md`. A game whose athlete was
 replaced lists under the one on the side now, not the one replaced. A status that does not exist
 answers 400.
+
+**A game this build cannot read is left out of every list,** with a warning naming it, such as one a
+newer build stored before a rollback. Reading that game alone still fails. A document Spring Data
+cannot build at all, such as one with no `version`, fails before the mapper and still answers 500 to
+every list.
 
 ## [description] API description
 

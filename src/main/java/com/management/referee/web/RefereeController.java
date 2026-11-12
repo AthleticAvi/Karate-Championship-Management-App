@@ -52,7 +52,8 @@ public class RefereeController {
   @GetMapping
   public PagedModel<RefereeResponse> listReferees(
       @RequestParam(defaultValue = "") String name, @ParameterObject Pageable pageable) {
-    return new PagedModel<>(refereeService.list(name, pageable).map(RefereeMapper::toResponse));
+    return new PagedModel<>(
+        refereeService.list(name.strip(), pageable).map(RefereeMapper::toResponse));
   }
 
   @GetMapping("/{refereeId}")
