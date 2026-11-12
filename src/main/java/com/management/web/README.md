@@ -244,8 +244,10 @@ always matches its tag.
 
 **Cache policy.** The public view answers `Cache-Control: no-cache`, on its 200 and its 304: a
 browser keeps it and asks with the tag before showing it again. It is the same for every caller, so
-a shared cache may keep it too. The full view sets none, so Spring Security's `no-cache, no-store,
-max-age=0, must-revalidate` stands on its 200, and nothing keeps who recorded what. Spring Security
+a shared cache may keep it too, though only an answer to a request without credentials: a shared
+cache stores nothing asked for with `Authorization` unless the answer says `public`. The full view
+sets none, so Spring Security's `no-cache, no-store, max-age=0, must-revalidate` stands on its 200,
+and nothing keeps who recorded what. Spring Security
 writes nothing on a 304, which is why the public view sets its own policy on both answers: a cache
 takes a 304's headers in place of those it held. Every other answer, an error on the public path
 included, keeps Spring Security's `no-store`.

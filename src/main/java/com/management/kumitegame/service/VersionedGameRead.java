@@ -30,7 +30,10 @@ public record VersionedGameRead(
     refereeVersions = Map.copyOf(refereeVersions);
   }
 
-  /** Folds the history and names the athletes and referees: the work a 304 does not need. */
+  /**
+   * Folds the history and names the athletes and referees: the work a 304 does not need. Each call
+   * folds again, at a new server time, so a caller asks once.
+   */
   public GameRead read() {
     return fold.get();
   }

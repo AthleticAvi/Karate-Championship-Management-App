@@ -69,7 +69,8 @@ public class KumiteGameController {
   /**
    * The public view may be kept, by a browser or a shared cache, but never shown again without
    * asking: each poll sends the tag, and an unchanged game answers 304. It is the same for every
-   * caller, so a shared cache may hold it too. The full view never gets this.
+   * caller, so a shared cache may hold it too, though only an answer to a request without
+   * credentials: {@code public} would be needed for the rest. The full view never gets this.
    */
   private static final CacheControl PUBLIC_POLICY = CacheControl.noCache();
 
