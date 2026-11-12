@@ -26,6 +26,10 @@ import org.springframework.web.filter.CorsFilter;
  * path, because it ends any preflight it sees, even one with no configuration. The source states
  * the same scope for whatever else reads it.
  *
+ * <p><strong>A game's tag and the server's time cross too.</strong> A poller may send {@code
+ * If-None-Match} itself, and reads {@code ETag} and {@code Date}: a 304 has no body, so {@code
+ * Date} is the only server time it carries. A browser hides both from code unless they are exposed.
+ *
  * <p>The bean is not named {@code corsFilter}: Spring Security looks that name up and expects a
  * plain {@link CorsFilter}. Credentials travel in the {@code Authorization} header, so nothing here
  * allows cookies.
@@ -48,8 +52,16 @@ class ApiCorsConfiguration {
             HttpMethod.DELETE.name()));
     api.setAllowedHeaders(
         List.of(
-            HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, RequestCorrelationFilter.HEADER));
-    api.setExposedHeaders(List.of(RequestCorrelationFilter.HEADER, HttpHeaders.LOCATION));
+            HttpHeaders.AUTHORIZATION,
+            HttpHeaders.CONTENT_TYPE,
+            HttpHeaders.IF_NONE_MATCH,
+            RequestCorrelationFilter.HEADER));
+    api.setExposedHeaders(
+        List.of(
+            RequestCorrelationFilter.HEADER,
+            HttpHeaders.LOCATION,
+            HttpHeaders.ETAG,
+            HttpHeaders.DATE));
     api.setAllowCredentials(false);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
