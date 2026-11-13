@@ -507,6 +507,11 @@ class SenshuTest {
       return new EntryMeta(id, order, T0, SK, List.of());
     }
 
+    /** A main-clock action at the full duration, so the clock shows what it has. */
+    private ClockAction mainClock(ClockActionKind action, EntryMeta meta) {
+      return new ClockAction(Timer.MAIN, null, action, 120_000, null, null, meta);
+    }
+
     private SenshuRecord record(String id, int order, Side side, SenshuRecordKind kind) {
       return new SenshuRecord(side, kind, null, null, null, meta(id, order));
     }
@@ -556,12 +561,17 @@ class SenshuTest {
               Map.of(),
               Map.of(),
               TestGames.game().assignments(),
-              List.of(),
+              List.of(
+                  mainClock(ClockActionKind.START, meta("c1", 4)),
+                  mainClock(ClockActionKind.PAUSE, meta("c2", 5)),
+                  mainClock(ClockActionKind.START, meta("c3", 6)),
+                  mainClock(ClockActionKind.PAUSE, meta("c4", 7)),
+                  mainClock(ClockActionKind.START, meta("c5", 8))),
               List.of(
                   new SenshuRecord(
-                      Side.AKA, SenshuRecordKind.AWARDED, null, 1, null, meta("s1", 4)),
+                      Side.AKA, SenshuRecordKind.AWARDED, null, 1, null, meta("s1", 9)),
                   new SenshuRecord(
-                      Side.AKA, SenshuRecordKind.AWARDED, null, 3, null, meta("s2", 5))),
+                      Side.AKA, SenshuRecordKind.AWARDED, null, 3, null, meta("s2", 10))),
               List.of(),
               List.of(),
               List.of(),

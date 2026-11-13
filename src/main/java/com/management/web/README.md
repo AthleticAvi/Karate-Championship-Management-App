@@ -452,7 +452,7 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | A referee rename that lost to another write | 409 | `RefereeChangedException` | fixed, plus a `current` extension property holding the referee as it now stands. Not retried |
 | An athlete update that lost to another write | 409 | `AthleteChangedException` | fixed, plus `current`, the athlete as it now stands. Not retried |
 | Setting the time, a result, a settings change, or an approve, reopen or void that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
-| An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides | 409 | `ActionRefusedException` | the message |
+| An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides, an exchange that has not happened | 409 | `ActionRefusedException` | the message |
 | Deleting an athlete or referee a game names | 409 | `AthleteInUseException`, `RefereeInUseException` | the message |
 | No such game | 404 | `GameNotFoundException` | the message |
 | No such account | 404 | `AccountNotFoundException` | the message |

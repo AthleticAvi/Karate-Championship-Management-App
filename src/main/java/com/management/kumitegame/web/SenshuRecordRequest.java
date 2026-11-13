@@ -14,7 +14,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @param id made by the client, one per action, and sent again on a retry of that action
  * @param reason why, such as a video review
- * @param exchange an earlier exchange a video review names; empty means the current one
+ * @param exchange an earlier exchange a video review names; empty means the current one. One that
+ *     has not happened yet is refused
  */
 public record SenshuRecordRequest(
     @NotBlank @Size(max = 64) String id,

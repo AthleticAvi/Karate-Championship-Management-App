@@ -14,6 +14,8 @@ import org.jspecify.annotations.Nullable;
  * A penalty, at the level the referee gave.
  *
  * @param id made by the client, one per action, and sent again on a retry of that action
+ * @param exchange an earlier exchange a video review names; empty means the current one. One that
+ *     has not happened yet is refused
  */
 public record PenaltyRequest(
     @NotBlank @Size(max = 64) String id,

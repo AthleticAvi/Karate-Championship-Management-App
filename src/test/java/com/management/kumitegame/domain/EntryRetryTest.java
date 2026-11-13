@@ -34,9 +34,19 @@ class EntryRetryTest {
     assertThat(game.entriesInOrder()).hasSize(entries + 1);
   }
 
+  /** A game in its first exchange, so an entry may name exchange 1. */
+  private static KumiteGame started() {
+    KumiteGame game = TestGames.game();
+    game.recordClockAction(
+        new NewClockAction("start", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+        SK,
+        T0);
+    return game;
+  }
+
   @Test
   void penalty() {
-    KumiteGame game = TestGames.game();
+    KumiteGame game = started();
     NewPenalty original =
         new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.JOGAI, 1, 100_000L);
     provesRetries(
@@ -55,7 +65,7 @@ class EntryRetryTest {
 
   @Test
   void score() {
-    KumiteGame game = TestGames.game();
+    KumiteGame game = started();
     NewScore original =
         new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, 1, 100_000L);
     provesRetries(
@@ -104,7 +114,7 @@ class EntryRetryTest {
 
   @Test
   void senshuRecord() {
-    KumiteGame game = TestGames.game();
+    KumiteGame game = started();
     NewSenshuRecord original =
         new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 1, 100_000L);
     provesRetries(

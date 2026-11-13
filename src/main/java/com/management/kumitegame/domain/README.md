@@ -86,7 +86,9 @@ id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`.
   the game's current settings, so a settings change before the start also prices a score recorded
   before the start, which already warned.
 - **The exchange** is the number of main-clock starts. A score or penalty takes the current one,
-  or an earlier one the client names, as a video review may. Empty before the start.
+  or an earlier one the client names, as a video review may. Empty before the start. One that has
+  not happened yet, later than the current one or any before the start, is refused. Stored history
+  that names one still loads, counted as written.
 - **A penalty's level is recorded as given,** never derived from a count (Article 10.3). In
   elimination it gives the opponent no points.
 - **Amendments.** CANCEL takes a score, penalty or SENSHU record back: it stays on record, marked
@@ -226,8 +228,8 @@ Officials decide who gets SENSHU and when it is withdrawn, and the scorekeeper r
 level forfeits it (Articles 10.4.16, 12.2.8 differ): the referee withdraws it, and that is recorded.
 
 - **Recorded:** `senshuRecords`, each `{ side, kind: AWARDED | WITHDRAWN, reason?, exchange?,
-  clockRemaining?, meta }`, appended and retried like any entry. The exchange is filled in as for a
-  score.
+  clockRemaining?, meta }`, appended and retried like any entry. The exchange is filled in, or
+  refused when it has not happened, as for a score.
 - **Derived, never stored:** `GameState.senshu`, the holder, one side or none, so both can never
   hold it, and whether SENSHU is closed. `SenshuFold` replays the standing records in order:
   AWARDED gives it to its side; WITHDRAWN takes it from its side, and closes it when it came in the
