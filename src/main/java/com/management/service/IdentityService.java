@@ -104,11 +104,11 @@ public abstract class IdentityService<T, D extends IdentityDocument> {
    * Saves a change against the version that was read, so a write in between fails the save. One
    * deleted in between answers not found from the second read.
    */
-  protected T save(D changed) {
+  protected T save(D document) {
     try {
-      return toDomain(repository.save(changed));
+      return toDomain(repository.save(document));
     } catch (OptimisticLockingFailureException lost) {
-      throw changed(get(changed.getId()), lost);
+      throw changed(get(document.getId()), lost);
     }
   }
 

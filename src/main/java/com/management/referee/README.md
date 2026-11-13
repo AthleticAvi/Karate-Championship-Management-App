@@ -38,7 +38,8 @@ bases** rather than copying another feature: `IdentityDocument` and `IdentityRep
 `src/main/java/com/management/data/README.md`, `IdentityService` and `Versioned` in
 `src/main/java/com/management/service/README.md`, and the three exceptions in
 `src/main/java/com/management/domain/README.md`. It keeps its own fields, mapper, create and
-change, controller, routes and role levels.
+change, controller, routes and role levels. It adds a case for its response shape to the changed
+handler in `GlobalExceptionHandler`: without one, a lost change answers 500, not 409.
 
 - **The domain type holds what the business owns,** with no Spring Data type in it: `Referee` is
   `id` and `name`. A strict rule in `ArchitectureTest` holds every feature's `domain` to that.

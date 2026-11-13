@@ -25,10 +25,10 @@ Each feature stores a document apart from its domain type, with a mapper beside 
 | `kumitegame` | `KumiteGameRepository` | `KumiteGameDocument`, `KumiteGameDocumentMapper` |
 | `athlete` | `AthleteRepository` | `AthleteDocument`, `AthleteDocumentMapper` |
 | `referee` | `RefereeRepository` | `RefereeDocument`, `RefereeDocumentMapper` |
+| `account` | `AccountRepository` | `Account` is stored as it is: it carries no Spring Data type |
 
 The athlete and referee repositories and documents extend `IdentityRepository` and
 `IdentityDocument` in the shared `data` package: see `src/main/java/com/management/data/README.md`.
-| `account` | `AccountRepository` | `Account` is stored as it is: it carries no Spring Data type |
 
 `KumiteGameDocument` stores enum values as plain strings and durations as whole milliseconds, so a
 name this build no longer knows reaches the mapper, the one place an old shape is absorbed. Its
