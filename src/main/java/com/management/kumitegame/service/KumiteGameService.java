@@ -2,7 +2,6 @@ package com.management.kumitegame.service;
 
 import com.management.athlete.domain.Athlete;
 import com.management.athlete.service.AthleteService;
-import com.management.athlete.service.VersionedAthlete;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
@@ -36,7 +35,7 @@ import com.management.kumitegame.domain.ResultRules;
 import com.management.kumitegame.domain.Side;
 import com.management.referee.domain.Referee;
 import com.management.referee.service.RefereeService;
-import com.management.referee.service.VersionedReferee;
+import com.management.service.Versioned;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.List;
@@ -145,17 +144,13 @@ public class KumiteGameService {
   public VersionedGameRead getVersioned(String gameId) {
     KumiteGameDocument stored = stored(gameId);
     KumiteGame game = KumiteGameDocumentMapper.toDomain(stored, rules);
-    Map<String, VersionedAthlete> athletes = athleteService.findAllVersioned(athleteIds(game));
-    Map<String, VersionedReferee> referees = refereeService.findAllVersioned(refereeIds(game));
+    Map<String, Versioned<Athlete>> athletes = athleteService.findAllVersioned(athleteIds(game));
+    Map<String, Versioned<Referee>> referees = refereeService.findAllVersioned(refereeIds(game));
     return new VersionedGameRead(
         stored.getVersion(),
-        valuesOf(athletes, VersionedAthlete::version),
-        valuesOf(referees, VersionedReferee::version),
-        () ->
-            read(
-                game,
-                valuesOf(athletes, VersionedAthlete::athlete),
-                valuesOf(referees, VersionedReferee::referee)));
+        Versioned.versions(athletes),
+        Versioned.versions(referees),
+        () -> read(game, Versioned.values(athletes), Versioned.values(referees)));
   }
 
   /**
@@ -270,11 +265,6 @@ public class KumiteGameService {
     } catch (OptimisticLockingFailureException lost) {
       throw new GameChangedException(get(gameId), lost);
     }
-  }
-
-  private static <T, R> Map<String, R> valuesOf(Map<String, T> byId, Function<T, R> value) {
-    return byId.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> value.apply(entry.getValue())));
   }
 
   private static boolean matches(

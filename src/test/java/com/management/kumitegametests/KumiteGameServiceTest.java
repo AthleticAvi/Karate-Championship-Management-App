@@ -14,7 +14,6 @@ import static org.mockito.Mockito.verify;
 
 import com.management.athlete.domain.Athlete;
 import com.management.athlete.service.AthleteService;
-import com.management.athlete.service.VersionedAthlete;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
@@ -53,7 +52,7 @@ import com.management.kumitegame.service.KumiteGameWriter;
 import com.management.kumitegame.service.VersionedGameRead;
 import com.management.referee.domain.Referee;
 import com.management.referee.service.RefereeService;
-import com.management.referee.service.VersionedReferee;
+import com.management.service.Versioned;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.TestClock;
@@ -224,9 +223,9 @@ class KumiteGameServiceTest {
   void getVersioned_readsTheGameWithTheVersionOfEveryRecordItShows() {
     String gameId = created();
     given(athletes.findAllVersioned(anyCollection()))
-        .willReturn(Map.of(TestGames.AKA_ATHLETE, new VersionedAthlete(KENJI, 4)));
+        .willReturn(Map.of(TestGames.AKA_ATHLETE, new Versioned<>(KENJI, 4)));
     given(referees.findAllVersioned(anyCollection()))
-        .willReturn(Map.of(TestGames.REFEREE, new VersionedReferee(SATO, 2)));
+        .willReturn(Map.of(TestGames.REFEREE, new Versioned<>(SATO, 2)));
     long stored = storage.findById(KumiteGameDocument.class, gameId).orElseThrow().getVersion();
 
     VersionedGameRead versioned = service.getVersioned(gameId);
