@@ -16,6 +16,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublisher;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,6 +41,7 @@ class CorsIT {
   private static final String LOCAL_ORIGIN = "http://localhost:5173";
   private static final String OTHER_ORIGIN = "https://other.example";
   private static final String ATHLETES = "/api/v1/athletes";
+  private static final String GAMES = "/api/v1/kumite-games";
   private static final String LIVENESS = "/actuator/health/liveness";
   private static final String ALLOW_ORIGIN = "Access-Control-Allow-Origin";
   private static final String ALLOW_METHODS = "Access-Control-Allow-Methods";
@@ -147,6 +149,42 @@ class CorsIT {
     assertThat(header(response, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
     assertThat(header(response, EXPOSE_HEADERS)).contains(CORRELATION_ID, "Location");
     assertThat(response.headers().firstValue(ALLOW_CREDENTIALS)).isEmpty();
+  }
+
+  /**
+   * A poller on another origin can read the game's tag, and the server's time on every answer: a
+   * 304 has no body, so {@code Date} is the only server time it carries.
+   */
+  @Test
+  void publicView_fromAllowedOrigin_exposesItsTagAndTheServerTime_on304Too() throws Exception {
+    String game = GAMES + "/" + createGame(dev);
+    HttpResponse<String> full = send(get(dev, game, LOCAL_ORIGIN));
+    String tag = header(full, "ETag");
+
+    HttpResponse<String> unchanged =
+        send(fromOrigin(dev, game, LOCAL_ORIGIN).header("If-None-Match", tag).GET());
+
+    assertThat(full.statusCode()).isEqualTo(200);
+    assertThat(unchanged.statusCode()).isEqualTo(304);
+    for (HttpResponse<String> answer : List.of(full, unchanged)) {
+      assertThat(header(answer, ALLOW_ORIGIN)).isEqualTo(LOCAL_ORIGIN);
+      assertThat(header(answer, EXPOSE_HEADERS)).contains("ETag", "Date");
+      assertThat(header(answer, "Date")).isNotBlank();
+    }
+    assertThat(header(unchanged, "ETag")).isEqualTo(tag);
+    assertThat(unchanged.headers().allValues("Vary"))
+        .as("a shared cache keeps one origin's answer apart from another's")
+        .contains("Origin");
+  }
+
+  /** A poller that sends the tag itself asks first, because the header is not a simple one. */
+  @Test
+  void preflight_withIfNoneMatch_isAllowed() throws Exception {
+    HttpResponse<String> response =
+        send(preflight(dev, GAMES + "/any", LOCAL_ORIGIN, "GET", "if-none-match"));
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(header(response, ALLOW_HEADERS)).containsIgnoringCase("if-none-match");
   }
 
   /** A browser hides the body of an answer with no CORS headers, errors included. */
@@ -325,6 +363,37 @@ class CorsIT {
         .header("Authorization", IntegrationTestBase.adminCredentials())
         .header("Content-Type", "application/json")
         .POST(BodyPublishers.ofString("{\"name\":\"Kenji\"}"));
+  }
+
+  /** A game with two new athletes and no panel, created as the Admin, from no origin. */
+  private static String createGame(ConfigurableApplicationContext context) throws Exception {
+    String body =
+        """
+        {"format": "ELIMINATION", "medalGame": false, "extraGame": false,
+         "akaAthleteId": "%s", "aoAthleteId": "%s", "panel": []}
+        """
+            .formatted(createAthleteId(context), createAthleteId(context));
+    HttpResponse<String> created = send(asAdmin(context, GAMES, body));
+    assertThat(created.statusCode()).isEqualTo(201);
+    return idFrom(created.headers().firstValue("Location").orElseThrow());
+  }
+
+  private static String createAthleteId(ConfigurableApplicationContext context) throws Exception {
+    HttpResponse<String> created = send(asAdmin(context, ATHLETES, "{\"name\":\"Kenji\"}"));
+    assertThat(created.statusCode()).isEqualTo(201);
+    return idFrom(created.headers().firstValue("Location").orElseThrow());
+  }
+
+  private static HttpRequest.Builder asAdmin(
+      ConfigurableApplicationContext context, String path, String body) {
+    return request(context, path)
+        .header("Authorization", IntegrationTestBase.adminCredentials())
+        .header("Content-Type", "application/json")
+        .POST(BodyPublishers.ofString(body));
+  }
+
+  private static String idFrom(String location) {
+    return location.substring(location.lastIndexOf('/') + 1);
   }
 
   private static HttpRequest.Builder get(

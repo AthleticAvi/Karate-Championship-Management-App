@@ -77,7 +77,8 @@ Browsers block cross-origin calls unless the API permits them. This is invisible
 - Configure centrally, not per endpoint.
 - Allowed origins come from configuration and differ per environment. Never a wildcard where credentials are permitted: browsers reject the combination, and it is unsafe regardless.
 - Allow only the methods and headers actually used.
-- Expose what a browser client must read. It hides every response header outside a short list, including `Location` and any correlation header.
+- Expose what a browser client must read. It hides every response header outside a short list, including `Location` and any correlation header. `ETag` and `Date` are outside it too; `Cache-Control` is inside.
+- A conditional header set by code, such as `If-None-Match`, is not one a browser sends freely: each such request needs an allowed header and a preflight. The browser's own revalidation from its cache needs neither.
 - CORS runs before authentication, because a preflight carries no credentials. Exactly one `UrlBasedCorsConfigurationSource` bean makes Spring Security add its own CORS filter, with no call in the chain, and a second source turns that off. A bean named `corsFilter` must be a plain `CorsFilter`.
 - A CORS filter registered ahead of the chain already covers it, so turn the chain's off: it sees every path and refuses a preflight on any path outside the source.
 - `CorsFilter` ends every preflight it sees, even for a path with no configuration. Limit it in its servlet mapping, or it changes the answer on paths meant to stay out of CORS.

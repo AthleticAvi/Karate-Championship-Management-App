@@ -126,6 +126,11 @@ class ApiDescriptionIT {
       assertThat(response("get", read, "304").get("headers").propertyNames()).contains("ETag");
       assertThat(response("get", read, "304").has("content")).isFalse();
     }
+    for (String status : List.of("200", "304")) {
+      assertThat(response("get", GAME, status).get("headers").propertyNames())
+          .as("the public view states the policy that lets a browser keep it")
+          .contains("Cache-Control");
+    }
     assertThat(statusesOf(operation("post", GAMES)))
         .containsExactly("201", "400", "401", "413", "415", "500");
     assertThat(statusesOf(operation("post", GAME + "/scores")))

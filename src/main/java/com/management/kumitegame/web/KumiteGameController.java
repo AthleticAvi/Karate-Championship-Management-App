@@ -23,6 +23,7 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -61,6 +62,17 @@ public class KumiteGameController {
   private static final String NOT_MODIFIED =
       "Not Modified. The tag sent in If-None-Match is still current: keep the game already held."
           + " No body";
+
+  private static final String KEEP_AND_ASK =
+      "no-cache: a browser may keep the game, and asks with its tag before showing it again";
+
+  /**
+   * The public view may be kept, by a browser or a shared cache, but never shown again without
+   * asking: each poll sends the tag, and an unchanged game answers 304. It is the same for every
+   * caller, so a shared cache may hold it too, though only an answer to a request without
+   * credentials: {@code public} would be needed for the rest. The full view never gets this.
+   */
+  private static final CacheControl PUBLIC_POLICY = CacheControl.noCache();
 
   private static final String CURRENT_GAME =
       "Conflict. Refused, or another write won: on a lost race `current` holds the game as it now"
@@ -129,28 +141,41 @@ public class KumiteGameController {
    * The public view: anyone may follow a game. Who recorded each entry and every warning are left
    * out.
    *
-   * @return empty on a 304, when the caller's tag is still current
+   * <p>A browser may keep the answer, and asks again with its tag every time: see {@link
+   * #PUBLIC_POLICY}.
+   *
+   * @return no body on a 304, when the caller's tag is still current
    */
   @JsonView(GameViews.Public.class)
   @ApiResponse(
       responseCode = "200",
       description = "OK, with the game's tag",
-      headers = @Header(name = HttpHeaders.ETAG, description = TAG))
+      headers = {
+        @Header(name = HttpHeaders.ETAG, description = TAG),
+        @Header(name = HttpHeaders.CACHE_CONTROL, description = KEEP_AND_ASK)
+      })
   @ApiResponse(
       responseCode = "304",
       description = NOT_MODIFIED,
       content = @Content,
-      headers = @Header(name = HttpHeaders.ETAG, description = TAG))
+      headers = {
+        @Header(name = HttpHeaders.ETAG, description = TAG),
+        @Header(name = HttpHeaders.CACHE_CONTROL, description = KEEP_AND_ASK)
+      })
   @GetMapping("/{gameId}")
-  public @Nullable KumiteGameResponse getGame(@PathVariable String gameId, WebRequest request) {
-    return readTagged(gameId, GameViews.Public.class, request);
+  public ResponseEntity<KumiteGameResponse> getGame(
+      @PathVariable String gameId, WebRequest request) {
+    return readTagged(gameId, GameViews.Public.class, PUBLIC_POLICY, request);
   }
 
   /**
    * The scorekeeper's view: everything the public view shows, plus who recorded each entry and
    * every warning.
    *
-   * @return empty on a 304, when the caller's tag is still current
+   * <p>No cache policy of its own, so Spring Security's {@code no-store} stands: neither a browser
+   * nor a shared cache keeps who recorded what.
+   *
+   * @return no body on a 304, when the caller's tag is still current
    */
   @ApiResponse(
       responseCode = "200",
@@ -162,8 +187,9 @@ public class KumiteGameController {
       content = @Content,
       headers = @Header(name = HttpHeaders.ETAG, description = TAG))
   @GetMapping("/{gameId}" + FULL_VIEW)
-  public @Nullable KumiteGameResponse getFullView(@PathVariable String gameId, WebRequest request) {
-    return readTagged(gameId, GameViews.Scorekeeper.class, request);
+  public ResponseEntity<KumiteGameResponse> getFullView(
+      @PathVariable String gameId, WebRequest request) {
+    return readTagged(gameId, GameViews.Scorekeeper.class, CacheControl.empty(), request);
   }
 
   /**
@@ -313,16 +339,23 @@ public class KumiteGameController {
   }
 
   /**
-   * Decides the tag from the versions before the body is built: an unchanged game answers 304 with
-   * no body, and the framework sends the tag on both answers.
+   * Decides the tag from the versions before the game is folded or the body built: an unchanged
+   * game answers 304 with no body, and costs only the reads of the versions. Both answers carry the
+   * tag and the policy, because a cache keeps the headers of a 304 in place of those it held.
+   *
+   * @param policy {@link CacheControl#empty()} leaves the answer to Spring Security's default
    */
-  private @Nullable KumiteGameResponse readTagged(
-      String gameId, Class<?> view, WebRequest request) {
+  private ResponseEntity<KumiteGameResponse> readTagged(
+      String gameId, Class<?> view, CacheControl policy, WebRequest request) {
     VersionedGameRead versioned = kumiteGameService.getVersioned(gameId);
-    if (request.checkNotModified(tagOf(view, versioned))) {
-      return null;
+    String tag = tagOf(view, versioned);
+    if (request.checkNotModified(tag)) {
+      return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(tag).cacheControl(policy).build();
     }
-    return KumiteGameMapper.toResponse(versioned.read(), properties.sideColours());
+    return ResponseEntity.ok()
+        .eTag(tag)
+        .cacheControl(policy)
+        .body(KumiteGameMapper.toResponse(versioned.read(), properties.sideColours()));
   }
 
   /**

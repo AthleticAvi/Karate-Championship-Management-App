@@ -9,6 +9,8 @@ import com.management.kumitegame.data.KumiteGameRepository;
 import com.management.referee.data.RefereeDocumentMapper;
 import com.management.referee.data.RefereeRepository;
 import com.management.testsupport.IntegrationTestBase;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -698,6 +700,26 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(List.of(created, afterScore, afterAthlete, tagOf(refereeRenamed)))
         .doesNotHaveDuplicates();
     assertThat(readPublic(gameId, tagOf(refereeRenamed)).getStatusCode().value()).isEqualTo(304);
+  }
+
+  /**
+   * A browser keeps the public view and asks with its tag every time, and every 304 still carries
+   * the server's time, to the second. The full view is never stored.
+   */
+  @Test
+  void publicView_isKeptAndAskedForAgain_andA304CarriesTheServerTime() {
+    String gameId = create();
+    String tag = tagOf(readPublic(gameId, null));
+    Instant before = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+
+    ResponseEntity<String> unchanged = readPublic(gameId, tag);
+
+    Instant after = Instant.now();
+    assertThat(unchanged.getStatusCode().value()).isEqualTo(304);
+    assertThat(unchanged.getHeaders().getCacheControl()).isEqualTo("no-cache");
+    assertThat(Instant.ofEpochMilli(unchanged.getHeaders().getDate())).isBetween(before, after);
+    assertThat(readPublic(gameId, null).getHeaders().getCacheControl()).isEqualTo("no-cache");
+    assertThat(read(gameId).getHeaders().getCacheControl()).contains("no-store");
   }
 
   /** The full view is tagged the same way, for the scorekeeper's own polling. */

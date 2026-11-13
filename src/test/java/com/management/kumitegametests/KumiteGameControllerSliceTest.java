@@ -57,6 +57,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -193,8 +195,13 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
   /** The game at fixed versions: the game's, one athlete's and one referee's. */
   private static VersionedGameRead versioned(GameRead read) {
+    return versioned(() -> read);
+  }
+
+  /** The same versions, with a fold the test can watch. */
+  private static VersionedGameRead versioned(Supplier<GameRead> fold) {
     return new VersionedGameRead(
-        read, 7, Map.of(TestGames.AKA_ATHLETE, 3L), Map.of(TestGames.REFEREE, 2L));
+        7, Map.of(TestGames.AKA_ATHLETE, 3L), Map.of(TestGames.REFEREE, 2L), fold);
   }
 
   /** The scorekeeper's view written out, less who recorded each entry and every warning. */
@@ -340,6 +347,62 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     assertThat(tag).startsWith("W/\"");
   }
 
+  /**
+   * An unchanged game costs only the reads of its versions: the history is not folded, so no body
+   * can be built either.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {GAME, FULL_VIEW})
+  void read_withTheCurrentTag_neverFoldsTheGame(String view) throws Exception {
+    AtomicInteger folds = new AtomicInteger();
+    given(kumiteGameService().getVersioned("game-1"))
+        .willReturn(
+            versioned(() -> {
+              folds.incrementAndGet();
+              return scored();
+            }));
+    String tag = tagFrom(mockMvc.perform(get(view, "game-1")).andExpect(status().isOk()));
+    assertThat(folds).as("a full answer folds once").hasValue(1);
+
+    mockMvc
+        .perform(get(view, "game-1").header(HttpHeaders.IF_NONE_MATCH, tag))
+        .andExpect(status().isNotModified());
+
+    assertThat(folds).as("a 304 never folds").hasValue(1);
+  }
+
+  /**
+   * A browser keeps the public view and asks with its tag before showing it again. A cache takes a
+   * 304's headers in place of those it held, so the 304 carries the same policy.
+   */
+  @Test
+  @WithAnonymousUser
+  void publicView_mayBeKept_butIsAlwaysAskedForAgain() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
+    String tag =
+        tagFrom(
+            mockMvc
+                .perform(get(GAME, "game-1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache")));
+
+    mockMvc
+        .perform(get(GAME, "game-1").header(HttpHeaders.IF_NONE_MATCH, tag))
+        .andExpect(status().isNotModified())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"));
+  }
+
+  /** Who recorded what is never kept, by a browser or by a cache between. */
+  @Test
+  void fullView_isNeverStored() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
+
+    mockMvc
+        .perform(get(FULL_VIEW, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")));
+  }
+
   /** A tag from one view never stands for the other, so a client never keeps the wrong body. */
   @Test
   void tag_differsBetweenTheViews_soOneViewsTagGetsTheOtherInFull() throws Exception {
@@ -358,7 +421,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     VersionedGameRead before = versioned(scored());
     VersionedGameRead renamed =
         new VersionedGameRead(
-            before.read(), 7, Map.of(TestGames.AKA_ATHLETE, 4L), Map.of(TestGames.REFEREE, 2L));
+            7, Map.of(TestGames.AKA_ATHLETE, 4L), Map.of(TestGames.REFEREE, 2L), before.fold());
     given(kumiteGameService().getVersioned("game-1")).willReturn(before, renamed);
     String stale = tagFrom(mockMvc.perform(get(GAME, "game-1")));
 
