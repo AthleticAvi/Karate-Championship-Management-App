@@ -43,8 +43,8 @@ One package per feature, `kumitegame`, `athlete`, `referee` and `account`, each 
 | Responsibility | Packages |
 |-----------|----------|
 | Gateways | `<feature>.web`, shared `web`, `filters`, `security` |
-| Business | `<feature>.service`, `<feature>.domain` |
-| Data | `<feature>.data` |
+| Business | `<feature>.service`, `<feature>.domain`, shared `service`, `domain` |
+| Data | `<feature>.data`, shared `data` |
 | Wiring | `config`, `KumiteGameStarter` |
 
 `Controller -> Service -> Repository -> MongoDB`. Four aggregates, **KumiteGame**, **Athlete**,

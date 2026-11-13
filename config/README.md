@@ -56,7 +56,7 @@ uncovered is mostly the game lifecycle methods, which have no endpoints yet.
 - **Project rules:** edit `project-standards.xml`. Every module cites the standard it mechanises.
 - **Correctness:** toggle Error Prone checks with `-Xep:CheckName:OFF|WARN|ERROR` in compiler args.
 - **Null marking:** every main package has `@NullMarked` in `package-info.java`, except each
-  feature's `data` package, which is `@NullUnmarked`: see
+  feature's `data` package and the shared `data` package, which are `@NullUnmarked`: see
   `src/main/java/com/management/kumitegame/data/README.md`.
 - **Suppressions:** `config/checkstyle/suppressions.xml`, one entry per reason. One entry today: the
   framework's retry interface names `shouldRetry`, which the boolean accessor rule cannot allow.

@@ -442,7 +442,8 @@ mapper reads `domain` types and its feature's records, never a `service`, `data`
 `GlobalExceptionHandler` is the one place a failure becomes an HTTP response. It extends
 `ResponseEntityExceptionHandler`, so framework exceptions map too rather than falling through to the
 catch-all as 500s. The types it maps sit in the `domain` package of the feature that throws them,
-one exception type per meaning.
+one exception type per meaning. Those an athlete and a referee share extend one base each in the
+shared `domain` package, and one handler answers that base.
 
 Errors are RFC 9457 problem details: `application/problem+json`, with `status`, `title`, `detail`
 and `instance`. `type` is not sent, because no problem has a page to point at.
@@ -460,15 +461,13 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | A username already taken | 409 | `AccountAlreadyExistsException` | the message |
 | Removing the last Admin | 409 | `LastAdminException` | the message |
 | A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
-| A referee rename that lost to another write | 409 | `RefereeChangedException` | fixed, plus a `current` extension property holding the referee as it now stands. Not retried |
-| An athlete update that lost to another write | 409 | `AthleteChangedException` | fixed, plus `current`, the athlete as it now stands. Not retried |
+| An athlete update or a referee rename that lost to another write | 409 | `IdentityChangedException`: `AthleteChangedException`, `RefereeChangedException` | fixed, plus a `current` extension property holding the athlete or referee as it now stands. Not retried. A kind with no response shape in the handler answers 500 |
 | Setting the time, a result, a settings change, or an approve, reopen or void that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
 | An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides, an exchange that has not happened | 409 | `ActionRefusedException` | the message |
-| Deleting an athlete or referee a game names | 409 | `AthleteInUseException`, `RefereeInUseException` | the message |
+| Deleting an athlete or referee a game names | 409 | `IdentityInUseException`: `AthleteInUseException`, `RefereeInUseException` | the message |
 | No such game | 404 | `GameNotFoundException` | the message |
 | No such account | 404 | `AccountNotFoundException` | the message |
-| No such referee | 404 | `RefereeNotFoundException` | the message |
-| No such athlete | 404 | `AthleteNotFoundException` | the message |
+| No such athlete or referee | 404 | `IdentityNotFoundException`: `AthleteNotFoundException`, `RefereeNotFoundException` | the message |
 | Accounts could not be read while checking credentials | 500 | `AuthenticationServiceException` (framework) | **generic**, message logged |
 | Anything else | 500 | catch-all | **generic**, message logged |
 
