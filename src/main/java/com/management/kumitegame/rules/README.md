@@ -73,8 +73,9 @@ same question.
 - With no suggestion, SHIKKAKU agrees too. Anything else ends a game the rules do not point to an
   end of, such as a DRAW mid-game in elimination.
 - A recorded result that does not agree warns `RESULT_DIFFERS_FROM_SUGGESTION`. A correction while
-  DECIDED that changes or removes the suggestion, so that the result standing no longer agrees,
-  warns `SUGGESTION_DIFFERS_FROM_RESULT`. Both are applied and recorded, and nothing reopens.
+  DECIDED that makes the result standing, which agreed just before it, stop agreeing warns
+  `SUGGESTION_DIFFERS_FROM_RESULT`. One that only moves the suggestion of a result that already
+  differed raises nothing more. Both are applied and recorded, and nothing reopens.
 - Each result keeps `suggested`, the suggestion as it stood when it was recorded, on purpose: later
   corrections change the live one.
 

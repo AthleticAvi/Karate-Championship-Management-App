@@ -535,9 +535,8 @@ public final class KumiteGame {
   }
 
   /**
-   * Appends an entry. While DECIDED, an entry is a correction: when it changes the suggestion, or
-   * takes it away, and the result that stands no longer agrees with it, it carries a warning, and
-   * nothing reopens.
+   * Appends an entry. While DECIDED, an entry is a correction: when the result that stands agreed
+   * with the suggestion before it and does not after, it carries a warning, and nothing reopens.
    */
   private <E extends Entry> Recorded append(
       List<E> list,
@@ -555,12 +554,17 @@ public final class KumiteGame {
     return Recorded.applied(raised);
   }
 
-  /** The suggestion changed, and the result that stands does not agree with it now. */
+  /**
+   * The result that stands agreed with the suggestion before the correction, and does not now. A
+   * result that already differed was warned about when it began to differ.
+   */
   private static boolean suggestionNowDiffers(GameState before, GameState after) {
-    Result current = after.currentResult();
-    return current != null
-        && !Objects.equals(after.suggested(), before.suggested())
-        && !SuggestedResult.agrees(after.suggested(), current);
+    Result was = before.currentResult();
+    Result now = after.currentResult();
+    return was != null
+        && now != null
+        && SuggestedResult.agrees(before.suggested(), was)
+        && !SuggestedResult.agrees(after.suggested(), now);
   }
 
   private static String verb(StatusChangeKind kind) {

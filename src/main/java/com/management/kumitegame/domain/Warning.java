@@ -27,8 +27,8 @@ public enum Warning {
   /** A result other than the one the rules suggested. Recorded as given. */
   RESULT_DIFFERS_FROM_SUGGESTION,
   /**
-   * A correction while DECIDED changed the suggestion, which now differs from the result that
-   * stands. Nothing reopens.
+   * A correction while DECIDED made the result that stands, which agreed with the suggestion, no
+   * longer agree. Nothing reopens.
    */
   SUGGESTION_DIFFERS_FROM_RESULT,
   /** SENSHU recorded before the start. */

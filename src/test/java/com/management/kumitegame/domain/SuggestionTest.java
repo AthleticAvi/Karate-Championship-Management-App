@@ -329,6 +329,52 @@ class SuggestionTest {
       assertThat(state().status()).isEqualTo(GameStatus.DECIDED);
     }
 
+    /** The result already differed when it was recorded, which raised its own warning. */
+    @Test
+    void thatChangesTheSuggestion_ofResultThatNeverAgreed_raisesNothingMore() {
+      start();
+      score(Side.AKA, ScoreLevel.WAZA_ARI);
+      timeUp();
+      assertThat(result(Outcome.WIN, Side.AKA, ResultReason.HANTEI).raisedWarnings())
+          .containsExactly(Warning.RESULT_DIFFERS_FROM_SUGGESTION);
+      score(Side.AKA, ScoreLevel.IPPON);
+
+      Recorded correction = score(Side.AKA, ScoreLevel.IPPON);
+
+      assertThat(state().suggested()).isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.LEAD));
+      assertThat(correction.raisedWarnings()).containsExactly(Warning.SCORE_AFTER_RESULT);
+    }
+
+    @Test
+    void thatTakesTheSuggestionAway_fromResultThatNeverAgreed_raisesNothing() {
+      start();
+      penalty(Side.AO, PenaltyLevel.HANSOKU);
+      String hansoku = lastId();
+      result(Outcome.WIN, Side.AKA, ResultReason.POINTS);
+
+      Recorded correction = cancel(hansoku);
+
+      assertThat(state().suggested()).isNull();
+      assertThat(correction.raisedWarnings()).isEmpty();
+    }
+
+    /** Agreeing is judged just before the correction, so an agreement a correction made counts. */
+    @Test
+    void thatEndsAnAgreementAnEarlierCorrectionMade_warns() {
+      start();
+      score(Side.AKA, ScoreLevel.WAZA_ARI);
+      timeUp();
+      result(Outcome.WIN, Side.AKA, ResultReason.LEAD);
+      score(Side.AKA, ScoreLevel.IPPON);
+      score(Side.AKA, ScoreLevel.IPPON);
+      assertThat(state().suggested()).isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.LEAD));
+
+      Recorded correction = cancel(lastId());
+
+      assertThat(correction.raisedWarnings())
+          .containsExactly(Warning.SUGGESTION_DIFFERS_FROM_RESULT);
+    }
+
     @Test
     void thatLeavesTheResultAgreeing_raisesNothing() {
       start();

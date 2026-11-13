@@ -269,7 +269,7 @@ A warning is applied, stored on the entry and returned. It is never confirmed fi
 | `SENSHU_HOLDER_WITHOUT_UNOPPOSED_SCORE` | A CANCEL of the holder's score that leaves the holder no standing score in an exchange where the opponent has none. A score before the start belongs to no exchange | 12.2.2 |
 | `CLOCK_ACTION_AFTER_RESULT`, `ASSIGNMENT_AFTER_START`, `RESULT_BEFORE_START`, `RESULT_WHILE_DECIDED` | The status matrix | |
 | `RESULT_DIFFERS_FROM_SUGGESTION` | A result that does not agree with the suggestion. Never KIKEN; with no suggestion, anything but SHIKKAKU | 12.2 |
-| `SUGGESTION_DIFFERS_FROM_RESULT` | Any entry while DECIDED that changes or removes the suggestion, so the result standing no longer agrees. The status stays | 12.2 |
+| `SUGGESTION_DIFFERS_FROM_RESULT` | Any entry while DECIDED after which the result standing, which agreed with the suggestion just before it, no longer agrees. Not raised for a result that already differed. The status stays | 12.2 |
 | `FORMAT_COMBINATION` | A round-robin medal game, or an elimination extra game. Derived, because creation is not an entry | Appendix 6 |
 | `HISTORY_INCONSISTENT` | Stored history the fold skipped | |
 
