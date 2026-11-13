@@ -168,15 +168,24 @@ public final class KumiteGame {
 
   /**
    * Replaces the settings, keeping the rulebook version. Only before the start: a game never
-   * changes its rules mid-way. No history is kept, since nothing has happened yet.
+   * changes its rules mid-way. No history is kept.
+   *
+   * <p>Entries recorded before the start are then folded with the new values, and the warnings
+   * stored on them were raised under the old ones, so a change after any entry but an assignment,
+   * which no setting reads, is applied with a warning. A change is not an entry, so the warning is
+   * returned and not stored. A wrong setting can always be fixed: the change is never refused for
+   * this.
    */
   public Recorded changeSettings(NewSettings newSettings) {
     GameState state = state();
     refuseIfFinal(EntryKind.SETTINGS_CHANGE, state);
     Settings changed = newSettings.under(settings.rulebookVersion());
-    admit(EntryKind.SETTINGS_CHANGE, state);
+    List<Warning> raised = admit(EntryKind.SETTINGS_CHANGE, state);
+    if (entries().anyMatch(placed -> !(placed.entry() instanceof Assignment))) {
+      raised.add(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
+    }
     this.settings = changed;
-    return Recorded.applied(List.of());
+    return Recorded.applied(raised);
   }
 
   public Recorded recordScore(NewScore score, String recordedBy, Instant now) {
@@ -191,8 +200,8 @@ public final class KumiteGame {
     }
     GameState state = state();
     List<Warning> raised = admit(EntryKind.SCORE, state);
+    Integer exchange = exchangeOf(score.exchange(), state);
     LateScore.check(state, now, settings, raised);
-    Integer exchange = score.exchange() != null ? score.exchange() : state.currentExchange();
     SenshuWarnings.checkScore(score.side(), exchange, standingAward(state).orElse(null), raised);
     if (isCurrentExchange(score.exchange(), state)) {
       ClockTolerance.checkClockRemaining(
@@ -220,6 +229,7 @@ public final class KumiteGame {
     }
     GameState state = state();
     List<Warning> raised = admit(EntryKind.PENALTY, state);
+    Integer exchange = exchangeOf(penalty.exchange(), state);
     PenaltyLadder.check(state.side(penalty.side()), penalty.level(), settings, raised);
     SenshuWarnings.checkPenalty(
         state,
@@ -237,7 +247,6 @@ public final class KumiteGame {
       ClockTolerance.checkClockRemaining(
           state.mainClock(), penalty.clockRemainingMs(), now, settings, raised);
     }
-    Integer exchange = penalty.exchange() != null ? penalty.exchange() : state.currentExchange();
     return append(
         penaltiesOf(penalty.side()),
         meta ->
@@ -299,6 +308,7 @@ public final class KumiteGame {
     }
     GameState state = state();
     refuseIfFinal(EntryKind.SENSHU_RECORD, state);
+    Integer exchange = exchangeOf(record.exchange(), state);
     Side holder = state.senshu().holder();
     if (record.kind() == SenshuRecordKind.AWARDED && holder != null) {
       throw new ActionRefusedException(
@@ -309,7 +319,6 @@ public final class KumiteGame {
       ClockTolerance.checkClockRemaining(
           state.mainClock(), record.clockRemainingMs(), now, settings, raised);
     }
-    Integer exchange = record.exchange() != null ? record.exchange() : state.currentExchange();
     if (record.kind() == SenshuRecordKind.AWARDED) {
       SenshuWarnings.checkAward(state, exchange, scoresOf(record.side().opponent()), raised);
     } else {
@@ -535,9 +544,8 @@ public final class KumiteGame {
   }
 
   /**
-   * Appends an entry. While DECIDED, an entry is a correction: when it changes the suggestion, or
-   * takes it away, and the result that stands no longer agrees with it, it carries a warning, and
-   * nothing reopens.
+   * Appends an entry. While DECIDED, an entry is a correction: when the result that stands agreed
+   * with the suggestion before it and does not after, it carries a warning, and nothing reopens.
    */
   private <E extends Entry> Recorded append(
       List<E> list,
@@ -555,12 +563,17 @@ public final class KumiteGame {
     return Recorded.applied(raised);
   }
 
-  /** The suggestion changed, and the result that stands does not agree with it now. */
+  /**
+   * The result that stands agreed with the suggestion before the correction, and does not now. A
+   * result that already differed was warned about when it began to differ.
+   */
   private static boolean suggestionNowDiffers(GameState before, GameState after) {
-    Result current = after.currentResult();
-    return current != null
-        && !Objects.equals(after.suggested(), before.suggested())
-        && !SuggestedResult.agrees(after.suggested(), current);
+    Result was = before.currentResult();
+    Result now = after.currentResult();
+    return was != null
+        && now != null
+        && SuggestedResult.agrees(before.suggested(), was)
+        && !SuggestedResult.agrees(after.suggested(), now);
   }
 
   private static String verb(StatusChangeKind kind) {
@@ -652,6 +665,28 @@ public final class KumiteGame {
    */
   private static boolean isCurrentExchange(@Nullable Integer named, GameState state) {
     return named == null || named.equals(state.currentExchange());
+  }
+
+  /**
+   * The exchange an entry belongs to: the one it names, or the current one, empty before the start.
+   * It may name the current exchange or an earlier one, as a video review does. One later than the
+   * current exchange, any before the first start, or one below 1, has not happened, so the record
+   * would contradict itself.
+   */
+  private static @Nullable Integer exchangeOf(@Nullable Integer named, GameState state) {
+    if (named == null) {
+      return state.currentExchange();
+    }
+    if (named < 1 || named > state.exchange()) {
+      throw new ActionRefusedException(
+          "Exchange "
+              + named
+              + " has not happened yet: "
+              + (state.exchange() == 0
+                  ? "the main clock has not started."
+                  : "the current one is " + state.exchange() + "."));
+    }
+    return named;
   }
 
   /**

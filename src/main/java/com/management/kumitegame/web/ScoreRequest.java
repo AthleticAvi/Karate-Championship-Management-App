@@ -14,7 +14,8 @@ import org.jspecify.annotations.Nullable;
  * A score.
  *
  * @param id made by the client, one per action, and sent again on a retry of that action
- * @param exchange an earlier exchange a video review names; left out, the current one
+ * @param exchange an earlier exchange a video review names; left out, the current one. One that has
+ *     not happened yet is refused
  * @param clockRemainingMs the time the screen showed when the score was given
  */
 public record ScoreRequest(

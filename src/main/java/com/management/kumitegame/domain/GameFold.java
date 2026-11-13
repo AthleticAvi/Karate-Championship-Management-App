@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Folds a game's entries, in order, into its {@link GameState}.
@@ -18,9 +20,12 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>Never throws.</strong> Validity is checked when an entry is appended, never here, so
  * stored history always loads whatever it holds. An entry this build cannot fold as written, such
  * as a CANCEL of something missing or a second use of an id, is skipped with a warning. A rule
- * tightened later must not make an old game unreadable.
+ * tightened later must not make an old game unreadable, and a result rule that fails leaves the
+ * game with no suggestion, with a warning.
  */
 final class GameFold {
+
+  private static final Logger log = LoggerFactory.getLogger(GameFold.class);
 
   private final KumiteGame game;
   private final Settings settings;
@@ -289,11 +294,29 @@ final class GameFold {
         currentResult,
         status == GameStatus.TIME_UP ? timeUpAt : null,
         senshu.state(),
-        status == GameStatus.VOIDED ? null : game.rules().suggest(standing).orElse(null),
+        status == GameStatus.VOIDED ? null : suggest(standing),
         EffectiveScores.of(game.format(), sides, currentResult, settings),
         cancelled,
         warnings,
         lastOrder);
+  }
+
+  /**
+   * What the result rules point to, or none when they fail: one failing rule must not make every
+   * game unreadable. The game then shows why it has no suggestion.
+   */
+  private @Nullable SuggestedResult suggest(Standing standing) {
+    try {
+      return game.rules().suggest(standing).orElse(null);
+    } catch (RuntimeException failed) {
+      log.warn(
+          "Game {} has no suggestion: the result rules {} failed",
+          game.id(),
+          game.rules().getClass().getName(),
+          failed);
+      warnings.add(new GameWarning(Warning.SUGGESTION_UNAVAILABLE, null));
+      return null;
+    }
   }
 
   /** One side's running counts. Cancelling takes back exactly what adding gave. */

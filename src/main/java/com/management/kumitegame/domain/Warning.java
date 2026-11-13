@@ -20,6 +20,11 @@ public enum Warning {
   CLOCK_ACTION_AFTER_RESULT,
   /** An athlete or panel change after the start. */
   ASSIGNMENT_AFTER_START,
+  /**
+   * A settings change after an entry other than an assignment: those entries are folded with the
+   * new values, and their stored warnings were raised under the old ones. Returned, never stored.
+   */
+  SETTINGS_CHANGE_AFTER_ENTRIES,
   /** A result before the start, other than KIKEN or SHIKKAKU. */
   RESULT_BEFORE_START,
   /** A result while one stands: it supersedes the current one. */
@@ -27,8 +32,8 @@ public enum Warning {
   /** A result other than the one the rules suggested. Recorded as given. */
   RESULT_DIFFERS_FROM_SUGGESTION,
   /**
-   * A correction while DECIDED changed the suggestion, which now differs from the result that
-   * stands. Nothing reopens.
+   * A correction while DECIDED made the result that stands, which agreed with the suggestion, no
+   * longer agree. Nothing reopens.
    */
   SUGGESTION_DIFFERS_FROM_RESULT,
   /** SENSHU recorded before the start. */
@@ -53,6 +58,8 @@ public enum Warning {
   SENSHU_HOLDER_WITHOUT_UNOPPOSED_SCORE,
   /** A medal game in round robin, or an extra game in elimination. */
   FORMAT_COMBINATION,
+  /** The result rules failed on this game, so it has no suggestion. The failure is logged. */
+  SUGGESTION_UNAVAILABLE,
   /** Stored history this build cannot fold as written. The entry is skipped. */
   HISTORY_INCONSISTENT
 }

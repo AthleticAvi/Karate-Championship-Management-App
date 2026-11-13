@@ -24,7 +24,9 @@ import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameFormat;
+import com.management.kumitegame.domain.GameRead;
 import com.management.kumitegame.domain.GameStatus;
+import com.management.kumitegame.domain.GameWarning;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewAssignment;
@@ -38,12 +40,14 @@ import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ResultRules;
+import com.management.kumitegame.domain.Score;
 import com.management.kumitegame.domain.ScoreLevel;
 import com.management.kumitegame.domain.ScoreSource;
 import com.management.kumitegame.domain.Side;
 import com.management.kumitegame.domain.StatusChangeKind;
 import com.management.kumitegame.domain.SuggestedResult;
 import com.management.kumitegame.domain.Timer;
+import com.management.kumitegame.domain.Warning;
 import com.management.kumitegame.service.KumiteGameService;
 import com.management.kumitegame.service.KumiteGameWriter;
 import com.management.kumitegame.service.VersionedGameRead;
@@ -276,6 +280,42 @@ class KumiteGameServiceTest {
     verify(referees).findAllVersioned(anyCollection());
     verify(athletes, never()).findAll(anyCollection());
     verify(referees, never()).findAll(anyCollection());
+  }
+
+  /** One failing result rule must not take every game down with it. */
+  @Test
+  void resultRulesThatThrow_leaveTheGameReadAndWritten_withNoSuggestion_andTheWarning() {
+    ResultRules failing =
+        standing -> {
+          throw new IllegalStateException("a rule that fails");
+        };
+    KumiteGameService degraded =
+        new KumiteGameService(
+            repository,
+            new KumiteGameWriter(repository, failing),
+            athletes,
+            referees,
+            properties(Duration.ofMinutes(2), 3),
+            failing,
+            TestClock.FIXED);
+    Recording created =
+        degraded.create(
+            TestGames.newGame(GameFormat.ELIMINATION, false, false), TestGames.SCOREKEEPER);
+    String gameId = created.game().game().id();
+
+    degraded.recordScore(
+        gameId,
+        new NewScore("s1", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, null, null),
+        TestGames.SCOREKEEPER);
+
+    GameRead read = degraded.get(gameId);
+    assertThat(created.raisedWarnings()).containsExactly(Warning.SUGGESTION_UNAVAILABLE);
+    assertThat(read.game().scores(Side.AKA)).extracting(Score::id).containsExactly("s1");
+    assertThat(read.state().side(Side.AKA).total()).isEqualTo(3);
+    assertThat(read.state().suggested()).isNull();
+    assertThat(read.state().warnings())
+        .extracting(GameWarning::code)
+        .containsExactly(Warning.SUGGESTION_UNAVAILABLE);
   }
 
   @Test

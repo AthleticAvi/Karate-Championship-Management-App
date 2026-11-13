@@ -9,8 +9,9 @@ import static com.management.kumitegame.domain.Admission.warn;
  *
  * <p>Refuse only the impossible; warn where a rule is breached but officials may know better. Some
  * cells depend on more than the status, and the action applies them: a score in TIME_UP warns only
- * after the late-score window, a result before the start warns unless it is KIKEN or SHIKKAKU, and
- * a reopen of an APPROVED game and every void need an Admin and a reason.
+ * after the late-score window, a result before the start warns unless it is KIKEN or SHIKKAKU, a
+ * settings change warns once any entry but an assignment exists, and a reopen of an APPROVED game
+ * and every void need an Admin and a reason.
  *
  * <p>APPROVED and VOIDED are final: every kind is refused there but a reopen of an APPROVED game,
  * and a void of one.

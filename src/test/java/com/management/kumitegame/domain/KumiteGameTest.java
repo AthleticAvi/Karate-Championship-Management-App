@@ -732,6 +732,173 @@ class KumiteGameTest {
     }
   }
 
+  /**
+   * A score, penalty or SENSHU record names the exchange it belongs to: the current one, or an
+   * earlier one, as a video review may. One that has not happened yet contradicts the record.
+   */
+  @Nested
+  class Exchanges {
+
+    private Recorded naming(EntryKind kind, int exchange) {
+      return switch (kind) {
+        case SCORE ->
+            game.recordScore(
+                new NewScore(
+                    id(), Side.AKA, ScoreLevel.YUKO, ScoreSource.VIDEO_REVIEW, exchange, null),
+                SK,
+                at(40));
+        case PENALTY ->
+            game.recordPenalty(
+                new NewPenalty(id(), Side.AKA, PenaltyLevel.CHUI, null, exchange, null),
+                SK,
+                at(40));
+        case SENSHU_RECORD ->
+            game.recordSenshu(
+                new NewSenshuRecord(id(), Side.AKA, SenshuRecordKind.AWARDED, null, exchange, null),
+                SK,
+                at(40));
+        default -> throw new IllegalArgumentException(kind + " names no exchange");
+      };
+    }
+
+    private void twoExchanges() {
+      start();
+      clock(ClockActionKind.PAUSE, 100_000, null, at(20));
+      clock(ClockActionKind.START, 100_000, null, at(30));
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "SENSHU_RECORD"})
+    void laterExchangeThanTheCurrent_isRefused(EntryKind kind) {
+      twoExchanges();
+      int entries = game.entriesInOrder().size();
+
+      assertThatThrownBy(() -> naming(kind, 3))
+          .isInstanceOf(ActionRefusedException.class)
+          .hasMessageContaining("Exchange 3");
+      assertThat(game.entriesInOrder()).hasSize(entries);
+    }
+
+    /** The gateway refuses it too, but the game holds its own rule for any caller. */
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "SENSHU_RECORD"})
+    void exchangeBelowOne_isRefused(EntryKind kind) {
+      twoExchanges();
+      int entries = game.entriesInOrder().size();
+
+      assertThatThrownBy(() -> naming(kind, 0))
+          .isInstanceOf(ActionRefusedException.class)
+          .hasMessageContaining("Exchange 0");
+      assertThat(game.entriesInOrder()).hasSize(entries);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "SENSHU_RECORD"})
+    void anyExchange_beforeTheStart_isRefused(EntryKind kind) {
+      int entries = game.entriesInOrder().size();
+
+      assertThatThrownBy(() -> naming(kind, 1))
+          .isInstanceOf(ActionRefusedException.class)
+          .hasMessageContaining("Exchange 1");
+      assertThat(game.entriesInOrder()).hasSize(entries);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "SENSHU_RECORD"})
+    void earlierExchange_namedByVideoReview_applies(EntryKind kind) {
+      twoExchanges();
+
+      naming(kind, 1);
+
+      Entry stored = game.entriesInOrder().getLast().entry();
+      assertThat(stored.id()).isEqualTo(lastId());
+      assertThat(stored).extracting("exchange").isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "SENSHU_RECORD"})
+    void currentExchange_namedOutright_applies(EntryKind kind) {
+      twoExchanges();
+
+      naming(kind, 2);
+
+      assertThat(game.entriesInOrder().getLast().entry()).extracting("exchange").isEqualTo(2);
+    }
+
+    /**
+     * Only history written before the refusal can hold an entry naming a later exchange. It loads,
+     * and counts as written: the fold never throws.
+     */
+    @Test
+    void laterExchange_inStoredHistory_stillLoads() {
+      KumiteGame stored =
+          new KumiteGame(
+              "game-9",
+              GameFormat.ELIMINATION,
+              false,
+              false,
+              TestGames.settings(),
+              Map.of(
+                  Side.AKA,
+                  List.of(
+                      new Score(
+                          ScoreLevel.IPPON,
+                          ScoreSource.JUDGES,
+                          7,
+                          null,
+                          new EntryMeta("score-1", 5, T0, SK, List.of())))),
+              Map.of(
+                  Side.AO,
+                  List.of(
+                      new Penalty(
+                          PenaltyLevel.CHUI,
+                          null,
+                          7,
+                          null,
+                          new EntryMeta("penalty-1", 6, T0, SK, List.of())))),
+              TestGames.game().assignments(),
+              List.of(
+                  new ClockAction(
+                      Timer.MAIN,
+                      null,
+                      ClockActionKind.START,
+                      120_000,
+                      null,
+                      null,
+                      new EntryMeta("start-1", 4, T0, SK, List.of()))),
+              List.of(
+                  new SenshuRecord(
+                      Side.AKA,
+                      SenshuRecordKind.AWARDED,
+                      null,
+                      7,
+                      null,
+                      new EntryMeta("senshu-1", 7, T0, SK, List.of()))),
+              List.of(),
+              List.of(),
+              List.of(),
+              TestGames.rules());
+
+      GameState state = stored.state();
+
+      assertThat(state.exchange()).isEqualTo(1);
+      assertThat(state.side(Side.AKA).total()).isEqualTo(3);
+      assertThat(state.side(Side.AO).chuiCount()).isEqualTo(1);
+      assertThat(state.senshu().holder()).isEqualTo(Side.AKA);
+      assertThat(state.warnings()).isEmpty();
+    }
+  }
+
   @Nested
   class Retries {
 
@@ -895,11 +1062,67 @@ class KumiteGameTest {
 
     @Test
     void settingsChange_beforeTheStart_keepsTheRulebookVersion() {
-      game.changeSettings(newSettings(90_000));
+      Recorded changed = game.changeSettings(newSettings(90_000));
 
+      assertThat(changed.raisedWarnings()).as("only the creation entries").isEmpty();
       assertThat(game.settings().durationMs()).isEqualTo(90_000);
       assertThat(game.settings().rulebookVersion()).isEqualTo("WKF 2026.01");
       assertThat(game.state().mainClock().remainingMs()).isEqualTo(90_000);
+    }
+
+    /**
+     * Entries recorded before the start are folded with the new values, and the warnings stored on
+     * them were raised under the old ones: the change is applied, and says so.
+     */
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "CLOCK_ACTION", "SENSHU_RECORD", "AMENDMENT"})
+    void settingsChange_afterAnEntry_isApplied_withWarning(EntryKind kind) {
+      act(kind, GameStatus.NOT_STARTED);
+
+      Recorded changed = game.changeSettings(newSettings(90_000));
+
+      assertThat(changed.raisedWarnings()).containsExactly(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
+      assertThat(game.settings().durationMs()).isEqualTo(90_000);
+    }
+
+    /** What the issue is about: the score is priced anew, while its stored warnings stay. */
+    @Test
+    void settingsChange_afterScore_repricesIt_andLeavesItsWarnings() {
+      score(Side.AKA, ScoreLevel.YUKO, null, T0);
+      Settings defaults = TestGames.settings();
+
+      Recorded changed =
+          game.changeSettings(
+              new NewSettings(
+                  defaults.durationMs(),
+                  defaults.durationsOfferedMs(),
+                  Map.of(ScoreLevel.IPPON, 3, ScoreLevel.WAZA_ARI, 2, ScoreLevel.YUKO, 2),
+                  defaults.leadToWin(),
+                  defaults.finalWindowMs(),
+                  defaults.lateScoreWindowMs(),
+                  defaults.chuiLimit(),
+                  defaults.roundRobinForfeitPoints(),
+                  defaults.addTimeStepsMs(),
+                  defaults.medicalTimeMs(),
+                  defaults.timeShownToleranceMs()));
+
+      assertThat(changed.raisedWarnings()).containsExactly(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
+      assertThat(game.state().side(Side.AKA).total()).isEqualTo(2);
+      assertThat(game.scores(Side.AKA).getFirst().meta().raisedWarnings())
+          .containsExactly(Warning.SCORE_BEFORE_START);
+    }
+
+    /** Every game is created with assignments, and the settings never read one. */
+    @Test
+    void settingsChange_withOnlyAssignments_raisesNothing() {
+      act(EntryKind.ASSIGNMENT, GameStatus.NOT_STARTED);
+
+      Recorded changed = game.changeSettings(newSettings(90_000));
+
+      assertThat(changed.raisedWarnings()).isEmpty();
+      assertThat(game.settings().durationMs()).isEqualTo(90_000);
     }
 
     @ParameterizedTest
@@ -1171,6 +1394,22 @@ class KumiteGameTest {
           .isInstanceOf(ActionRefusedException.class);
       assertThatThrownBy(() -> game.changeSettings(newSettings(0)))
           .isInstanceOf(ActionRefusedException.class);
+      assertThatThrownBy(() ->
+              game.recordScore(
+                  new NewScore(id(), Side.AKA, ScoreLevel.YUKO, ScoreSource.JUDGES, 9, null),
+                  SK,
+                  T0))
+          .hasMessageContaining("VOIDED");
+      assertThatThrownBy(() ->
+              game.recordPenalty(
+                  new NewPenalty(id(), Side.AKA, PenaltyLevel.CHUI, null, 9, null), SK, T0))
+          .hasMessageContaining("VOIDED");
+      assertThatThrownBy(() ->
+              game.recordSenshu(
+                  new NewSenshuRecord(id(), Side.AKA, SenshuRecordKind.AWARDED, null, 9, null),
+                  SK,
+                  T0))
+          .hasMessageContaining("VOIDED");
     }
 
     /** Append refuses these, so only history written under other rules can hold them. */
