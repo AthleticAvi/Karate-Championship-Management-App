@@ -34,6 +34,8 @@ Builds on: `design/service-exposure.md`
   `ResponseEntity.cacheControl` sets it on the 304 as well, because a cache replaces the headers it
   kept with the 304's. `CacheControl.empty()` writes nothing and leaves Spring Security's default
   in place.
+- **MockMvc sends no `Date`.** The container adds it, on a 304 too. A slice test of a header the
+  client reads for the server's time passes while proving nothing: test it over real HTTP.
 - **A tag built from stored versions alone survives a redeploy.** If a deploy can change what the
   same stored data reads as, such as configuration or derived values, add something that changes
   with each start, such as the application context's start date.

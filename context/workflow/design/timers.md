@@ -46,8 +46,12 @@ Status: enforced
   jumps back on every poll. Count down by the time elapsed since the answer whose tag it holds,
   on a monotonic clock, never by counting timer ticks, which a browser slows in a hidden tab.
   Start again only when the tag changes.
-- **A 304 carries the server's time only in `Date`,** to the second. State that in the client
-  contract when a client needs the server's time between changes.
+- **A body kept by a cache is older than its arrival.** After a reload or in a new tab, the first
+  answer can be a body the browser kept, minutes old. Anchor it at its arrival less its age, the
+  response's date header minus the server time in the body, never below zero. Counting from the
+  arrival alone shows that much too much time left.
+- **A 304 carries the server's time only in `Date`,** to the second, and a proxy may replace it.
+  State that in the client contract when a client needs the server's time between changes.
 - **Return the recorded state after every action,** and have the client show that, not its own
   guess.
 
