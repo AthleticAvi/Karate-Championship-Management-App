@@ -159,8 +159,9 @@ between this contract and a silent shift under a dependency upgrade.
 Every game mutation answers `RecordedResponse`: the game as it now stands and the warnings the
 action raised, so a screen never needs a follow-up read. The game carries its `version` in every
 answer, both views and the 409 included: a screen sends it back as `expectedVersion` on setting the
-time, a result, a settings change or a status change. See `[writes]` in the service README. A create answers 201 with a `Location`;
-every other mutation 200, a retried one included, which answers the warnings stored with the first.
+time, a result, a settings change or a status change. See `[writes]` in the service README. A
+create answers 201 with a `Location`; every other mutation 200, a retried one included, which
+answers the warnings stored with the first.
 `PUT /api/v1/athletes/{id}` and `PUT /api/v1/referees/{id}` answer the updated record.
 `DELETE /api/v1/athletes/{id}`, `DELETE /api/v1/referees/{id}` and `DELETE /api/v1/accounts/{username}`
 answer 204 with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET`
@@ -369,8 +370,8 @@ every success. So:
 `POST /api/v1/accounts` states its own 409, because a body of its own can collide: the rules give a
 409 only to a path parameter. `PUT /api/v1/referees/{refereeId}`, `PUT /api/v1/athletes/{athleteId}`,
 and a game's `settings`, `clock-actions` and `results` state their 409 to say that `current` holds the
-record as it now stands, and that a stale `expectedVersion` gives it, in words only: the shared problem schema cannot list it, because a 400 does
-not carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409
+record as it now stands, and that a stale `expectedVersion` gives it, in words only: the shared
+problem schema cannot list it, because a 400 does not carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409
 on deleting an athlete or referee comes from the rules: a game names it.
 
 A game's `status-changes` states its 403 and its 409 too: its row is at Scorekeeper level, and the
@@ -389,8 +390,8 @@ one states the `basicAuth` scheme. The access rows come from `ApiAccess`.
 
 A 409 from a concurrent update cannot be provoked on demand, and a 500 needs a fault, so
 those rest on reading `GlobalExceptionHandler`. A 409 from a stale `expectedVersion` can be:
-`KumiteGameApiIT` checks its `current` per absolute action. A 405 belongs to no operation, and the chain answers
-an unlisted method first anyway, and a CORS refusal is never visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
+`KumiteGameApiIT` checks its `current` per absolute action. A 405 belongs to no operation, and the
+chain answers an unlisted method first anyway, and a CORS refusal is never visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
 decided while writing the answer, after a write has already happened, and for a malformed `Accept` it
 has no body. It is not a failure a client can treat as refused.
 
