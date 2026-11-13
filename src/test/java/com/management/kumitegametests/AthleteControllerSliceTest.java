@@ -17,6 +17,7 @@ import com.management.athlete.domain.Athlete;
 import com.management.athlete.domain.AthleteChangedException;
 import com.management.athlete.domain.AthleteInUseException;
 import com.management.athlete.domain.AthleteNotFoundException;
+import com.management.domain.IdentityChangedException;
 import com.management.testsupport.WebSliceTestBase;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -161,6 +162,26 @@ class AthleteControllerSliceTest extends WebSliceTestBase {
                 .content("{\"name\": \"Ken\", \"weightKg\": 61.5}"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.current.name").value("Kenta"));
+  }
+
+  /** A kind the handler has no response shape for is a server fault, and nothing of it is sent. */
+  @Test
+  void update_whenTheChangedKindHasNoResponseShape_isServerError() throws Exception {
+    given(athleteService().update("athlete-1", "Ken", 61.5))
+        .willThrow(
+            new IdentityChangedException(
+                "club",
+                "Club club-1 was changed",
+                "club-1",
+                new OptimisticLockingFailureException("lost")) {});
+
+    mockMvc
+        .perform(
+            put(ONE_ATHLETE, "athlete-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Ken\", \"weightKg\": 61.5}"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.current").doesNotExist());
   }
 
   @Test
