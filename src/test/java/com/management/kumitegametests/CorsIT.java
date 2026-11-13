@@ -172,6 +172,9 @@ class CorsIT {
       assertThat(header(answer, "Date")).isNotBlank();
     }
     assertThat(header(unchanged, "ETag")).isEqualTo(tag);
+    assertThat(unchanged.headers().allValues("Vary"))
+        .as("a shared cache keeps one origin's answer apart from another's")
+        .contains("Origin");
   }
 
   /** A poller that sends the tag itself asks first, because the header is not a simple one. */

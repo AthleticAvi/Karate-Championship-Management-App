@@ -257,15 +257,19 @@ included, keeps Spring Security's `no-store`.
 The server never ticks: a clock is `remainingMs` at `serverTime`, and an unchanged game answers 304.
 A screen polling the public view keeps its countdown right this way:
 
-1. **Hold the last full answer and its tag.** Count a running clock down from its `remainingMs` by
-   the time elapsed since that answer arrived, measured with a monotonic clock such as
-   `performance.now()`. Never by counting timer ticks: a browser slows timers in a hidden tab.
-2. **An unchanged tag changes nothing.** Keep counting from the held answer. Never start again from
-   that answer's `remainingMs`, or the countdown jumps back by the time since it arrived.
-3. **A new tag replaces the answer.** Start counting again from its `remainingMs`.
-4. **`Date` is the server's time on every answer, a 304 included,** to the second. `serverTime` is
-   the same to the millisecond, on a full answer only. A screen that checks its clock against the
-   server's reads `Date` between changes.
+1. **Anchor each new answer once, by its age.** An answer may be older than its arrival: after a
+   reload, a new tab or a second screen, the browser hands code the body it kept, which can be
+   minutes old. Its age is `Date` minus `serverTime`, never below zero. Anchor it at its arrival
+   less that age, on a monotonic clock such as `performance.now()`.
+2. **Count down by the time elapsed since the anchor:** show `remainingMs` less that time while the
+   clock runs, and `remainingMs` while it is paused. Read the elapsed time on each frame; never
+   count timer ticks, which a browser slows in a hidden tab.
+3. **An unchanged tag changes nothing.** Keep the anchor. Never anchor that answer again at a later
+   arrival, or the countdown jumps back by the time since the first.
+4. **A new tag replaces the answer.** Anchor it by rule 1.
+5. **`Date` is the server's time on every answer, a 304 included,** to the second, so an age is
+   right to within a second. `serverTime` is the same to the millisecond, on a full answer only. A
+   proxy in front of the server may send its own `Date`.
 
 **Two ways to poll, the same rule.**
 

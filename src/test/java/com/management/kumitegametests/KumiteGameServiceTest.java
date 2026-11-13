@@ -242,7 +242,8 @@ class KumiteGameServiceTest {
 
   /**
    * The versions are read without folding the history: a caller answering 304 needs nothing more.
-   * The fold, when asked for, reads nothing again, so the read matches the versions.
+   * The fold, when asked for, reads nothing again, so the read matches the versions. Folds are
+   * counted through the result rules, which every fold of a game that is not VOIDED asks.
    */
   @Test
   void getVersioned_foldsOnlyWhenTheReadIsAskedFor() {
