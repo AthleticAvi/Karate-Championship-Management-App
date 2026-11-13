@@ -20,6 +20,11 @@ public enum Warning {
   CLOCK_ACTION_AFTER_RESULT,
   /** An athlete or panel change after the start. */
   ASSIGNMENT_AFTER_START,
+  /**
+   * A settings change after an entry other than an assignment: those entries are folded with the
+   * new values, and their stored warnings were raised under the old ones. Returned, never stored.
+   */
+  SETTINGS_CHANGE_AFTER_ENTRIES,
   /** A result before the start, other than KIKEN or SHIKKAKU. */
   RESULT_BEFORE_START,
   /** A result while one stands: it supersedes the current one. */

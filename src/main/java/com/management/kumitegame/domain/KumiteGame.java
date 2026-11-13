@@ -168,15 +168,24 @@ public final class KumiteGame {
 
   /**
    * Replaces the settings, keeping the rulebook version. Only before the start: a game never
-   * changes its rules mid-way. No history is kept, since nothing has happened yet.
+   * changes its rules mid-way. No history is kept.
+   *
+   * <p>Entries recorded before the start are then folded with the new values, and the warnings
+   * stored on them were raised under the old ones, so a change after any entry but an assignment,
+   * which no setting reads, is applied with a warning. A change is not an entry, so the warning is
+   * returned and not stored. A wrong setting can always be fixed: the change is never refused for
+   * this.
    */
   public Recorded changeSettings(NewSettings newSettings) {
     GameState state = state();
     refuseIfFinal(EntryKind.SETTINGS_CHANGE, state);
     Settings changed = newSettings.under(settings.rulebookVersion());
-    admit(EntryKind.SETTINGS_CHANGE, state);
+    List<Warning> raised = admit(EntryKind.SETTINGS_CHANGE, state);
+    if (entries().anyMatch(placed -> !(placed.entry() instanceof Assignment))) {
+      raised.add(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
+    }
     this.settings = changed;
-    return Recorded.applied(List.of());
+    return Recorded.applied(raised);
   }
 
   public Recorded recordScore(NewScore score, String recordedBy, Instant now) {

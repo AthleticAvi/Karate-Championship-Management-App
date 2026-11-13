@@ -1062,11 +1062,67 @@ class KumiteGameTest {
 
     @Test
     void settingsChange_beforeTheStart_keepsTheRulebookVersion() {
-      game.changeSettings(newSettings(90_000));
+      Recorded changed = game.changeSettings(newSettings(90_000));
 
+      assertThat(changed.raisedWarnings()).as("only the creation entries").isEmpty();
       assertThat(game.settings().durationMs()).isEqualTo(90_000);
       assertThat(game.settings().rulebookVersion()).isEqualTo("WKF 2026.01");
       assertThat(game.state().mainClock().remainingMs()).isEqualTo(90_000);
+    }
+
+    /**
+     * Entries recorded before the start are folded with the new values, and the warnings stored on
+     * them were raised under the old ones: the change is applied, and says so.
+     */
+    @ParameterizedTest
+    @EnumSource(
+        value = EntryKind.class,
+        names = {"SCORE", "PENALTY", "CLOCK_ACTION", "SENSHU_RECORD", "AMENDMENT"})
+    void settingsChange_afterAnEntry_isApplied_withWarning(EntryKind kind) {
+      act(kind, GameStatus.NOT_STARTED);
+
+      Recorded changed = game.changeSettings(newSettings(90_000));
+
+      assertThat(changed.raisedWarnings()).containsExactly(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
+      assertThat(game.settings().durationMs()).isEqualTo(90_000);
+    }
+
+    /** What the issue is about: the score is priced anew, while its stored warnings stay. */
+    @Test
+    void settingsChange_afterScore_repricesIt_andLeavesItsWarnings() {
+      score(Side.AKA, ScoreLevel.YUKO, null, T0);
+      Settings defaults = TestGames.settings();
+
+      Recorded changed =
+          game.changeSettings(
+              new NewSettings(
+                  defaults.durationMs(),
+                  defaults.durationsOfferedMs(),
+                  Map.of(ScoreLevel.IPPON, 3, ScoreLevel.WAZA_ARI, 2, ScoreLevel.YUKO, 2),
+                  defaults.leadToWin(),
+                  defaults.finalWindowMs(),
+                  defaults.lateScoreWindowMs(),
+                  defaults.chuiLimit(),
+                  defaults.roundRobinForfeitPoints(),
+                  defaults.addTimeStepsMs(),
+                  defaults.medicalTimeMs(),
+                  defaults.timeShownToleranceMs()));
+
+      assertThat(changed.raisedWarnings()).containsExactly(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
+      assertThat(game.state().side(Side.AKA).total()).isEqualTo(2);
+      assertThat(game.scores(Side.AKA).getFirst().meta().raisedWarnings())
+          .containsExactly(Warning.SCORE_BEFORE_START);
+    }
+
+    /** Every game is created with assignments, and the settings never read one. */
+    @Test
+    void settingsChange_withOnlyAssignments_raisesNothing() {
+      act(EntryKind.ASSIGNMENT, GameStatus.NOT_STARTED);
+
+      Recorded changed = game.changeSettings(newSettings(90_000));
+
+      assertThat(changed.raisedWarnings()).isEmpty();
+      assertThat(game.settings().durationMs()).isEqualTo(90_000);
     }
 
     @ParameterizedTest

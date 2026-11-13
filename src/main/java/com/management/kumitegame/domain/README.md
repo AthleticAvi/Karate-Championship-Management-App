@@ -86,7 +86,9 @@ fail leave the game with no suggestion: see `[may-call]`.
   and an optional panel, of any size. Changes after the start are recorded with a warning.
 - **Points come from the settings map,** never from an entry or the code. Totals are folded with
   the game's current settings, so a settings change before the start also prices a score recorded
-  before the start, which already warned.
+  before the start, which already warned. Such a change is applied, never refused, so a wrong
+  setting can always be fixed, but it warns `SETTINGS_CHANGE_AFTER_ENTRIES` once any entry but an
+  assignment exists. No settings history is kept.
 - **The exchange** is the number of main-clock starts. A score or penalty takes the current one,
   or an earlier one the client names, as a video review may. Empty before the start. One that has
   not happened yet, later than the current one or any before the start, is refused. Stored history
@@ -190,7 +192,7 @@ while DECIDED, or any medical timer action.
 | SENSHU record | warn | yes | yes | warn | refuse | refuse |
 | amendment | yes | yes | yes | yes | refuse | refuse |
 | assignment | yes | warn | warn | warn | refuse | refuse |
-| settings change | yes | refuse | refuse | refuse | refuse | refuse |
+| settings change | yes; warn after any entry but an assignment | refuse | refuse | refuse | refuse | refuse |
 | result | yes for KIKEN, SHIKKAKU; warn otherwise | yes | yes | warn, and supersedes | refuse | refuse |
 | APPROVE | refuse | refuse | refuse | yes | refuse | refuse |
 | REOPEN | refuse | refuse | refuse | yes | Admin, reason | refuse |
@@ -253,7 +255,8 @@ level forfeits it (Articles 10.4.16, 12.2.8 differ): the referee withdraws it, a
 
 ## [warnings] Warnings
 
-A warning is applied, stored on the entry and returned. It is never confirmed first.
+A warning is applied, stored on the entry and returned. It is never confirmed first. A settings
+change is not an entry, so its warning is only returned.
 
 | Warning | When | Article |
 |---|---|---|
@@ -270,6 +273,7 @@ A warning is applied, stored on the entry and returned. It is never confirmed fi
 | `SENSHU_HOLDER_AVOIDING_COMBAT` | A penalty to the holder, in the final window, that names an avoiding-combat infraction, whatever its level. Not checked without an infraction | 12.2.8, 10.4.16 |
 | `SENSHU_HOLDER_WITHOUT_UNOPPOSED_SCORE` | A CANCEL of the holder's score that leaves the holder no standing score in an exchange where the opponent has none. A score before the start belongs to no exchange | 12.2.2 |
 | `CLOCK_ACTION_AFTER_RESULT`, `ASSIGNMENT_AFTER_START`, `RESULT_BEFORE_START`, `RESULT_WHILE_DECIDED` | The status matrix | |
+| `SETTINGS_CHANGE_AFTER_ENTRIES` | A settings change after any entry but an assignment: those entries are now folded with the new values, and their stored warnings were raised under the old ones. Returned, never stored | |
 | `RESULT_DIFFERS_FROM_SUGGESTION` | A result that does not agree with the suggestion. Never KIKEN; with no suggestion, anything but SHIKKAKU | 12.2 |
 | `SUGGESTION_DIFFERS_FROM_RESULT` | Any entry while DECIDED after which the result standing, which agreed with the suggestion just before it, no longer agrees. Not raised for a result that already differed. The status stays | 12.2 |
 | `FORMAT_COMBINATION` | A round-robin medal game, or an elimination extra game. Derived, because creation is not an entry | Appendix 6 |
