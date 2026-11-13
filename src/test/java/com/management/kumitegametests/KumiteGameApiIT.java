@@ -644,11 +644,19 @@ class KumiteGameApiIT extends IntegrationTestBase {
         .isEqualTo("HANSOKU_WITHOUT_HANSOKU_CHUI");
   }
 
-  /** Anyone may follow a game, without who recorded what and without warnings. */
+  /** Anyone may follow a game, without who recorded what, warnings or notes. */
   @Test
-  void publicView_isReadWithNoCredentials_withNoRecorderAndNoWarnings() {
+  void publicView_isReadWithNoCredentials_withNoRecorderWarningsOrNotes() {
     String gameId = create();
     post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+    post(
+        asScorekeeper(),
+        gameId,
+        "results",
+        """
+        {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN",
+         "reasonDetail": "AO could not go on", "bothDisqualified": false}
+        """);
 
     ResponseEntity<String> answer = readPublic(gameId, null);
     ResponseEntity<String> fullView =
@@ -661,6 +669,9 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(game.has("warnings")).isFalse();
     assertThat(game.has("serverTime")).isTrue();
     assertThat(answer.getBody()).doesNotContain("recordedBy", "raisedWarnings");
+    assertThat(game.get("currentResult").get("reason").asString()).isEqualTo("KIKEN");
+    assertThat(answer.getBody()).doesNotContain("AO could not go on");
+    assertThat(read(gameId).getBody()).contains("AO could not go on");
     assertThat(fullView.getStatusCode().value()).isEqualTo(401);
   }
 

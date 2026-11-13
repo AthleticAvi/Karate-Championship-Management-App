@@ -29,6 +29,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -397,7 +398,10 @@ class ApiDescriptionIT {
     assertThat(summary.get("currentResult").isNull()).isTrue();
   }
 
-  /** The public view's schema is the game less the recorder and the warnings, as really sent. */
+  /**
+   * The public view's schema is the game less the recorder, the warnings and the notes, as really
+   * sent, and a side keeps its disqualification.
+   */
   @Test
   void publicViewSchema_describesRealPublicAnswers() throws Exception {
     String aka = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
@@ -435,6 +439,34 @@ class ApiDescriptionIT {
         .containsExactlyInAnyOrderElementsOf(
             namesOf(schema("EntryMetaResponse" + PUBLIC_VIEW).get("required")))
         .doesNotContain("recordedBy", "raisedWarnings");
+    assertThat(fieldsOf(game.get("aka").toString()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("SideResponse" + PUBLIC_VIEW).get("required")))
+        .contains("hansokuCount", "shikkakuCount", "disqualified");
+  }
+
+  /** A note in free text is described on the full view only. */
+  @ParameterizedTest
+  @CsvSource({
+    "SenshuRecordResponse, reason",
+    "AmendmentResponse, reason",
+    "StatusChangeResponse, reason",
+    "ResultResponse, reasonDetail"
+  })
+  void publicViewSchemas_leaveOutTheNotes(String record, String note) {
+    assertThat(schema(record).get("properties").propertyNames()).contains(note);
+    assertThat(namesOf(schema(record).get("required"))).contains(note);
+    assertThat(schema(record + PUBLIC_VIEW).get("properties").propertyNames()).doesNotContain(note);
+    assertThat(namesOf(schema(record + PUBLIC_VIEW).get("required"))).doesNotContain(note);
+  }
+
+  /** The enums a scoreboard shows stay in the public view. */
+  @Test
+  void publicViewSchemas_keepTheEnums() {
+    assertThat(schema("ResultResponse" + PUBLIC_VIEW).get("properties").propertyNames())
+        .contains("reason");
+    assertThat(schema("ClockActionResponse" + PUBLIC_VIEW).get("properties").propertyNames())
+        .contains("pauseReason");
   }
 
   @Test
@@ -460,7 +492,8 @@ class ApiDescriptionIT {
     assertThat(fieldsOf(game.toString()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("KumiteGameResponse").get("required")));
     assertThat(fieldsOf(game.get("aka").toString()))
-        .containsExactlyInAnyOrderElementsOf(namesOf(schema("SideResponse").get("required")));
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("SideResponse").get("required")))
+        .contains("hansokuCount", "shikkakuCount", "disqualified");
     assertThat(fieldsOf(game.get("assignments").get(0).get("meta").toString()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("EntryMetaResponse").get("required")));
     assertThat(game.get("currentResult").isNull()).isTrue();

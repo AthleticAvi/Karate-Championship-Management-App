@@ -82,7 +82,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, and `warnings`. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, `warnings`, and every note in free text. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, `hansokuCount`, `shikkakuCount` and `disqualified`, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `PagedModel` of `KumiteGameSummaryResponse` | `GET /api/v1/kumite-games` | `content`, the summaries, and `page`. A summary is `id`, `status`, `aka` and `ao`, each `colour` and `athlete`, and `currentResult`: `outcome`, `winner`, `reason`, `bothDisqualified`. See `[lists]` |
 | `PagedModel` of `AthleteResponse`, of `RefereeResponse` | `GET /api/v1/athletes`, `GET /api/v1/referees` | `content` and `page`: see `[lists]` |
@@ -106,7 +106,8 @@ Any Scorekeeper may act on any game: there is no assignment of scorekeepers. `st
 both roles because the role a move needs depends on the game's status: reopening an APPROVED game
 and voiding are an Admin's, and the game refuses them to a Scorekeeper with a 403. See `[status]`
 in `src/main/java/com/management/kumitegame/domain/README.md`. Anyone may read a game's public
-view; its full view, with who recorded what and the warnings, is a Scorekeeper's or an Admin's.
+view; its full view, with who recorded what, the warnings and the notes, is a Scorekeeper's or an
+Admin's.
 Anyone may list athletes, referees and games, the last as summaries that hold nothing the public view
 leaves out.
 Athletes follow the levels `/players` had,
@@ -146,6 +147,11 @@ between this contract and a silent shift under a dependency upgrade.
   score, penalty or SENSHU record also says whether it was `cancelled`.
 - **SENSHU is `senshu` on each side and `senshuClosed` on the game,** derived on every read. Both
   sides are never true.
+- **A disqualification is `hansokuCount`, `shikkakuCount` and `disqualified` on each side,** derived
+  on every read and never stored, in both views. The counts are the penalties standing after
+  CANCELs, and `disqualified` is true while either is above zero, so a screen never replays the
+  penalties. They come from penalties only: a result by SHIKKAKU recorded with no penalty entry, or
+  a result's `bothDisqualified`, leaves them as they are.
 - **Enums serialise as their names**, uppercase, exactly as declared. An absent value is `null`.
 
 ## [mutations] Mutations return the new state
@@ -208,8 +214,13 @@ A preflight on the actuator is plain `OPTIONS` there, so it gets the 401 of any 
 
 | View | Path | Who | Leaves out |
 |---|---|---|---|
-| Public | `GET /api/v1/kumite-games/{gameId}` | Anyone | `recordedBy` and `raisedWarnings` in every `meta`, and `warnings` |
+| Public | `GET /api/v1/kumite-games/{gameId}` | Anyone | `recordedBy` and `raisedWarnings` in every `meta`, `warnings`, and the notes: `reason` on each SENSHU record, amendment and status change, and `reasonDetail` on each result, `currentResult` included |
 | Full | `GET /api/v1/kumite-games/{gameId}/full-view` | Scorekeeper and Admin | Nothing |
+
+**Notes are the scorekeeper's.** A note in free text can hold a medical detail or why a game was
+voided, and a public answer may sit in a browser or a shared cache, so the public view leaves every
+one out. The enums stay, `pauseReason` and a result's `reason` among them: a scoreboard shows them.
+A new free-text field in `KumiteGameResponse` needs the same marking.
 
 **Two paths, so a cache never mixes them.** The full view sits under the game as a sub-resource;
 the game's own path is the public one.
@@ -307,7 +318,7 @@ code point, so `anna` comes after `Zoe`.
 
 **A game list carries summaries, not games.** Anyone may list games, so a summary holds no entry:
 nothing in it names who recorded what, raises a warning or carries free text, such as a result's
-`reasonDetail`. Read the game for the rest.
+`reasonDetail`. Read the game for the rest, and its full view for the notes.
 
 **A game list filters on what the entries fold to.** The status and the athlete on each side are
 never stored, so the service reads and folds every game that may match, then cuts the page: see

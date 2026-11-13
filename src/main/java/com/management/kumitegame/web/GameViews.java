@@ -9,7 +9,7 @@ package com.management.kumitegame.web;
  */
 final class GameViews {
 
-  /** What anyone may follow: the game without who recorded what and without warnings. */
+  /** What anyone may follow: the game without who recorded what, warnings or notes. */
   interface Public {}
 
   /** Everything, for a Scorekeeper or an Admin. */

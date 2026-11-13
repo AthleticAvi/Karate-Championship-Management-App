@@ -138,8 +138,8 @@ public class KumiteGameController {
   }
 
   /**
-   * The public view: anyone may follow a game. Who recorded each entry and every warning are left
-   * out.
+   * The public view: anyone may follow a game. Who recorded each entry, every warning and every
+   * note in free text are left out.
    *
    * <p>A browser may keep the answer, and asks again with its tag every time: see {@link
    * #PUBLIC_POLICY}.
@@ -169,8 +169,8 @@ public class KumiteGameController {
   }
 
   /**
-   * The scorekeeper's view: everything the public view shows, plus who recorded each entry and
-   * every warning.
+   * The scorekeeper's view: everything the public view shows, plus who recorded each entry, every
+   * warning and every note.
    *
    * <p>No cache policy of its own, so Spring Security's {@code no-store} stands: neither a browser
    * nor a shared cache keeps who recorded what.
@@ -363,7 +363,7 @@ public class KumiteGameController {
    * referee's it names, by id, so a rename changes it and so does one deleted in the accepted race.
    *
    * <p>The view goes in, so a tag from one view never answers 304 on the other: a client that sent
-   * the public view's tag to the full view would otherwise keep a body with no recorder.
+   * the public view's tag to the full view would otherwise keep a body with no recorder or notes.
    *
    * <p>The application's start goes in too. A redeploy can change what the same stored game reads
    * as, such as the side colours or the suggested result, and a tag kept across it would hold an

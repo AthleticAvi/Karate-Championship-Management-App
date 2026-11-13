@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A game: every entry, and everything derived from them. The scorekeeper's view holds every field;
- * the public view, the same record, leaves out the fields marked {@link GameViews.Scorekeeper}.
+ * the public view, the same record, leaves out the fields marked {@link GameViews.Scorekeeper}: who
+ * recorded what, the warnings, and every note in free text.
  *
  * <p>Durations are whole milliseconds, instants ISO-8601 in UTC. A running clock's {@code
  * remainingMs} is the time left at {@code serverTime}: a screen counts down from there, anchored
@@ -93,6 +94,9 @@ public record KumiteGameResponse(
    * @param colour how the side is shown, from configuration
    * @param athlete the latest athlete put on this side; empty only in history that names none
    * @param senshu whether this side holds SENSHU; never both sides
+   * @param hansokuCount the HANSOKU standing against this side: not cancelled
+   * @param shikkakuCount the SHIKKAKU standing against this side: not cancelled
+   * @param disqualified a HANSOKU or SHIKKAKU stands against this side
    * @param effectiveScore the score the format counts: in round robin after HANSOKU, KIKEN or
    *     SHIKKAKU, not what was scored. Otherwise what was scored
    */
@@ -106,6 +110,9 @@ public record KumiteGameResponse(
       int wazaAriCount,
       int chuiCount,
       int hansokuChuiCount,
+      int hansokuCount,
+      int shikkakuCount,
+      boolean disqualified,
       EffectiveScoreResponse effectiveScore,
       List<ScoreResponse> scores,
       List<PenaltyResponse> penalties) {}
@@ -180,23 +187,34 @@ public record KumiteGameResponse(
   /**
    * SENSHU awarded or withdrawn, as given.
    *
+   * @param reason a note in free text; left out of the public view
    * @param cancelled whether a CANCEL took it back
    */
   public record SenshuRecordResponse(
       Side side,
       SenshuRecordKind kind,
-      @Nullable String reason,
+      @JsonView(GameViews.Scorekeeper.class) @Nullable String reason,
       @Nullable Integer exchange,
       @Nullable Long clockRemainingMs,
       boolean cancelled,
       EntryMetaResponse meta) {}
 
+  /**
+   * A correction to an entry.
+   *
+   * @param reason a note in free text; left out of the public view
+   */
   public record AmendmentResponse(
-      AmendmentKind kind, String targetId, @Nullable String reason, EntryMetaResponse meta) {}
+      AmendmentKind kind,
+      String targetId,
+      @JsonView(GameViews.Scorekeeper.class) @Nullable String reason,
+      EntryMetaResponse meta) {}
 
   /**
    * A result as given.
    *
+   * @param reasonDetail a note in free text; left out of the public view, where {@code reason}
+   *     stays
    * @param suggested what the rules suggested when it was recorded; empty when they suggested
    *     nothing
    */
@@ -204,7 +222,7 @@ public record KumiteGameResponse(
       Outcome outcome,
       @Nullable Side winner,
       ResultReason reason,
-      @Nullable String reasonDetail,
+      @JsonView(GameViews.Scorekeeper.class) @Nullable String reasonDetail,
       boolean bothDisqualified,
       @Nullable SuggestedResultResponse suggested,
       EntryMetaResponse meta) {}
@@ -225,8 +243,15 @@ public record KumiteGameResponse(
   public record EffectiveScoreResponse(
       int total, int ipponCount, int wazaAriCount, int addedPoints) {}
 
+  /**
+   * An approve, reopen or void.
+   *
+   * @param reason a note in free text; left out of the public view
+   */
   public record StatusChangeResponse(
-      StatusChangeKind kind, @Nullable String reason, EntryMetaResponse meta) {}
+      StatusChangeKind kind,
+      @JsonView(GameViews.Scorekeeper.class) @Nullable String reason,
+      EntryMetaResponse meta) {}
 
   /**
    * A warning the game itself shows.

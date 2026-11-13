@@ -73,8 +73,8 @@ carries `meta`: the client's `id`, an `order` counted across the whole game, `re
 
 **Everything else is derived** by `GameFold`, folding every list in order: the status, the main
 clock and each side's medical timer, the exchange counter, the athlete on each side, the panel, the
-totals, the IPPON, WAZA_ARI and CHUI counts, who holds SENSHU and whether it is closed, and the
-current result. Nothing derived is stored, so
+totals, the IPPON, WAZA_ARI and CHUI counts, the HANSOKU and SHIKKAKU counts and whether each side
+is disqualified, who holds SENSHU and whether it is closed, and the current result. Nothing derived is stored, so
 it can never disagree with the entries.
 
 **The fold never throws.** Validity is checked when an entry is appended. Stored history always
