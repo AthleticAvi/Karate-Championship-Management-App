@@ -21,7 +21,11 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document("referee")
 public class RefereeDocument {
 
-  /** The shape this class writes. Raise it when a field is renamed, moved or changes meaning. */
+  /**
+   * The shape this class writes. A save replaces the whole document, so an added field raises it
+   * too: see {@code [schema-versioning]} in {@code
+   * context/workflow/databases/mongodb/design/persistence.md}.
+   */
   public static final int CURRENT_SCHEMA_VERSION = 1;
 
   @Id private String id;
