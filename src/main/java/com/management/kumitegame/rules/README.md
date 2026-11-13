@@ -32,6 +32,10 @@ server never records a result itself. This README covers the `rules` package of 
 `domain` only. The domain never calls this package: it asks `ResultRules`, and the services give
 each game the bean. Gateways never reach it, and `ArchitectureTest` enforces both.
 
+A step must answer for any standing. If one throws all the same, the fold catches it: the game has
+no suggestion, warns `SUGGESTION_UNAVAILABLE`, and the failure is logged, so one defect never makes
+every game unreadable. See `[may-call]` in `src/main/java/com/management/kumitegame/domain/README.md`.
+
 ## [chain] The chain per format
 
 Read top to bottom; the first step that answers decides. Steps marked "time up" answer only when

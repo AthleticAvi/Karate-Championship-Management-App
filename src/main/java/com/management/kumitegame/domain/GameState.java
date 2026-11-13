@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
  * @param effectiveScores each side's score as the format counts it: in round robin, after a
  *     forfeit, not what it scored (Article 10.7.1)
  * @param cancelledIds the scores, penalties and SENSHU records a CANCEL took back
- * @param warnings what the fold found: the format, or history it skipped
+ * @param warnings what the fold found: the format, history it skipped, or result rules that failed
  * @param lastOrder the highest order used, so the next entry takes the one after
  */
 public record GameState(

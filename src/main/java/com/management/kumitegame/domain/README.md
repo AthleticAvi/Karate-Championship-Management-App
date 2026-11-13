@@ -59,8 +59,9 @@ Other `domain` types: `kumitegame.domain` uses `athlete.domain` and `referee.dom
 
 The suggestion comes from `kumitegame.rules` through `ResultRules`, a port the domain owns. A game
 is built with it, through `KumiteGame.create` or the data mapper, so its fold includes the
-suggestion and no action needs it passed in. The port must answer for any standing: the fold never
-throws.
+suggestion and no action needs it passed in. The port must answer for any standing. The fold guards
+it all the same: when it throws, the game has no suggestion and warns `SUGGESTION_UNAVAILABLE`, and
+the failure is logged once per fold with the game id and the rules. Reads, scores and writes go on.
 
 ## [model] The game: entries, everything else derived
 
@@ -78,7 +79,8 @@ it can never disagree with the entries.
 
 **The fold never throws.** Validity is checked when an entry is appended. Stored history always
 loads: an entry this build cannot fold as written, such as a second CANCEL of one target or a reused
-id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`.
+id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`. Result rules that
+fail leave the game with no suggestion: see `[may-call]`.
 
 - **Athletes and panel are assignment entries.** The game is created with an athlete on each side
   and an optional panel, of any size. Changes after the start are recorded with a warning.
@@ -271,6 +273,7 @@ A warning is applied, stored on the entry and returned. It is never confirmed fi
 | `RESULT_DIFFERS_FROM_SUGGESTION` | A result that does not agree with the suggestion. Never KIKEN; with no suggestion, anything but SHIKKAKU | 12.2 |
 | `SUGGESTION_DIFFERS_FROM_RESULT` | Any entry while DECIDED after which the result standing, which agreed with the suggestion just before it, no longer agrees. Not raised for a result that already differed. The status stays | 12.2 |
 | `FORMAT_COMBINATION` | A round-robin medal game, or an elimination extra game. Derived, because creation is not an entry | Appendix 6 |
+| `SUGGESTION_UNAVAILABLE` | The result rules threw while folding, so the game has no suggestion. Derived, never stored: see `[may-call]`. Every other rule treats it as no suggestion: a result recorded meanwhile keeps none, and a correction that takes an agreeing suggestion away this way warns `SUGGESTION_DIFFERS_FROM_RESULT` | |
 | `HISTORY_INCONSISTENT` | Stored history the fold skipped | |
 
 ## [retries] Entry ids and retries

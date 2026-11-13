@@ -41,8 +41,8 @@ import org.jspecify.annotations.Nullable;
  * @param suggestedResult the result the rules point to now; the scorekeeper confirms it by
  *     recording a result. Empty while they point to none
  * @param statusChanges every approve, reopen and void, as given
- * @param warnings what the game itself shows: its format, or stored history skipped while folding;
- *     left out of the public view
+ * @param warnings what the game itself shows: its format, stored history skipped while folding, or
+ *     no suggestion because the result rules failed; left out of the public view
  * @param serverTime the server's time when this was read
  */
 public record KumiteGameResponse(

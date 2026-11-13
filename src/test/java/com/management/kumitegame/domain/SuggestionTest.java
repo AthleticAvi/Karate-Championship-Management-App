@@ -2,19 +2,27 @@ package com.management.kumitegame.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGames;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * The suggestion inside a game, with the real chain: live in every state, kept on each result as it
- * was when recorded, the warnings a result or a correction raises against it, and the round-robin
- * effective score.
+ * was when recorded, the warnings a result or a correction raises against it, a rule that fails,
+ * and the round-robin effective score.
  */
 class SuggestionTest {
 
@@ -421,6 +429,67 @@ class SuggestionTest {
       timeUp();
 
       assertThat(score(Side.AO, ScoreLevel.IPPON).raisedWarnings()).isEmpty();
+    }
+  }
+
+  /** One result rule that throws must not make a game unreadable: the fold never throws. */
+  @Nested
+  class FailingRules {
+
+    private final Logger foldLog = (Logger) LoggerFactory.getLogger(GameFold.class);
+    private final ListAppender<ILoggingEvent> lines = new ListAppender<>();
+
+    @BeforeEach
+    void listen() {
+      lines.start();
+      foldLog.addAppender(lines);
+    }
+
+    @AfterEach
+    void stopListening() {
+      foldLog.detachAppender(lines);
+    }
+
+    @Test
+    void foldWithRulesThatThrow_hasNoSuggestion_warns_andLogsOnce() {
+      game =
+          KumiteGame.create(
+              TestGames.GAME_ID,
+              TestGames.newGame(GameFormat.ELIMINATION, false, false),
+              TestGames.settings(),
+              TestGames.ids("created"),
+              SK,
+              T0,
+              new ThrowingRules());
+      start();
+      Recorded scored = score(Side.AKA, ScoreLevel.IPPON);
+      lines.list.clear();
+
+      GameState folded = state();
+
+      assertThat(scored.raisedWarnings()).isEmpty();
+      assertThat(folded.side(Side.AKA).total()).isEqualTo(3);
+      assertThat(folded.suggested()).isNull();
+      assertThat(folded.warnings())
+          .containsExactly(new GameWarning(Warning.SUGGESTION_UNAVAILABLE, null));
+      assertThat(lines.list)
+          .singleElement()
+          .satisfies(line -> {
+            assertThat(line.getLevel()).isEqualTo(Level.WARN);
+            assertThat(line.getFormattedMessage())
+                .contains(TestGames.GAME_ID, ThrowingRules.class.getName());
+            assertThat(Objects.requireNonNull(line.getThrowableProxy()).getMessage())
+                .isEqualTo("a rule that fails");
+          });
+    }
+
+    /** A result rule with a defect. */
+    private static final class ThrowingRules implements ResultRules {
+
+      @Override
+      public Optional<SuggestedResult> suggest(Standing standing) {
+        throw new IllegalStateException("a rule that fails");
+      }
     }
   }
 

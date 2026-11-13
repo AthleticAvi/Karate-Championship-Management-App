@@ -8,7 +8,8 @@ import java.util.Optional;
  * src/main/java/com/management/kumitegame/rules/README.md}.
  *
  * <p>Asked every time a game is folded, so a read, a recorded result and a correction all see the
- * same answer. It must answer for any standing, never throw: the fold never throws.
+ * same answer. It must answer for any standing. The fold never throws: if this does, the game has
+ * no suggestion and shows a warning.
  */
 @FunctionalInterface
 public interface ResultRules {

@@ -53,6 +53,8 @@ public enum Warning {
   SENSHU_HOLDER_WITHOUT_UNOPPOSED_SCORE,
   /** A medal game in round robin, or an extra game in elimination. */
   FORMAT_COMBINATION,
+  /** The result rules failed on this game, so it has no suggestion. The failure is logged. */
+  SUGGESTION_UNAVAILABLE,
   /** Stored history this build cannot fold as written. The entry is skipped. */
   HISTORY_INCONSISTENT
 }
