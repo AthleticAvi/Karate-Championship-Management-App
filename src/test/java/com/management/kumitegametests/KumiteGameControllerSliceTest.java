@@ -21,6 +21,7 @@ import com.management.athlete.domain.Athlete;
 import com.management.kumitegame.domain.ActingRole;
 import com.management.kumitegame.domain.ActionForbiddenException;
 import com.management.kumitegame.domain.ActionRefusedException;
+import com.management.kumitegame.domain.AmendmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameFormat;
@@ -29,6 +30,7 @@ import com.management.kumitegame.domain.GameRead;
 import com.management.kumitegame.domain.GameStatus;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.domain.KumiteGame;
+import com.management.kumitegame.domain.NewAmendment;
 import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewResult;
@@ -38,6 +40,7 @@ import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.PanelRole;
+import com.management.kumitegame.domain.PauseReason;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
@@ -204,14 +207,58 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         7, Map.of(TestGames.AKA_ATHLETE, 3L), Map.of(TestGames.REFEREE, 2L), fold);
   }
 
-  /** The scorekeeper's view written out, less who recorded each entry and every warning. */
+  /**
+   * The scorekeeper's view written out, less who recorded each entry, every warning and every note.
+   * A note is removed list by list, because a result's {@code reason} is an enum and stays.
+   */
   private static String publicView(String fullView) {
     ObjectNode game = (ObjectNode) JsonMapper.shared().readTree(fullView);
     game.remove("warnings");
     game.findParents("recordedBy").forEach(meta -> ((ObjectNode) meta).remove("recordedBy"));
     game.findParents("raisedWarnings")
         .forEach(meta -> ((ObjectNode) meta).remove("raisedWarnings"));
+    game.findParents("reasonDetail")
+        .forEach(result -> ((ObjectNode) result).remove("reasonDetail"));
+    for (String noted : List.of("senshuRecords", "amendments", "statusChanges")) {
+      game.get(noted).forEach(entry -> ((ObjectNode) entry).remove("reason"));
+    }
     return game.toString();
+  }
+
+  /**
+   * Every note in free text filled in, and the enums a scoreboard shows: paused for an injury,
+   * SENSHU awarded then cancelled, decided by KIKEN and approved, its result still standing.
+   */
+  private static GameRead noted() {
+    KumiteGame game = TestGames.game();
+    game.recordClockAction(
+        new NewClockAction("c1", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+        TestGames.SCOREKEEPER,
+        TestClock.NOW);
+    game.recordClockAction(
+        new NewClockAction(
+            "c2", Timer.MAIN, null, ClockActionKind.PAUSE, 100_000, null, PauseReason.INJURY),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordSenshu(
+        new NewSenshuRecord(
+            "k1", Side.AKA, SenshuRecordKind.AWARDED, "first unopposed score", null, 100_000L),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordAmendment(
+        new NewAmendment("m1", AmendmentKind.CANCEL, "k1", "AO scored in the same exchange"),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordResult(
+        new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, "AO concussed", false),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordStatusChange(
+        new NewStatusChange("z1", StatusChangeKind.APPROVE, "signed off by the Kansa"),
+        ActingRole.SCOREKEEPER,
+        TestGames.SCOREKEEPER,
+        LATER);
+    return new GameRead(game, game.state(), Map.of(), Map.of(), LATER);
   }
 
   /**
@@ -316,10 +363,10 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(content().json(SCORED_GAME, JsonCompareMode.STRICT));
   }
 
-  /** The same game, without who recorded what and without warnings, and still the server's time. */
+  /** The same game, without who recorded what, warnings or notes, and still the server's time. */
   @Test
   @WithAnonymousUser
-  void publicView_returnsTheGame_withNoRecorderAndNoWarnings() throws Exception {
+  void publicView_returnsTheGame_withNoRecorderWarningsOrNotes() throws Exception {
     given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
 
     mockMvc
@@ -331,6 +378,42 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(content().string(not(containsString("raisedWarnings"))))
         .andExpect(content().string(not(containsString("\"warnings\""))))
         .andExpect(jsonPath("$.serverTime").value("2026-01-01T12:00:02Z"));
+  }
+
+  /**
+   * A note can hold a medical detail or why a game was voided, so anyone may follow the game but
+   * not read the notes. The enums stay: a scoreboard shows them.
+   */
+  @Test
+  @WithAnonymousUser
+  void publicView_leavesOutEveryNote_andKeepsTheEnums() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(noted()));
+
+    mockMvc
+        .perform(get(GAME, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.senshuRecords[0].reason").doesNotExist())
+        .andExpect(jsonPath("$.amendments[0].reason").doesNotExist())
+        .andExpect(jsonPath("$.results[0].reasonDetail").doesNotExist())
+        .andExpect(jsonPath("$.currentResult.reasonDetail").doesNotExist())
+        .andExpect(jsonPath("$.statusChanges[0].reason").doesNotExist())
+        .andExpect(jsonPath("$.results[0].reason").value("KIKEN"))
+        .andExpect(jsonPath("$.currentResult.reason").value("KIKEN"))
+        .andExpect(jsonPath("$.clockActions[1].pauseReason").value("INJURY"));
+  }
+
+  @Test
+  void fullView_keepsEveryNote() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(noted()));
+
+    mockMvc
+        .perform(get(FULL_VIEW, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.senshuRecords[0].reason").value("first unopposed score"))
+        .andExpect(jsonPath("$.amendments[0].reason").value("AO scored in the same exchange"))
+        .andExpect(jsonPath("$.results[0].reasonDetail").value("AO concussed"))
+        .andExpect(jsonPath("$.currentResult.reasonDetail").value("AO concussed"))
+        .andExpect(jsonPath("$.statusChanges[0].reason").value("signed off by the Kansa"));
   }
 
   @ParameterizedTest
@@ -406,13 +489,27 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   /** A tag from one view never stands for the other, so a client never keeps the wrong body. */
   @Test
   void tag_differsBetweenTheViews_soOneViewsTagGetsTheOtherInFull() throws Exception {
-    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(scored()));
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(noted()));
     String publicTag = tagFrom(mockMvc.perform(get(GAME, "game-1")));
 
     mockMvc
         .perform(get(FULL_VIEW, "game-1").header(HttpHeaders.IF_NONE_MATCH, publicTag))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.aka.scores[0].meta.recordedBy").value("scorekeeper"));
+        .andExpect(jsonPath("$.results[0].meta.recordedBy").value("scorekeeper"))
+        .andExpect(jsonPath("$.statusChanges[0].reason").value("signed off by the Kansa"));
+  }
+
+  /** The other way round: a client that read the full view never keeps its notes in public. */
+  @Test
+  void tag_fromTheFullView_getsThePublicViewInFull_withNoNotes() throws Exception {
+    given(kumiteGameService().getVersioned("game-1")).willReturn(versioned(noted()));
+    String fullTag = tagFrom(mockMvc.perform(get(FULL_VIEW, "game-1")));
+
+    mockMvc
+        .perform(get(GAME, "game-1").header(HttpHeaders.IF_NONE_MATCH, fullTag))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.statusChanges[0].kind").value("APPROVE"))
+        .andExpect(jsonPath("$.statusChanges[0].reason").doesNotExist());
   }
 
   /** Each version the answer shows is in the tag: one changed version answers the body again. */

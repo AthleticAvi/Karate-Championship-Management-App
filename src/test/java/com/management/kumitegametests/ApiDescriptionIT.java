@@ -29,6 +29,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -435,6 +436,30 @@ class ApiDescriptionIT {
         .containsExactlyInAnyOrderElementsOf(
             namesOf(schema("EntryMetaResponse" + PUBLIC_VIEW).get("required")))
         .doesNotContain("recordedBy", "raisedWarnings");
+  }
+
+  /** A note in free text is described on the full view only. */
+  @ParameterizedTest
+  @CsvSource({
+    "SenshuRecordResponse, reason",
+    "AmendmentResponse, reason",
+    "StatusChangeResponse, reason",
+    "ResultResponse, reasonDetail"
+  })
+  void publicViewSchemas_leaveOutTheNotes(String record, String note) {
+    assertThat(schema(record).get("properties").propertyNames()).contains(note);
+    assertThat(namesOf(schema(record).get("required"))).contains(note);
+    assertThat(schema(record + PUBLIC_VIEW).get("properties").propertyNames()).doesNotContain(note);
+    assertThat(namesOf(schema(record + PUBLIC_VIEW).get("required"))).doesNotContain(note);
+  }
+
+  /** The enums a scoreboard shows stay in the public view. */
+  @Test
+  void publicViewSchemas_keepTheEnums() {
+    assertThat(schema("ResultResponse" + PUBLIC_VIEW).get("properties").propertyNames())
+        .contains("reason");
+    assertThat(schema("ClockActionResponse" + PUBLIC_VIEW).get("properties").propertyNames())
+        .contains("pauseReason");
   }
 
   @Test
