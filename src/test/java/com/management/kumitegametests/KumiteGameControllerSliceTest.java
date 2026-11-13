@@ -33,6 +33,7 @@ import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.NewAmendment;
 import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewGame;
+import com.management.kumitegame.domain.NewPenalty;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
 import com.management.kumitegame.domain.NewSenshuRecord;
@@ -41,6 +42,7 @@ import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.PauseReason;
+import com.management.kumitegame.domain.PenaltyLevel;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.ScoreLevel;
@@ -64,6 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -144,6 +147,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "senshu": true,
           "medicalClock": {"running": false, "remainingMs": 180000},
           "total": 2, "ipponCount": 0, "wazaAriCount": 1, "chuiCount": 0, "hansokuChuiCount": 0,
+          "hansokuCount": 0, "shikkakuCount": 0, "disqualified": false,
           "effectiveScore": {"total": 2, "ipponCount": 0, "wazaAriCount": 1, "addedPoints": 0},
           "scores": [{
             "level": "WAZA_ARI", "source": "JUDGES", "exchange": 1, "clockRemainingMs": 118000,
@@ -159,6 +163,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "senshu": false,
           "medicalClock": {"running": false, "remainingMs": 180000},
           "total": 0, "ipponCount": 0, "wazaAriCount": 0, "chuiCount": 0, "hansokuChuiCount": 0,
+          "hansokuCount": 0, "shikkakuCount": 0, "disqualified": false,
           "effectiveScore": {"total": 0, "ipponCount": 0, "wazaAriCount": 0, "addedPoints": 0},
           "scores": [], "penalties": []
         },
@@ -510,6 +515,41 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.statusChanges[0].kind").value("APPROVE"))
         .andExpect(jsonPath("$.statusChanges[0].reason").doesNotExist());
+  }
+
+  /**
+   * A standing HANSOKU or SHIKKAKU disqualifies its side, in both views, so a display screen shows
+   * it without replaying the penalties. AO's stands; AKA's was cancelled, so AKA is not out.
+   */
+  @ParameterizedTest
+  @CsvSource({
+    "HANSOKU, " + GAME + ", 1, 0",
+    "HANSOKU, " + FULL_VIEW + ", 1, 0",
+    "SHIKKAKU, " + GAME + ", 0, 1",
+    "SHIKKAKU, " + FULL_VIEW + ", 0, 1"
+  })
+  void side_isDisqualified_whileItsHansokuOrShikkakuStands_inBothViews(
+      PenaltyLevel level, String view, int hansokuCount, int shikkakuCount) throws Exception {
+    KumiteGame game = TestGames.game();
+    game.recordPenalty(
+        new NewPenalty("p1", Side.AO, level, null, null, null), TestGames.SCOREKEEPER, LATER);
+    game.recordPenalty(
+        new NewPenalty("p2", Side.AKA, level, null, null, null), TestGames.SCOREKEEPER, LATER);
+    game.recordAmendment(
+        new NewAmendment("m1", AmendmentKind.CANCEL, "p2", null), TestGames.SCOREKEEPER, LATER);
+    given(kumiteGameService().getVersioned("game-1"))
+        .willReturn(versioned(new GameRead(game, game.state(), Map.of(), Map.of(), LATER)));
+
+    mockMvc
+        .perform(get(view, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ao.disqualified").value(true))
+        .andExpect(jsonPath("$.ao.hansokuCount").value(hansokuCount))
+        .andExpect(jsonPath("$.ao.shikkakuCount").value(shikkakuCount))
+        .andExpect(jsonPath("$.aka.penalties[0].cancelled").value(true))
+        .andExpect(jsonPath("$.aka.disqualified").value(false))
+        .andExpect(jsonPath("$.aka.hansokuCount").value(0))
+        .andExpect(jsonPath("$.aka.shikkakuCount").value(0));
   }
 
   /** Each version the answer shows is in the tag: one changed version answers the body again. */

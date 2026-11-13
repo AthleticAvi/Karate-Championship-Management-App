@@ -94,6 +94,9 @@ public record KumiteGameResponse(
    * @param colour how the side is shown, from configuration
    * @param athlete the latest athlete put on this side; empty only in history that names none
    * @param senshu whether this side holds SENSHU; never both sides
+   * @param hansokuCount the HANSOKU standing against this side: not cancelled
+   * @param shikkakuCount the SHIKKAKU standing against this side: not cancelled
+   * @param disqualified a HANSOKU or SHIKKAKU stands against this side
    * @param effectiveScore the score the format counts: in round robin after HANSOKU, KIKEN or
    *     SHIKKAKU, not what was scored. Otherwise what was scored
    */
@@ -107,6 +110,9 @@ public record KumiteGameResponse(
       int wazaAriCount,
       int chuiCount,
       int hansokuChuiCount,
+      int hansokuCount,
+      int shikkakuCount,
+      boolean disqualified,
       EffectiveScoreResponse effectiveScore,
       List<ScoreResponse> scores,
       List<PenaltyResponse> penalties) {}

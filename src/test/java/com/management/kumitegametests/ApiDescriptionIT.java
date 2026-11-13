@@ -398,7 +398,10 @@ class ApiDescriptionIT {
     assertThat(summary.get("currentResult").isNull()).isTrue();
   }
 
-  /** The public view's schema is the game less the recorder and the warnings, as really sent. */
+  /**
+   * The public view's schema is the game less the recorder and the warnings, as really sent, and a
+   * side keeps its disqualification.
+   */
   @Test
   void publicViewSchema_describesRealPublicAnswers() throws Exception {
     String aka = JsonMapper.shared().readTree(createAthlete().body()).get("id").asString();
@@ -436,6 +439,10 @@ class ApiDescriptionIT {
         .containsExactlyInAnyOrderElementsOf(
             namesOf(schema("EntryMetaResponse" + PUBLIC_VIEW).get("required")))
         .doesNotContain("recordedBy", "raisedWarnings");
+    assertThat(fieldsOf(game.get("aka").toString()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("SideResponse" + PUBLIC_VIEW).get("required")))
+        .contains("hansokuCount", "shikkakuCount", "disqualified");
   }
 
   /** A note in free text is described on the full view only. */
@@ -485,7 +492,8 @@ class ApiDescriptionIT {
     assertThat(fieldsOf(game.toString()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("KumiteGameResponse").get("required")));
     assertThat(fieldsOf(game.get("aka").toString()))
-        .containsExactlyInAnyOrderElementsOf(namesOf(schema("SideResponse").get("required")));
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("SideResponse").get("required")))
+        .contains("hansokuCount", "shikkakuCount", "disqualified");
     assertThat(fieldsOf(game.get("assignments").get(0).get("meta").toString()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("EntryMetaResponse").get("required")));
     assertThat(game.get("currentResult").isNull()).isTrue();

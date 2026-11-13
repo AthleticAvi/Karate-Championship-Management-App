@@ -82,7 +82,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, `warnings`, and every note in free text. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, `warnings`, and every note in free text. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. Each side carries `senshu`, true for the holder, `hansokuCount`, `shikkakuCount` and `disqualified`, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `PagedModel` of `KumiteGameSummaryResponse` | `GET /api/v1/kumite-games` | `content`, the summaries, and `page`. A summary is `id`, `status`, `aka` and `ao`, each `colour` and `athlete`, and `currentResult`: `outcome`, `winner`, `reason`, `bothDisqualified`. See `[lists]` |
 | `PagedModel` of `AthleteResponse`, of `RefereeResponse` | `GET /api/v1/athletes`, `GET /api/v1/referees` | `content` and `page`: see `[lists]` |
@@ -147,6 +147,11 @@ between this contract and a silent shift under a dependency upgrade.
   score, penalty or SENSHU record also says whether it was `cancelled`.
 - **SENSHU is `senshu` on each side and `senshuClosed` on the game,** derived on every read. Both
   sides are never true.
+- **A disqualification is `hansokuCount`, `shikkakuCount` and `disqualified` on each side,** derived
+  on every read and never stored, in both views. The counts are the penalties standing after
+  CANCELs, and `disqualified` is true while either is above zero, so a screen never replays the
+  penalties. They come from penalties only: a result by SHIKKAKU recorded with no penalty entry, or
+  a result's `bothDisqualified`, leaves them as they are.
 - **Enums serialise as their names**, uppercase, exactly as declared. An absent value is `null`.
 
 ## [mutations] Mutations return the new state
