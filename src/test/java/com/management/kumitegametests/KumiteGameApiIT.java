@@ -21,6 +21,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.bson.Document;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -252,8 +254,10 @@ class KumiteGameApiIT extends IntegrationTestBase {
                      "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1}, "leadToWin": 8,
                      "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
                      "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000],
-                     "medicalTimeMs": 180000, "timeShownToleranceMs": 1000}
-                    """),
+                     "medicalTimeMs": 180000, "timeShownToleranceMs": 1000,
+                     "expectedVersion": %d}
+                    """
+                        .formatted(version(gameId))),
                 String.class);
 
     assertThat(changed.getStatusCode().value()).isEqualTo(409);
@@ -402,8 +406,9 @@ class KumiteGameApiIT extends IntegrationTestBase {
             "results",
             """
             {"id": "r1", "outcome": "WIN", "winner": "AO", "reason": "HANTEI",
-             "bothDisqualified": false}
-            """);
+             "bothDisqualified": false, "expectedVersion": %d}
+            """
+                .formatted(version(gameId)));
 
     assertThat(status(recorded)).isEqualTo(200);
     assertThat(body(recorded).get("raisedWarnings").get(0).asString())
@@ -413,21 +418,31 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(stored(gameId)).doesNotContainKey("suggestedResult");
   }
 
-  private static String statusChange(String id, String kind, @Nullable String reason) {
+  /** A status change chosen against the game as it now stands. */
+  private String statusChange(String gameId, String id, String kind, @Nullable String reason) {
+    long version = version(gameId);
     return reason == null
-        ? "{\"id\": \"%s\", \"kind\": \"%s\"}".formatted(id, kind)
-        : "{\"id\": \"%s\", \"kind\": \"%s\", \"reason\": \"%s\"}".formatted(id, kind, reason);
+        ? "{\"id\": \"%s\", \"kind\": \"%s\", \"expectedVersion\": %d}".formatted(id, kind, version)
+        : "{\"id\": \"%s\", \"kind\": \"%s\", \"reason\": \"%s\", \"expectedVersion\": %d}"
+            .formatted(id, kind, reason, version);
+  }
+
+  /** The version the full view shows now: what a screen that just read the game would send. */
+  private long version(String gameId) {
+    return body(read(gameId)).get("version").asLong();
   }
 
   private static int status(ResponseEntity<String> response) {
     return response.getStatusCode().value();
   }
 
-  private static String kiken(String id) {
+  /** A KIKEN result chosen against {@code version}. */
+  private static String kiken(String id, long version) {
     return """
-    {"id": "%s", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN", "bothDisqualified": false}
+    {"id": "%s", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN", "bothDisqualified": false,
+     "expectedVersion": %d}
     """
-        .formatted(id);
+        .formatted(id, version);
   }
 
   /** The ids a list answers, in its order. Read with no credentials: anyone may list games. */
@@ -466,7 +481,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
         {"id": "c1", "timer": "MAIN", "action": "START", "timeShownMs": 120000}
         """);
     String decided = create();
-    post(asScorekeeper(), decided, "results", kiken("r1"));
+    post(asScorekeeper(), decided, "results", kiken("r1", version(decided)));
     List<String> newestFirst =
         games.findAll().stream()
             .sorted(
@@ -519,8 +534,10 @@ class KumiteGameApiIT extends IntegrationTestBase {
         "results",
         """
         {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN",
-         "reasonDetail": "AO could not go on", "bothDisqualified": false}
-        """);
+         "reasonDetail": "AO could not go on", "bothDisqualified": false,
+         "expectedVersion": %d}
+        """
+            .formatted(version(gameId)));
 
     ResponseEntity<String> answer = anonymous.getForEntity(GAMES, String.class);
     JsonNode summary = body(answer).get("content").get(0);
@@ -557,19 +574,20 @@ class KumiteGameApiIT extends IntegrationTestBase {
   @Test
   void approveReopenAndVoid_followTheStatusTable_andTheRoles() {
     String gameId = create();
-    post(asScorekeeper(), gameId, "results", kiken("r1"));
+    post(asScorekeeper(), gameId, "results", kiken("r1", version(gameId)));
 
     ResponseEntity<String> reopened =
-        post(asScorekeeper(), gameId, "status-changes", statusChange("z1", "REOPEN", null));
+        post(asScorekeeper(), gameId, "status-changes", statusChange(gameId, "z1", "REOPEN", null));
     assertThat(status(reopened)).isEqualTo(200);
     JsonNode game = body(reopened).get("game");
     assertThat(game.get("status").asString()).isEqualTo("NOT_STARTED");
     assertThat(game.get("currentResult").isNull()).isTrue();
     assertThat(game.get("results")).hasSize(1);
 
-    post(asScorekeeper(), gameId, "results", kiken("r2"));
+    post(asScorekeeper(), gameId, "results", kiken("r2", version(gameId)));
     ResponseEntity<String> approved =
-        post(asScorekeeper(), gameId, "status-changes", statusChange("z2", "APPROVE", null));
+        post(
+            asScorekeeper(), gameId, "status-changes", statusChange(gameId, "z2", "APPROVE", null));
     assertThat(body(approved).get("game").get("status").asString()).isEqualTo("APPROVED");
     assertThat(status(post(asScorekeeper(), gameId, "scores", score("s1", "AKA"))))
         .as("nothing is recorded on an APPROVED game")
@@ -581,31 +599,52 @@ class KumiteGameApiIT extends IntegrationTestBase {
                     asScorekeeper(),
                     gameId,
                     "status-changes",
-                    statusChange("z3", "REOPEN", "protest"))))
+                    statusChange(gameId, "z3", "REOPEN", "protest"))))
         .as("a Scorekeeper cannot reopen an APPROVED game")
         .isEqualTo(403);
     assertThat(
-            status(post(asAdmin(), gameId, "status-changes", statusChange("z4", "REOPEN", null))))
+            status(
+                post(
+                    asAdmin(),
+                    gameId,
+                    "status-changes",
+                    statusChange(gameId, "z4", "REOPEN", null))))
         .as("an Admin's reopen needs a reason")
         .isEqualTo(400);
     ResponseEntity<String> adminReopened =
-        post(asAdmin(), gameId, "status-changes", statusChange("z5", "REOPEN", "SHIKKAKU"));
+        post(asAdmin(), gameId, "status-changes", statusChange(gameId, "z5", "REOPEN", "SHIKKAKU"));
     assertThat(body(adminReopened).get("game").get("status").asString()).isEqualTo("DECIDED");
 
     assertThat(
             status(
-                post(asScorekeeper(), gameId, "status-changes", statusChange("z6", "VOID", "x"))))
+                post(
+                    asScorekeeper(),
+                    gameId,
+                    "status-changes",
+                    statusChange(gameId, "z6", "VOID", "x"))))
         .as("a Scorekeeper cannot void")
         .isEqualTo(403);
-    assertThat(status(post(asAdmin(), gameId, "status-changes", statusChange("z7", "VOID", null))))
+    assertThat(
+            status(
+                post(
+                    asAdmin(), gameId, "status-changes", statusChange(gameId, "z7", "VOID", null))))
         .as("a void needs a reason")
         .isEqualTo(400);
     ResponseEntity<String> voided =
-        post(asAdmin(), gameId, "status-changes", statusChange("z8", "VOID", "protest accepted"));
+        post(
+            asAdmin(),
+            gameId,
+            "status-changes",
+            statusChange(gameId, "z8", "VOID", "protest accepted"));
     assertThat(status(voided)).isEqualTo(200);
     assertThat(body(voided).get("game").get("status").asString()).isEqualTo("VOIDED");
     assertThat(
-            status(post(asAdmin(), gameId, "status-changes", statusChange("z9", "VOID", "again"))))
+            status(
+                post(
+                    asAdmin(),
+                    gameId,
+                    "status-changes",
+                    statusChange(gameId, "z9", "VOID", "again"))))
         .isEqualTo(409);
 
     Document stored = stored(gameId);
@@ -655,8 +694,10 @@ class KumiteGameApiIT extends IntegrationTestBase {
         "results",
         """
         {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "KIKEN",
-         "reasonDetail": "AO could not go on", "bothDisqualified": false}
-        """);
+         "reasonDetail": "AO could not go on", "bothDisqualified": false,
+         "expectedVersion": %d}
+        """
+            .formatted(version(gameId)));
 
     ResponseEntity<String> answer = readPublic(gameId, null);
     ResponseEntity<String> fullView =
@@ -751,5 +792,185 @@ class KumiteGameApiIT extends IntegrationTestBase {
 
     assertThat(unchanged.getStatusCode().value()).isEqualTo(304);
     assertThat(unchanged.getBody()).isNull();
+  }
+
+  /**
+   * Sends an absolute action chosen against a version another write has since moved past, then the
+   * same action against the version now stored. The stale one answers 409 with the game as it now
+   * stands and writes nothing; the current one applies.
+   *
+   * @param shown what the action changes, read from a game
+   */
+  private void sendStaleThenCurrent(
+      TestRestTemplate as,
+      HttpMethod method,
+      String resource,
+      LongFunction<String> body,
+      Function<JsonNode, String> shown) {
+    String gameId = create();
+    long stale = version(gameId);
+    post(
+        asScorekeeper(),
+        gameId,
+        "penalties",
+        "{\"id\": \"p1\", \"side\": \"AO\", \"level\": \"CHUI\"}");
+    long current = version(gameId);
+    String before = shown.apply(body(read(gameId)));
+
+    ResponseEntity<String> refused =
+        as.exchange(
+            GAMES + "/" + gameId + "/" + resource, method, json(body.apply(stale)), String.class);
+    ResponseEntity<String> applied =
+        as.exchange(
+            GAMES + "/" + gameId + "/" + resource, method, json(body.apply(current)), String.class);
+
+    assertThat(current).as("the penalty moved the game on").isGreaterThan(stale);
+    assertThat(status(refused)).isEqualTo(409);
+    JsonNode answered = body(refused).get("current");
+    assertThat(answered.get("version").asLong()).isEqualTo(current);
+    assertThat(shown.apply(answered)).as("the stale action wrote nothing").isEqualTo(before);
+    assertThat(status(applied)).isEqualTo(200);
+    JsonNode game = body(applied).get("game");
+    assertThat(game.get("version").asLong()).isEqualTo(current + 1);
+    assertThat(shown.apply(game)).isNotEqualTo(before);
+  }
+
+  @Test
+  void settingsChange_withStaleVersion_isConflict_withCurrentVersion_applies() {
+    sendStaleThenCurrent(
+        asScorekeeper(),
+        HttpMethod.PUT,
+        "settings",
+        version ->
+            """
+            {"durationMs": 90000, "durationsOfferedMs": [90000],
+             "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1}, "leadToWin": 8,
+             "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
+             "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000],
+             "medicalTimeMs": 180000, "timeShownToleranceMs": 1000, "expectedVersion": %d}
+            """
+                .formatted(version),
+        game -> game.get("settings").get("durationMs").asString());
+  }
+
+  @Test
+  void setTime_withStaleVersion_isConflict_withCurrentVersion_applies() {
+    sendStaleThenCurrent(
+        asScorekeeper(),
+        HttpMethod.POST,
+        "clock-actions",
+        version ->
+            """
+            {"id": "c1", "timer": "MAIN", "action": "SET_TIME", "timeShownMs": 120000,
+             "amountMs": 60000, "expectedVersion": %d}
+            """
+                .formatted(version),
+        game -> game.get("clockActions").toString());
+  }
+
+  @Test
+  void result_withStaleVersion_isConflict_withCurrentVersion_applies() {
+    sendStaleThenCurrent(
+        asScorekeeper(),
+        HttpMethod.POST,
+        "results",
+        version -> kiken("r1", version),
+        game -> game.get("results").toString());
+  }
+
+  @Test
+  void statusChange_withStaleVersion_isConflict_withCurrentVersion_applies() {
+    sendStaleThenCurrent(
+        asAdmin(),
+        HttpMethod.POST,
+        "status-changes",
+        version ->
+            "{\"id\": \"v1\", \"kind\": \"VOID\", \"reason\": \"protest\", \"expectedVersion\": %d}"
+                .formatted(version),
+        game -> game.get("status").asString());
+  }
+
+  /**
+   * The first attempt landed, so the retry's version is now stale: it still answers as a retry,
+   * with the warnings stored with the first and nothing written.
+   */
+  @Test
+  void retriedResult_whoseFirstAttemptLanded_answersAsRetry() {
+    String gameId = create();
+    long read = version(gameId);
+    ResponseEntity<String> first = post(asScorekeeper(), gameId, "results", kiken("r1", read));
+
+    ResponseEntity<String> retry = post(asScorekeeper(), gameId, "results", kiken("r1", read));
+
+    assertThat(status(retry)).isEqualTo(200);
+    assertThat(body(retry).get("raisedWarnings")).isEqualTo(body(first).get("raisedWarnings"));
+    assertThat(body(retry).get("game").get("version").asLong()).isEqualTo(read + 1);
+    assertThat(stored(gameId).getList("results", Document.class)).hasSize(1);
+  }
+
+  @Test
+  void setTimeWithoutVersion_andStartWithOne_areBadRequests() {
+    String gameId = create();
+    long current = version(gameId);
+
+    ResponseEntity<String> setTime =
+        post(
+            asScorekeeper(),
+            gameId,
+            "clock-actions",
+            """
+            {"id": "c1", "timer": "MAIN", "action": "SET_TIME", "timeShownMs": 120000,
+             "amountMs": 60000}
+            """);
+    ResponseEntity<String> start =
+        post(
+            asScorekeeper(),
+            gameId,
+            "clock-actions",
+            """
+            {"id": "c2", "timer": "MAIN", "action": "START", "timeShownMs": 120000,
+             "expectedVersion": %d}
+            """
+                .formatted(current));
+
+    assertThat(status(setTime)).isEqualTo(400);
+    assertThat(body(setTime).get("detail").asString()).contains("expectedVersion");
+    assertThat(status(start)).isEqualTo(400);
+    assertThat(stored(gameId).getLong("version")).isEqualTo(current);
+  }
+
+  /** Appends carry no version, so a screen that is behind still records them. */
+  @Test
+  void appends_sentWithNoVersion_landAfterTheGameMovedOn() {
+    String gameId = create();
+    post(
+        asScorekeeper(),
+        gameId,
+        "penalties",
+        "{\"id\": \"p1\", \"side\": \"AO\", \"level\": \"CHUI\"}");
+
+    ResponseEntity<String> started =
+        post(
+            asScorekeeper(),
+            gameId,
+            "clock-actions",
+            """
+            {"id": "c1", "timer": "MAIN", "action": "START", "timeShownMs": 120000}
+            """);
+    ResponseEntity<String> scored = post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+
+    assertThat(status(started)).isEqualTo(200);
+    assertThat(status(scored)).isEqualTo(200);
+    assertThat(body(read(gameId)).get("aka").get("scores")).hasSize(1);
+  }
+
+  @Test
+  void bothViews_carryTheStoredVersion() {
+    String gameId = create();
+    post(asScorekeeper(), gameId, "scores", score("s1", "AKA"));
+    long stored = stored(gameId).getLong("version");
+
+    assertThat(body(read(gameId)).get("version").asLong()).isEqualTo(stored);
+    assertThat(body(readPublic(gameId, null)).get("version").asLong()).isEqualTo(stored);
   }
 }

@@ -8,6 +8,7 @@ import com.management.kumitegame.domain.KumiteGame;
 import com.management.kumitegame.domain.Recorded;
 import com.management.kumitegame.domain.ResultRules;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Service;
  * bounded, with Spring Framework's own {@code @Retryable}. Appending is relative, so applying it to
  * the newer game is what the caller meant. A retry that finds its entry id already on record
  * applies nothing, which is what makes retrying safe. <strong>An absolute action is not
- * retried</strong>: the lost race goes back to the caller.
+ * retried</strong>, and is checked against the version the caller read: a stale one, or a race lost
+ * inside the request, goes back to the caller.
  *
  * <p><strong>A separate bean, not a private method.</strong> {@code @Retryable} is applied by a
  * proxy, so a service calling its own annotated method would bypass it.
@@ -38,8 +40,8 @@ public class KumiteGameWriter {
     this.rules = rules;
   }
 
-  /** The game after the action, and what the action did. */
-  public record Applied(KumiteGame game, Recorded recorded) {}
+  /** The game after the action, the stored version it now stands at, and what the action did. */
+  public record Applied(KumiteGame game, long version, Recorded recorded) {}
 
   @Retryable(
       includes = OptimisticLockingFailureException.class,
@@ -49,14 +51,30 @@ public class KumiteGameWriter {
       multiplier = 1.5,
       maxDelay = 200)
   public Applied append(String gameId, Function<KumiteGame, Recorded> action) {
-    return applyOnce(gameId, action);
+    return attempt(gameId, null, action);
   }
 
   /**
-   * One attempt. A lost race raises {@link OptimisticLockingFailureException}. A retried entry
-   * already on record writes nothing.
+   * One attempt at an absolute action, made against {@code expectedVersion}, the version the caller
+   * read. A stored game at any other version, or a race lost inside the request, raises {@link
+   * OptimisticLockingFailureException} and writes nothing.
+   *
+   * <p>A retry of an action already on record answers as an append's does, whatever the version:
+   * its first attempt is what moved the game on.
    */
-  public Applied applyOnce(String gameId, Function<KumiteGame, Recorded> action) {
+  public Applied applyAt(
+      String gameId, long expectedVersion, Function<KumiteGame, Recorded> action) {
+    return attempt(gameId, expectedVersion, action);
+  }
+
+  /**
+   * One attempt. The action goes first, so a retried entry already on record writes nothing and
+   * answers, before the version is compared.
+   *
+   * @param expectedVersion the version an absolute action was chosen against; none for an append
+   */
+  private Applied attempt(
+      String gameId, @Nullable Long expectedVersion, Function<KumiteGame, Recorded> action) {
     KumiteGameDocument stored =
         kumiteGameRepository
             .findById(gameId)
@@ -64,10 +82,15 @@ public class KumiteGameWriter {
     KumiteGame game = KumiteGameDocumentMapper.toDomain(stored, rules);
     Recorded recorded = action.apply(game);
     if (recorded.replayed()) {
-      return new Applied(game, recorded);
+      return new Applied(game, stored.getVersion(), recorded);
+    }
+    if (expectedVersion != null && expectedVersion != stored.getVersion()) {
+      throw new OptimisticLockingFailureException(
+          "Game " + gameId + " is at version " + stored.getVersion() + ", not " + expectedVersion);
     }
     KumiteGameDocument saved =
         kumiteGameRepository.save(KumiteGameDocumentMapper.toDocument(game, stored));
-    return new Applied(KumiteGameDocumentMapper.toDomain(saved, rules), recorded);
+    return new Applied(
+        KumiteGameDocumentMapper.toDomain(saved, rules), saved.getVersion(), recorded);
   }
 }

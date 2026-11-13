@@ -1,6 +1,7 @@
 package com.management.kumitegame.web;
 
 import com.management.kumitegame.domain.StatusChangeKind;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -11,8 +12,15 @@ import org.jspecify.annotations.Nullable;
  *
  * @param id made by the client, one per action, and sent again on a retry of that action
  * @param reason required to reopen an APPROVED game and to void one, both an Admin's moves
+ * @param expectedVersion the game's {@code version} the move was chosen against
  */
 public record StatusChangeRequest(
     @NotBlank @Size(max = 64) String id,
     @NotNull StatusChangeKind kind,
-    @Nullable @Size(max = 500) String reason) {}
+    @Nullable @Size(max = 500) String reason,
+    @Schema(
+            description =
+                "The game's version the screen showed. A stale one answers 409 with the game as it"
+                    + " now stands")
+        @NotNull
+        Long expectedVersion) {}

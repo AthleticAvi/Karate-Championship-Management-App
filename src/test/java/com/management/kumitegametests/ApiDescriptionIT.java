@@ -139,16 +139,16 @@ class ApiDescriptionIT {
     assertThat(statusesOf(operation("post", GAME + "/senshu-records")))
         .containsExactly("200", "400", "401", "404", "409", "413", "415", "500");
     assertThat(response("put", GAME + "/settings", "409").get("description").asString())
-        .contains("current");
+        .contains("current", "expectedVersion");
     assertThat(response("post", GAME + "/clock-actions", "409").get("description").asString())
-        .contains("current");
+        .contains("current", "expectedVersion");
     assertThat(response("post", GAME + "/results", "409").get("description").asString())
-        .contains("current");
+        .contains("current", "expectedVersion");
     assertThat(statusesOf(operation("post", GAME + "/status-changes")))
         .as("a Scorekeeper row that states the 403 the game answers for an Admin's move")
         .containsExactly("200", "400", "401", "403", "404", "409", "413", "415", "500");
     assertThat(response("post", GAME + "/status-changes", "409").get("description").asString())
-        .contains("current");
+        .contains("current", "expectedVersion");
     assertThat(statusesOf(operation("get", REFEREE))).containsExactly("200", "401", "404", "500");
     assertThat(statusesOf(operation("put", REFEREE)))
         .containsExactly("200", "400", "401", "403", "404", "409", "413", "415", "500");
@@ -497,6 +497,25 @@ class ApiDescriptionIT {
     assertThat(fieldsOf(game.get("assignments").get(0).get("meta").toString()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("EntryMetaResponse").get("required")));
     assertThat(game.get("currentResult").isNull()).isTrue();
+  }
+
+  /** An absolute action needs the version it was chosen against; an append takes none. */
+  @Test
+  void absoluteActions_requireTheVersionTheyWereChosenAgainst() {
+    for (String request : List.of("SettingsRequest", "ResultRequest", "StatusChangeRequest")) {
+      assertThat(namesOf(schema(request).get("required"))).contains("expectedVersion");
+      assertThat(
+              schema(request)
+                  .get("properties")
+                  .get("expectedVersion")
+                  .get("description")
+                  .asString())
+          .contains("409");
+    }
+    JsonNode clockAction = schema("ClockActionRequest");
+    assertThat(namesOf(clockAction.get("required"))).doesNotContain("expectedVersion");
+    assertThat(clockAction.get("properties").get("expectedVersion").get("description").asString())
+        .contains("SET_TIME");
   }
 
   @Test

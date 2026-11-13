@@ -12,8 +12,9 @@ import java.util.function.Supplier;
  * <p><strong>The fold waits for {@link #read()}.</strong> The records are already read, so a caller
  * that only needs the versions, such as one answering 304, never folds the history.
  *
- * <p>The versions stay out of the domain types: see {@code [pattern]} in {@code
- * src/main/java/com/management/referee/README.md}.
+ * <p>The athlete and referee versions stay out of their domain types: see {@code [pattern]} in
+ * {@code src/main/java/com/management/referee/README.md}. The game's is here as well as on the
+ * read, because a 304 needs it without folding.
  *
  * @param athleteVersions by athlete id; one deleted in the accepted race is absent
  * @param refereeVersions by referee id; one deleted in the accepted race is absent

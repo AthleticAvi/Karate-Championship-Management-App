@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -12,6 +13,7 @@ import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -73,6 +75,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -94,6 +97,9 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   private static final String GAME = GAMES + "/{gameId}";
   private static final String FULL_VIEW = GAME + "/full-view";
   private static final Instant LATER = TestClock.NOW.plusSeconds(2);
+
+  /** The stored version every game here is read at. */
+  private static final long VERSION = 7;
 
   @Autowired private MockMvc mockMvc;
 
@@ -117,6 +123,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         LATER);
     return new GameRead(
         game,
+        VERSION,
         game.state(),
         Map.of(TestGames.AKA_ATHLETE, new Athlete(TestGames.AKA_ATHLETE, "Kenji", 61.5)),
         Map.of(TestGames.REFEREE, new Referee(TestGames.REFEREE, "Sato")),
@@ -131,7 +138,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   private static final String SCORED_GAME =
       """
       {
-        "id": "game-1", "format": "ELIMINATION", "medalGame": false, "extraGame": false,
+        "id": "game-1", "version": 7, "format": "ELIMINATION", "medalGame": false,
+        "extraGame": false,
         "settings": {
           "durationMs": 120000, "durationsOfferedMs": [90000, 120000, 180000],
           "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1},
@@ -263,7 +271,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         ActingRole.SCOREKEEPER,
         TestGames.SCOREKEEPER,
         LATER);
-    return new GameRead(game, game.state(), Map.of(), Map.of(), LATER);
+    return new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER);
   }
 
   /**
@@ -277,6 +285,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         LATER);
     return new GameRead(
         game,
+        VERSION,
         game.state(),
         Map.of(TestGames.AKA_ATHLETE, new Athlete(TestGames.AKA_ATHLETE, "Kenji", 61.5)),
         Map.of(TestGames.REFEREE, new Referee(TestGames.REFEREE, "Sato")),
@@ -538,7 +547,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     game.recordAmendment(
         new NewAmendment("m1", AmendmentKind.CANCEL, "p2", null), TestGames.SCOREKEEPER, LATER);
     given(kumiteGameService().getVersioned("game-1"))
-        .willReturn(versioned(new GameRead(game, game.state(), Map.of(), Map.of(), LATER)));
+        .willReturn(
+            versioned(new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER)));
 
     mockMvc
         .perform(get(view, "game-1"))
@@ -565,7 +575,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         TestGames.SCOREKEEPER,
         LATER);
     given(kumiteGameService().getVersioned("game-1"))
-        .willReturn(versioned(new GameRead(game, game.state(), Map.of(), Map.of(), LATER)));
+        .willReturn(
+            versioned(new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER)));
 
     mockMvc
         .perform(get(GAME, "game-1"))
@@ -611,7 +622,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         TestGames.SCOREKEEPER,
         LATER);
     given(kumiteGameService().getVersioned("game-1"))
-        .willReturn(versioned(new GameRead(game, game.state(), Map.of(), Map.of(), LATER)));
+        .willReturn(
+            versioned(new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER)));
 
     Map<String, Object> points =
         Map.of("outcome", "WIN", "winner", "AKA", "reason", "POINTS", "bothDisqualified", false);
@@ -719,7 +731,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   void result_takesTheRecorderFromTheAccount() throws Exception {
     NewResult expected =
         new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.HANTEI, null, false);
-    given(kumiteGameService().recordResult("game-1", expected, "kenta"))
+    given(kumiteGameService().recordResult("game-1", expected, VERSION, "kenta"))
         .willReturn(new Recording(scored(), List.of()));
 
     mockMvc
@@ -729,11 +741,12 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .content(
                     """
                     {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "HANTEI",
-                     "bothDisqualified": false, "recordedBy": "someone-else"}
+                     "bothDisqualified": false, "recordedBy": "someone-else",
+                     "expectedVersion": 7}
                     """))
         .andExpect(status().isOk());
 
-    then(kumiteGameService()).should().recordResult("game-1", expected, "kenta");
+    then(kumiteGameService()).should().recordResult("game-1", expected, VERSION, "kenta");
   }
 
   @Test
@@ -762,7 +775,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                      "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1}, "leadToWin": 8,
                      "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
                      "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000],
-                     "medicalTimeMs": 180000, "timeShownToleranceMs": 1000}
+                     "medicalTimeMs": 180000, "timeShownToleranceMs": 1000,
+                     "expectedVersion": 7}
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.errors.durationMs").exists());
@@ -790,7 +804,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   /** The current game travels in the problem detail, so the caller needs no second read. */
   @Test
   void absoluteActionThatLost_isConflict_withTheCurrentGame() throws Exception {
-    given(kumiteGameService().recordResult(eq("game-1"), any(), anyString()))
+    given(kumiteGameService().recordResult(eq("game-1"), any(), anyLong(), anyString()))
         .willThrow(
             new GameChangedException(scored(), new OptimisticLockingFailureException("lost")));
 
@@ -801,18 +815,19 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .content(
                     """
                     {"id": "r1", "outcome": "DRAW", "reason": "HIKIWAKE",
-                     "bothDisqualified": false}
+                     "bothDisqualified": false, "expectedVersion": 6}
                     """))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.title").value("Concurrent update"))
         .andExpect(jsonPath("$.current.id").value("game-1"))
+        .andExpect(jsonPath("$.current.version").value(VERSION))
         .andExpect(jsonPath("$.current.aka.colour").value("red"))
         .andExpect(jsonPath("$.current.aka.total").value(2));
   }
 
   @Test
   void invalidCombination_isBadRequest_withTheReason() throws Exception {
-    given(kumiteGameService().recordResult(eq("game-1"), any(), anyString()))
+    given(kumiteGameService().recordResult(eq("game-1"), any(), anyLong(), anyString()))
         .willThrow(new InvalidGameRequestException("A WIN names a winner."));
 
     mockMvc
@@ -821,7 +836,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    {"id": "r1", "outcome": "WIN", "reason": "POINTS", "bothDisqualified": false}
+                    {"id": "r1", "outcome": "WIN", "reason": "POINTS", "bothDisqualified": false,
+                     "expectedVersion": 7}
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.detail").value("A WIN names a winner."));
@@ -835,7 +851,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         ActingRole.ADMIN,
         "aiko",
         LATER);
-    return new Recording(new GameRead(game, game.state(), Map.of(), Map.of(), LATER), List.of());
+    return new Recording(
+        new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER), List.of());
   }
 
   @Test
@@ -843,14 +860,14 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     NewStatusChange expected = new NewStatusChange("z1", StatusChangeKind.APPROVE, null);
     given(
             kumiteGameService()
-                .recordStatusChange("game-1", expected, ActingRole.SCOREKEEPER, "kenta"))
+                .recordStatusChange("game-1", expected, VERSION, ActingRole.SCOREKEEPER, "kenta"))
         .willReturn(voided());
 
     mockMvc
         .perform(
             post(GAME + "/status-changes", "game-1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"id\": \"z1\", \"kind\": \"APPROVE\"}"))
+                .content("{\"id\": \"z1\", \"kind\": \"APPROVE\", \"expectedVersion\": 7}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.game.status").value("VOIDED"))
         .andExpect(jsonPath("$.game.currentResult").isEmpty())
@@ -868,7 +885,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
 
     then(kumiteGameService())
         .should()
-        .recordStatusChange("game-1", expected, ActingRole.SCOREKEEPER, "kenta");
+        .recordStatusChange("game-1", expected, VERSION, ActingRole.SCOREKEEPER, "kenta");
   }
 
   /** The role comes from the signed-in account, by the account role's name. */
@@ -876,32 +893,41 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   @WithMockUser(username = "aiko", roles = "ADMIN")
   void statusChange_byAdmin_passesTheAdminRole() throws Exception {
     NewStatusChange expected = new NewStatusChange("v1", StatusChangeKind.VOID, "protest accepted");
-    given(kumiteGameService().recordStatusChange("game-1", expected, ActingRole.ADMIN, "aiko"))
+    given(
+            kumiteGameService()
+                .recordStatusChange("game-1", expected, VERSION, ActingRole.ADMIN, "aiko"))
         .willReturn(voided());
 
     mockMvc
         .perform(
             post(GAME + "/status-changes", "game-1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"id\": \"v1\", \"kind\": \"VOID\", \"reason\": \"protest accepted\"}"))
+                .content(
+                    """
+                    {"id": "v1", "kind": "VOID", "reason": "protest accepted",
+                     "expectedVersion": 7}
+                    """))
         .andExpect(status().isOk());
 
     then(kumiteGameService())
         .should()
-        .recordStatusChange("game-1", expected, ActingRole.ADMIN, "aiko");
+        .recordStatusChange("game-1", expected, VERSION, ActingRole.ADMIN, "aiko");
   }
 
   /** The role table admits the endpoint, so the game refuses the move with the same 403. */
   @Test
   void adminOnlyMove_fromScorekeeper_isForbidden_withTheReason() throws Exception {
-    given(kumiteGameService().recordStatusChange(eq("game-1"), any(), any(), anyString()))
+    given(
+            kumiteGameService()
+                .recordStatusChange(eq("game-1"), any(), anyLong(), any(), anyString()))
         .willThrow(new ActionForbiddenException("Only an Admin may void a game that is DECIDED."));
 
     mockMvc
         .perform(
             post(GAME + "/status-changes", "game-1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"id\": \"v1\", \"kind\": \"VOID\", \"reason\": \"protest\"}"))
+                .content(
+                    "{\"id\": \"v1\", \"kind\": \"VOID\", \"reason\": \"protest\", \"expectedVersion\": 7}"))
         .andExpect(status().isForbidden())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.title").value("Access denied"))
@@ -914,7 +940,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .perform(
             post(GAME + "/status-changes", "game-1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"id\": \"z1\"}"))
+                .content("{\"id\": \"z1\", \"expectedVersion\": 7}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.errors.kind").exists());
 
@@ -931,5 +957,32 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.title").value("Game not found"));
     mockMvc.perform(get(FULL_VIEW, "nope")).andExpect(status().isNotFound());
+  }
+
+  /** Every absolute action needs the version it was chosen against: none is refused unread. */
+  @ParameterizedTest
+  @CsvSource(
+      delimiter = '|',
+      value = {
+        "PUT|settings|{\"durationMs\": 90000, \"durationsOfferedMs\": [90000], \"pointValues\":"
+            + " {\"IPPON\": 3, \"WAZA_ARI\": 2, \"YUKO\": 1}, \"leadToWin\": 8, \"finalWindowMs\":"
+            + " 15000, \"lateScoreWindowMs\": 1500, \"chuiLimit\": 3, \"roundRobinForfeitPoints\": 4,"
+            + " \"addTimeStepsMs\": [10000], \"medicalTimeMs\": 180000, \"timeShownToleranceMs\":"
+            + " 1000}",
+        "POST|results|{\"id\": \"r1\", \"outcome\": \"DRAW\", \"reason\": \"HIKIWAKE\","
+            + " \"bothDisqualified\": false}",
+        "POST|status-changes|{\"id\": \"z1\", \"kind\": \"APPROVE\"}"
+      })
+  void absoluteActionWithoutVersion_isRefusedNamingTheField(
+      String method, String resource, String body) throws Exception {
+    mockMvc
+        .perform(
+            request(HttpMethod.valueOf(method), GAME + "/" + resource, "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors.expectedVersion").exists());
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 }

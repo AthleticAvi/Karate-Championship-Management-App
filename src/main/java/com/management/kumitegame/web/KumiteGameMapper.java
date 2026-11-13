@@ -80,6 +80,7 @@ public final class KumiteGameMapper {
     Result current = state.currentResult();
     return new KumiteGameResponse(
         game.id(),
+        read.version(),
         game.format(),
         game.isMedalGame(),
         game.isExtraGame(),
