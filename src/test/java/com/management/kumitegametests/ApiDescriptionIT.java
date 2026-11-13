@@ -399,8 +399,8 @@ class ApiDescriptionIT {
   }
 
   /**
-   * The public view's schema is the game less the recorder and the warnings, as really sent, and a
-   * side keeps its disqualification.
+   * The public view's schema is the game less the recorder, the warnings and the notes, as really
+   * sent, and a side keeps its disqualification.
    */
   @Test
   void publicViewSchema_describesRealPublicAnswers() throws Exception {

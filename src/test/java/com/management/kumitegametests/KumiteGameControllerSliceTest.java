@@ -552,6 +552,29 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.aka.shikkakuCount").value(0));
   }
 
+  /** Both at once: each is counted, so a screen can say by what. */
+  @Test
+  void side_withHansokuAndShikkaku_countsEach() throws Exception {
+    KumiteGame game = TestGames.game();
+    game.recordPenalty(
+        new NewPenalty("p1", Side.AO, PenaltyLevel.HANSOKU, null, null, null),
+        TestGames.SCOREKEEPER,
+        LATER);
+    game.recordPenalty(
+        new NewPenalty("p2", Side.AO, PenaltyLevel.SHIKKAKU, null, null, null),
+        TestGames.SCOREKEEPER,
+        LATER);
+    given(kumiteGameService().getVersioned("game-1"))
+        .willReturn(versioned(new GameRead(game, game.state(), Map.of(), Map.of(), LATER)));
+
+    mockMvc
+        .perform(get(GAME, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ao.hansokuCount").value(1))
+        .andExpect(jsonPath("$.ao.shikkakuCount").value(1))
+        .andExpect(jsonPath("$.ao.disqualified").value(true));
+  }
+
   /** Each version the answer shows is in the tag: one changed version answers the body again. */
   @Test
   void read_withStaleTag_answersTheGameAndTheNewTag() throws Exception {
