@@ -36,6 +36,7 @@ split by layer. Shared code sits in its own top-level packages.
 | `<feature>.data` | Repositories, stored documents and their mappers | `kumitegame/data/README.md` |
 | `athlete` | The athlete aggregate | `athlete/README.md` |
 | `referee` | The referee aggregate, and the domain, document and mapper split every feature follows | `referee/README.md` |
+| `service`, `domain`, `data` | What every named identity shares, such as an athlete or a referee: the service steps, the exceptions, the stored base and repository | `service/README.md`, `domain/README.md`, `data/README.md` |
 | `filters`, `security`, `config` | Shared, each with its own README | |
 
 The game's rules sit in `kumitegame.domain`: the aggregate refuses what is impossible, and a
@@ -94,7 +95,13 @@ package one. No cycle is accepted. A feature is any top-level package split into
 one falls under the feature rule without editing the test.
 
 Exception types sit in the `domain` package of the feature that throws them, and
-`GlobalExceptionHandler`, the gateway, in `web`.
+`GlobalExceptionHandler`, the gateway, in `web`. The bases an athlete's and a referee's extend sit in
+the shared `domain` package.
+
+The shared `service`, `domain` and `data` packages are one level deep, so the cycle rule gives each
+one slice and the feature rule does not see them as a feature: both `athlete` and `referee` may use
+them. The layer rules still cover them, because a pattern such as `com.management..data..` matches
+`com.management.data`.
 
 ## [not-built] Not built yet
 

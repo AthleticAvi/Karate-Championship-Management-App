@@ -21,6 +21,9 @@ Builds on: `tooling/static-analysis.md`
 
 - `*Test` and `*Tests` run under surefire. `*IT` runs under failsafe.
 - Declare the mapping in the POM rather than inheriting tool defaults.
+- **Select several classes with commas:** `-Dtest=ATest,BTest`, `-Dit.test=AIT,BIT`. A `+` joins
+  methods of one class (`ATest#one+two`), so `ATest#one+BTest` runs `ATest` alone and the other
+  class is skipped without a word. A proof that names two classes this way proves only the first.
 
 ## [hooks] Hooks from the build
 

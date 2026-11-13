@@ -27,6 +27,9 @@ Each feature stores a document apart from its domain type, with a mapper beside 
 | `referee` | `RefereeRepository` | `RefereeDocument`, `RefereeDocumentMapper` |
 | `account` | `AccountRepository` | `Account` is stored as it is: it carries no Spring Data type |
 
+The athlete and referee repositories and documents extend `IdentityRepository` and
+`IdentityDocument` in the shared `data` package: see `src/main/java/com/management/data/README.md`.
+
 `KumiteGameDocument` stores enum values as plain strings and durations as whole milliseconds, so a
 name this build no longer knows reaches the mapper, the one place an old shape is absorbed. Its
 entries are nested records of its own, never the domain records, so a domain rename cannot change
@@ -93,7 +96,7 @@ pins it.
 - **Deleting an athlete or referee a game names is refused** by
   `existsByAssignmentsAthleteId` and `existsByAssignmentsRefereeId`, a collection scan of
   `kumiteGame`, accepted at one championship's load until a measurement says otherwise.
-- Each feature's `data` package is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring
+- Each feature's `data` package, and the shared `data` package, is `@NullUnmarked` on purpose. On a `@NullMarked` package, Spring
   Data adds a runtime null check to every repository. The custom methods today return a count or a
   boolean, and `findById` returns `Optional`, so it would only add an interceptor. A finder that
   returns one document would matter: finding nothing would throw `EmptyResultDataAccessException`,

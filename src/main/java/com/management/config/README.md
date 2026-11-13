@@ -112,8 +112,8 @@ server can land in the moment before the context closes.
 `AuditingConfiguration` turns on Spring Data auditing, and its `DateTimeProvider` reads the `Clock`
 bean, so a stored instant is UTC in whole milliseconds and a test that replaces the clock fixes it.
 It is a class of its own, not an annotation on `KumiteGameStarter`, so a web slice does not start it.
-Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: `KumiteGameDocument`,
-`AthleteDocument` and `RefereeDocument`.
+Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: `KumiteGameDocument`, and
+`AthleteDocument` and `RefereeDocument` through the `IdentityDocument` they extend.
 
 ## [profiles] Profiles
 
