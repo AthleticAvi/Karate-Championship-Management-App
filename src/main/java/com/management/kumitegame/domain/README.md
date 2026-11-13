@@ -46,8 +46,8 @@ a game, by recording a result, and only an Admin annuls one.
   - The rules: `EntryKind`, the status matrix, and one class per warning, `ClockTolerance`,
     `LateScore`, `PenaltyLadder`, `SenshuWarnings` and `FormatCombination`, each reading the
     settings snapshot.
-  - `GameRead`, the game with the athletes and referees it names, and `Recording`, what a mutation
-    answers.
+  - `GameRead`, the game with the athletes and referees it names and the stored version it was read
+    at, and `Recording`, what a mutation answers. `KumiteGame` never sees the version.
 - The exception types each feature throws. `GlobalExceptionHandler` maps them: see `[errors]` in
   `src/main/java/com/management/web/README.md`.
 

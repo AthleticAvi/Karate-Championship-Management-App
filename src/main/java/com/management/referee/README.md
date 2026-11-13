@@ -46,7 +46,9 @@ The pattern to follow when a domain type is parted from its stored form.
   domain, applies the change there, and maps the result back onto that document. The domain never
   sees the version, and the save is checked against the version that was read. A reader that
   needs the version, such as a game's tag, gets it beside the domain type from the service, in a
-  `Versioned*` record read with it. A save replaces the
+  `Versioned*` record read with it. A game's read, `GameRead`, carries the game's version, so the
+  version a caller sends back on an absolute action reaches every answer; `KumiteGame` never sees
+  it. A save replaces the
   whole document, so the mapper must copy `createdAt` from the stored one: auditing sets it only
   on an insert.
 - **Instants come from auditing,** never set by hand: see `[auditing]` in the config README.
