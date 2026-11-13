@@ -226,19 +226,18 @@ public class KumiteGameService {
       String gameId, NewClockAction action, @Nullable Long expectedVersion, String recordedBy) {
     Function<KumiteGame, Recorded> record =
         game -> game.recordClockAction(action, recordedBy, clock.instant());
-    boolean setTime = action.action() == ClockActionKind.SET_TIME;
-    if (setTime && expectedVersion != null) {
-      return absolute(gameId, expectedVersion, record);
+    if (action.action() != ClockActionKind.SET_TIME) {
+      if (expectedVersion != null) {
+        throw new InvalidGameRequestException(
+            "Only SET_TIME takes expectedVersion: " + action.action() + " is appended.");
+      }
+      return append(gameId, record);
     }
-    if (setTime) {
+    if (expectedVersion == null) {
       throw new InvalidGameRequestException(
           "SET_TIME needs expectedVersion, the version of the game it was chosen against.");
     }
-    if (expectedVersion != null) {
-      throw new InvalidGameRequestException(
-          "Only SET_TIME takes expectedVersion: " + action.action() + " is appended.");
-    }
-    return append(gameId, record);
+    return absolute(gameId, expectedVersion, record);
   }
 
   public Recording recordSenshu(String gameId, NewSenshuRecord record, String recordedBy) {
