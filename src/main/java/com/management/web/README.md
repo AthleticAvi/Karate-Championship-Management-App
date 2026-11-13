@@ -175,8 +175,9 @@ answer 400 as `InvalidGameRequestException`.
 
 **A missing `expectedVersion` answers in two shapes.** A settings change, a result and a status
 change require it as a field, so its absence answers with the `errors` map. A clock action needs it
-only for SET_TIME, and refuses it on every other action, which only the service can tell: those
-answer with a `detail`.
+only for SET_TIME, and refuses it on every other action: a rule across fields, so the service holds
+it, as the paragraph above says, and it answers with a `detail`. Like a missing field, it is
+checked before the game is read, so an unknown game still answers 400 here, not 404.
 
 Failures map to the table in `[errors]`.
 
