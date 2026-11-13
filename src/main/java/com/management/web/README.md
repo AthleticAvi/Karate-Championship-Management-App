@@ -318,7 +318,7 @@ code point, so `anna` comes after `Zoe`.
 
 **A game list carries summaries, not games.** Anyone may list games, so a summary holds no entry:
 nothing in it names who recorded what, raises a warning or carries free text, such as a result's
-`reasonDetail`. Read the game for the rest.
+`reasonDetail`. Read the game for the rest, and its full view for the notes.
 
 **A game list filters on what the entries fold to.** The status and the athlete on each side are
 never stored, so the service reads and folds every game that may match, then cuts the page: see

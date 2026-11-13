@@ -52,8 +52,9 @@ mvn spring-boot:run   # run
 The defaults reach this database. To use another, set `MONGO_URI` and, if needed, `MONGO_DB`: see
 `src/main/java/com/management/kumitegame/data/README.md`.
 
-Reading an athlete or a referee is public; reading a game needs a Scorekeeper or an Admin until a
-public view exists. Everything else needs an account, and the first Admin comes from `ADMIN_USERNAME`
+Reading and listing athletes, referees and games is public, and so is a game's public view, which
+leaves out who recorded what, the warnings and the free-text notes. A game's full view needs a
+Scorekeeper or an Admin. Everything else needs an account, and the first Admin comes from `ADMIN_USERNAME`
 and `ADMIN_PASSWORD`, used only when no Admin exists. Neither has a default in any profile. Under
 `dev` the application starts without them and warns, and nobody can sign in. See
 `src/main/java/com/management/security/README.md`.
