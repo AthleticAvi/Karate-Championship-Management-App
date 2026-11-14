@@ -45,7 +45,8 @@ application, and `KumiteGamePropertiesTest` proves it.
 
 **A game copies these when it is created and keeps its copy.** Rules read only the copy, so a value
 changed and redeployed reaches new games only, and a running or finished game never changes its
-rules. A game's copy may change through its settings resource, before it starts only.
+rules. A game's copy may change through its settings resource, before it starts only, except the
+rulebook version and the panel limit, which stay what configuration gave it.
 
 | Setting | Default | Key | Article |
 |---|---|---|---|
@@ -59,6 +60,7 @@ rules. A game's copy may change through its settings resource, before it starts 
 | Add-time steps | 10s, 20s, 30s, and any other positive one | `add-time-steps` | |
 | Medical time | 3m | `medical-time` | 11.2.3 |
 | Time-shown tolerance | 1s | `time-shown-tolerance` | |
+| Panel limit: the most referees on a panel, at creation and when one is added | 10 | `panel-limit` | 4.1.1, and the owner |
 | Rulebook version | WKF 2026.01 | `rulebook-version` | |
 
 | Setting | Default | Key |

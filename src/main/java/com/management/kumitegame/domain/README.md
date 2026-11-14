@@ -83,7 +83,7 @@ id, is skipped and reported as `HISTORY_INCONSISTENT` in `GameState.warnings`. R
 fail leave the game with no suggestion: see `[may-call]`.
 
 - **Athletes and panel are assignment entries.** The game is created with an athlete on each side
-  and an optional panel, of any size. Changes after the start are recorded with a warning.
+  and an optional panel. Changes after the start are recorded with a warning.
 - **Points come from the settings map,** never from an entry or the code. Totals are folded with
   the game's current settings, so a settings change before the start also prices a score recorded
   before the start, which already warned. Such a change is applied, never refused, so a wrong
@@ -109,8 +109,12 @@ fail leave the game with no suggestion: see `[may-call]`.
   `roundRobinForfeitPoints` and what it scored, the points added as YUKO; a double disqualification
   gives both 0 (Articles 10.7.1, 6.2, 12.3.2). A HANSOKU with no result yet changes nothing.
   Elimination keeps what was scored. No score entry is ever added.
-- **The panel applies as given.** Adding a referee already on it changes the role, and removing
-  one not on it changes nothing. One athlete on both sides is refused.
+- **The panel holds each referee once, and at most `panelLimit`,** 10 by default, from the settings
+  snapshot. Both are refused at creation, a 400, and when a referee is added, a 409. A
+  role changes by removing the referee and adding them again. Removing one not on it changes
+  nothing. A game stored before the limit existed has none. The client cannot change the limit
+  through the settings resource. Stored history that breaks either rule still loads, folded as
+  written. One athlete on both sides is refused.
 
 ## [vocabulary] Vocabulary
 
@@ -302,8 +306,9 @@ retries. The check runs per game, inside the versioned save:
   `context/workflow/databases/mongodb/design/persistence.md`.
 - **A new field raises the schema version too.** A build that does not know a field ignores it on
   read and drops it on its next save, so after a rollback the data is gone. Raised, the older build
-  refuses the game instead. Shape 2 added `senshuRecords`, shape 3 `statusChanges`, and shape 4
-  `suggested` on each result; an older game reads with none.
+  refuses the game instead. Shape 2 added `senshuRecords`, shape 3 `statusChanges`, shape 4
+  `suggested` on each result, and shape 5 `panelLimit` in the settings; an older game reads with
+  none.
 - **The type hint follows the package.** Spring Data stores each document's class name in `_class`,
   so moving a document class changes it on every later write. A document whose name no longer loads
   still reads, through the declared type.
@@ -327,6 +332,8 @@ created with. New behaviour is a new rule class, not a change to the entries.
 
 ## [deviations] Known deviations
 
+- **The panel has a limit.** The planning record, §4.11, says any size and never blocks. The owner
+  overrode it: at most 10, from configuration, refused at creation and when a referee is added.
 - **An AWARDED to a side with no score is recorded without a warning** (Article 12.2.2). A
   scorekeeper may record SENSHU before the score it rests on.
 - **The unopposed-score warning looks at any exchange, not only the first.** Article 12.2.2 is

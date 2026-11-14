@@ -463,7 +463,7 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
 | An athlete update or a referee rename that lost to another write | 409 | `IdentityChangedException`: `AthleteChangedException`, `RefereeChangedException` | fixed, plus a `current` extension property holding the athlete or referee as it now stands. Not retried. A kind with no response shape in the handler answers 500 |
 | Setting the time, a result, a settings change, or an approve, reopen or void that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
-| An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides, an exchange that has not happened | 409 | `ActionRefusedException` | the message |
+| An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides, a referee already on the panel, a full panel, an exchange that has not happened | 409 | `ActionRefusedException` | the message |
 | Deleting an athlete or referee a game names | 409 | `IdentityInUseException`: `AthleteInUseException`, `RefereeInUseException` | the message |
 | No such game | 404 | `GameNotFoundException` | the message |
 | No such account | 404 | `AccountNotFoundException` | the message |
