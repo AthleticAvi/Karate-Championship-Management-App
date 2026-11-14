@@ -73,8 +73,7 @@ carries `meta`: the client's `id`, an `order` counted across the whole game, `re
 
 **Everything else is derived** by `GameFold`, folding every list in order: the status, the main
 clock and each side's medical timer, the exchange counter, the athlete on each side, the panel, the
-totals, the IPPON, WAZA_ARI and CHUI counts, the HANSOKU and SHIKKAKU counts and whether each side
-is disqualified, who holds SENSHU and whether it is closed, and the current result. Nothing derived is stored, so
+totals, the IPPON, WAZA_ARI and CHUI counts, the HANSOKU and SHIKKAKU counts, who holds SENSHU and whether it is closed, and the current result. Nothing derived is stored, so
 it can never disagree with the entries.
 
 **The fold never throws.** Validity is checked when an entry is appended. Stored history always
@@ -109,6 +108,14 @@ fail leave the game with no suggestion: see `[may-call]`.
   `roundRobinForfeitPoints` and what it scored, the points added as YUKO; a double disqualification
   gives both 0 (Articles 10.7.1, 6.2, 12.3.2). A HANSOKU with no result yet changes nothing.
   Elimination keeps what was scored. No score entry is ever added.
+- **A side is disqualified by a penalty or by the result that stands.** `GameState.isDisqualified`
+  is true while a HANSOKU or SHIKKAKU stands against the side, or while the current result is a WIN
+  by HANSOKU or SHIKKAKU the side lost, or disqualifies both sides (`bothDisqualified`, or
+  DOUBLE_DISQUALIFICATION). A SHIKKAKU given off the mat, or before the start, is often only the
+  result. KIKEN is a withdrawal, not a disqualification. A result with no winner disqualifies no
+  one unless it disqualifies both. A reopen to before the result, or a void, leaves the penalties
+  alone. The HANSOKU and SHIKKAKU counts stay penalty entries, and the result rules read the
+  penalties alone, through `SideState.isDisqualified`, so a result never feeds the suggestion.
 - **The panel holds each referee once, and at most `panelLimit`,** 10 by default, from the settings
   snapshot. Both are refused at creation, a 400, and when a referee is added, a 409. A
   role changes by removing the referee and adding them again. Removing one not on it changes

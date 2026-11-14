@@ -105,7 +105,8 @@ public record KumiteGameResponse(
    * @param senshu whether this side holds SENSHU; never both sides
    * @param hansokuCount the HANSOKU standing against this side: not cancelled
    * @param shikkakuCount the SHIKKAKU standing against this side: not cancelled
-   * @param disqualified a HANSOKU or SHIKKAKU stands against this side
+   * @param disqualified a HANSOKU or SHIKKAKU stands against this side, or the result that stands
+   *     disqualifies it: a WIN by HANSOKU or SHIKKAKU it lost, or both sides disqualified
    * @param effectiveScore the score the format counts: in round robin after HANSOKU, KIKEN or
    *     SHIKKAKU, not what was scored. Otherwise what was scored
    */

@@ -17,12 +17,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.LoggerFactory;
 
 /**
  * The suggestion inside a game, with the real chain: live in every state, kept on each result as it
  * was when recorded, the warnings a result or a correction raises against it, a rule that fails,
- * and the round-robin effective score.
+ * and what the result that stands decides: the round-robin effective score and who is disqualified.
  */
 class SuggestionTest {
 
@@ -601,6 +604,107 @@ class SuggestionTest {
 
       assertThat(state().effectiveScores())
           .isEqualTo(Map.of(Side.AKA, effective(0, 0, 0, 0), Side.AO, effective(1, 0, 0, 0)));
+    }
+  }
+
+  /**
+   * Whether each side is out of the game: a standing HANSOKU or SHIKKAKU, or the result that
+   * stands. A SHIKKAKU given off the mat, or before the start, is often only the result.
+   */
+  @Nested
+  class Disqualified {
+
+    private Map<Side, Boolean> disqualified() {
+      return Map.of(
+          Side.AKA, state().isDisqualified(Side.AKA), Side.AO, state().isDisqualified(Side.AO));
+    }
+
+    private static Map<Side, Boolean> disqualified(boolean aka, boolean ao) {
+      return Map.of(Side.AKA, aka, Side.AO, ao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"HANSOKU, true", "SHIKKAKU, true", "SHIKKAKU, false"})
+    void winByDisqualification_withNoPenalty_disqualifiesTheLoserOnly(
+        ResultReason reason, boolean started) {
+      if (started) {
+        start();
+      }
+
+      result(Outcome.WIN, Side.AKA, reason);
+
+      assertThat(disqualified()).isEqualTo(disqualified(false, true));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+      "NO_RESULT, , DOUBLE_DISQUALIFICATION, true",
+      "NO_RESULT, , DOUBLE_DISQUALIFICATION, false",
+      "WIN, AKA, POINTS, true"
+    })
+    void resultDisqualifyingBoth_withNoPenalty_disqualifiesBoth(
+        Outcome outcome, @Nullable Side winner, ResultReason reason, boolean bothDisqualified) {
+      start();
+
+      game.recordResult(
+          new NewResult(id(), outcome, winner, reason, null, bothDisqualified), SK, at(30));
+
+      assertThat(disqualified()).isEqualTo(disqualified(true, true));
+    }
+
+    /** KIKEN is a withdrawal, and a result with no winner names no loser. */
+    @ParameterizedTest
+    @CsvSource({"WIN, AO, KIKEN", "NO_RESULT, , HANSOKU"})
+    void resultDisqualifyingNoOne_withNoPenalty_disqualifiesNeither(
+        Outcome outcome, @Nullable Side winner, ResultReason reason) {
+      result(outcome, winner, reason);
+
+      assertThat(disqualified()).isEqualTo(disqualified(false, false));
+    }
+
+    @Test
+    void hansokuResult_stillDisqualifies_afterItsPenaltyIsCancelled() {
+      start();
+      penalty(Side.AO, PenaltyLevel.HANSOKU);
+      String penaltyId = lastId();
+      result(Outcome.WIN, Side.AKA, ResultReason.HANSOKU);
+
+      cancel(penaltyId);
+
+      assertThat(disqualified()).isEqualTo(disqualified(false, true));
+    }
+
+    /** A reopen to before the result, or a void, leaves the result standing no more. */
+    @ParameterizedTest
+    @EnumSource(
+        value = StatusChangeKind.class,
+        names = {"REOPEN", "VOID"})
+    void resultTakenAway_leavesThePenaltiesAlone(StatusChangeKind kind) {
+      start();
+      penalty(Side.AKA, PenaltyLevel.HANSOKU);
+      game.recordResult(
+          new NewResult(
+              id(), Outcome.NO_RESULT, null, ResultReason.DOUBLE_DISQUALIFICATION, null, true),
+          SK,
+          at(30));
+      assertThat(disqualified()).isEqualTo(disqualified(true, true));
+
+      game.recordStatusChange(
+          new NewStatusChange(id(), kind, "protest upheld"), ActingRole.ADMIN, SK, at(31));
+
+      assertThat(disqualified()).isEqualTo(disqualified(true, false));
+    }
+
+    @Test
+    void resultByShikkaku_leavesTheCountsAsThePenaltyEntries() {
+      start();
+      penalty(Side.AO, PenaltyLevel.HANSOKU);
+
+      result(Outcome.WIN, Side.AKA, ResultReason.SHIKKAKU);
+
+      assertThat(state().side(Side.AO))
+          .extracting(SideState::hansokuCount, SideState::shikkakuCount)
+          .containsExactly(1, 0);
     }
   }
 }

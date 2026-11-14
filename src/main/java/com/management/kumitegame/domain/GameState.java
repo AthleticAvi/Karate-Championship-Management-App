@@ -56,6 +56,17 @@ public record GameState(
     return Objects.requireNonNull(effectiveScores.get(side));
   }
 
+  /**
+   * Whether the side is out of the game: a HANSOKU or SHIKKAKU stands against it, or the result
+   * that stands disqualifies it. That is a WIN by HANSOKU or SHIKKAKU it lost, or a result that
+   * disqualifies both sides. A KIKEN is a withdrawal, not a disqualification. The result rules read
+   * the penalties alone: see {@link SideState#isDisqualified()}.
+   */
+  public boolean isDisqualified(Side side) {
+    return side(side).isDisqualified()
+        || (currentResult != null && disqualifies(currentResult, side));
+  }
+
   public ClockState medicalClock(Side side) {
     return Objects.requireNonNull(medicalClocks.get(side));
   }
@@ -72,5 +83,14 @@ public record GameState(
   /** The exchange an entry made now belongs to: empty before the first start. */
   @Nullable Integer currentExchange() {
     return exchange == 0 ? null : exchange;
+  }
+
+  /** Only a WIN names a winner, so a side with a winning opponent lost a WIN. */
+  private static boolean disqualifies(Result result, Side side) {
+    if (result.bothDisqualified() || result.reason() == ResultReason.DOUBLE_DISQUALIFICATION) {
+      return true;
+    }
+    return result.winner() == side.opponent()
+        && (result.reason() == ResultReason.HANSOKU || result.reason() == ResultReason.SHIKKAKU);
   }
 }
