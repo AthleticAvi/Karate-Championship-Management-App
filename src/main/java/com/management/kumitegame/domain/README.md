@@ -73,8 +73,9 @@ carries `meta`: the client's `id`, an `order` counted across the whole game, `re
 
 **Everything else is derived** by `GameFold`, folding every list in order: the status, the main
 clock and each side's medical timer, the exchange counter, the athlete on each side, the panel, the
-totals, the IPPON, WAZA_ARI and CHUI counts, the HANSOKU and SHIKKAKU counts, who holds SENSHU and whether it is closed, and the current result. Nothing derived is stored, so
-it can never disagree with the entries.
+totals, the IPPON, WAZA_ARI and CHUI counts, the HANSOKU and SHIKKAKU counts, who holds SENSHU and
+whether it is closed, and the current result. Nothing derived is stored, so it can never disagree
+with the entries.
 
 **The fold never throws.** Validity is checked when an entry is appended. Stored history always
 loads: an entry this build cannot fold as written, such as a second CANCEL of one target or a reused
@@ -113,8 +114,8 @@ fail leave the game with no suggestion: see `[may-call]`.
   by HANSOKU or SHIKKAKU the side lost, or disqualifies both sides (`bothDisqualified`, or
   DOUBLE_DISQUALIFICATION). A SHIKKAKU given off the mat, or before the start, is often only the
   result. KIKEN is a withdrawal, not a disqualification. A result with no winner disqualifies no
-  one unless it disqualifies both. A reopen to before the result, or a void, leaves the penalties
-  alone. The HANSOKU and SHIKKAKU counts stay penalty entries, and the result rules read the
+  one unless it disqualifies both. A reopen to before the result, or a void, leaves no result
+  standing, so only the penalties count. The HANSOKU and SHIKKAKU counts stay penalty entries, and the result rules read the
   penalties alone, through `SideState.isDisqualified`, so a result never feeds the suggestion.
 - **The panel holds each referee once, and at most `panelLimit`,** 10 by default, from the settings
   snapshot. Both are refused at creation, a 400, and when a referee is added, a 409. A
