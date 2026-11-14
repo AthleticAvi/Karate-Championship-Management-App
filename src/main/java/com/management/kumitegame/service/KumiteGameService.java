@@ -2,7 +2,6 @@ package com.management.kumitegame.service;
 
 import com.management.athlete.domain.Athlete;
 import com.management.athlete.service.AthleteService;
-import com.management.athlete.service.VersionedAthlete;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
@@ -36,7 +35,7 @@ import com.management.kumitegame.domain.ResultRules;
 import com.management.kumitegame.domain.Side;
 import com.management.referee.domain.Referee;
 import com.management.referee.service.RefereeService;
-import com.management.referee.service.VersionedReferee;
+import com.management.service.Versioned;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.List;
@@ -109,14 +108,13 @@ public class KumiteGameService {
 
   /**
    * Creates a game with a copy of the configured settings. Everything that can fail does so before
-   * the one insert: the athletes and referees are read first.
+   * the one insert. The game checks what it was sent first, such as the size of the panel, so a
+   * request it refuses costs no read; then the athletes and referees are read.
    *
    * <p>Not retried by id: a retried create makes a second game. The id and the ids of the first
    * entries are given here.
    */
   public Recording create(NewGame newGame, String recordedBy) {
-    requireAthletes(List.of(newGame.akaAthleteId(), newGame.aoAthleteId()));
-    requireReferees(newGame.panel().stream().map(PanelMember::refereeId).toList());
     KumiteGame game =
         KumiteGame.create(
             UUID.randomUUID().toString(),
@@ -126,6 +124,8 @@ public class KumiteGameService {
             recordedBy,
             clock.instant(),
             rules);
+    requireAthletes(List.of(newGame.akaAthleteId(), newGame.aoAthleteId()));
+    requireReferees(newGame.panel().stream().map(PanelMember::refereeId).toList());
     KumiteGameDocument inserted =
         kumiteGameRepository.insert(KumiteGameDocumentMapper.toNewDocument(game));
     GameRead read = read(KumiteGameDocumentMapper.toDomain(inserted, rules), inserted.getVersion());
@@ -146,18 +146,15 @@ public class KumiteGameService {
   public VersionedGameRead getVersioned(String gameId) {
     KumiteGameDocument stored = stored(gameId);
     KumiteGame game = KumiteGameDocumentMapper.toDomain(stored, rules);
-    Map<String, VersionedAthlete> athletes = athleteService.findAllVersioned(athleteIds(game));
-    Map<String, VersionedReferee> referees = refereeService.findAllVersioned(refereeIds(game));
+    Map<String, Versioned<Athlete>> athletes = athleteService.findAllVersioned(athleteIds(game));
+    Map<String, Versioned<Referee>> referees = refereeService.findAllVersioned(refereeIds(game));
     return new VersionedGameRead(
         stored.getVersion(),
-        valuesOf(athletes, VersionedAthlete::version),
-        valuesOf(referees, VersionedReferee::version),
+        Versioned.versions(athletes),
+        Versioned.versions(referees),
         () ->
             read(
-                game,
-                stored.getVersion(),
-                valuesOf(athletes, VersionedAthlete::athlete),
-                valuesOf(referees, VersionedReferee::referee)));
+                game, stored.getVersion(), Versioned.values(athletes), Versioned.values(referees)));
   }
 
   /**
@@ -302,11 +299,6 @@ public class KumiteGameService {
   private Recording recording(KumiteGameWriter.Applied applied) {
     return new Recording(
         read(applied.game(), applied.version()), applied.recorded().raisedWarnings());
-  }
-
-  private static <T, R> Map<String, R> valuesOf(Map<String, T> byId, Function<T, R> value) {
-    return byId.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> value.apply(entry.getValue())));
   }
 
   private static boolean matches(

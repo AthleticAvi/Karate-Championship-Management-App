@@ -19,9 +19,9 @@ split.
 | Layer | Types |
 |---|---|
 | `web` | `RefereeController` at `/api/v1/referees`, which also lists and searches them by name, `RefereeRequest`, `RefereeResponse`, `RefereeMapper` |
-| `service` | `RefereeService`, `RefereeReferences`, `VersionedReferee`: a referee with its stored version, for a game's tag |
-| `domain` | `Referee`, `RefereeNotFoundException`, `RefereeChangedException`, `RefereeInUseException` |
-| `data` | `RefereeDocument`, `RefereeRepository`, `RefereeDocumentMapper` |
+| `service` | `RefereeService`, extending the shared `IdentityService`, and `RefereeReferences` |
+| `domain` | `Referee`, and `RefereeNotFoundException`, `RefereeChangedException` and `RefereeInUseException`, extending the shared bases |
+| `data` | `RefereeDocument` and `RefereeRepository`, extending the shared bases, and `RefereeDocumentMapper` |
 
 ## [may-call] May call
 
@@ -33,10 +33,18 @@ feature owns and `kumitegame.service.GameReferences` implements. Inside the feat
 
 The pattern to follow when a domain type is parted from its stored form.
 
+**A named identity kept outside any game, such as an athlete or a referee, extends the shared
+bases** rather than copying another feature: `IdentityDocument` and `IdentityRepository` in
+`src/main/java/com/management/data/README.md`, `IdentityService` and `Versioned` in
+`src/main/java/com/management/service/README.md`, and the three exceptions in
+`src/main/java/com/management/domain/README.md`. It keeps its own fields, mapper, create and
+change, controller, routes and role levels. It adds a case for its response shape to the changed
+handler in `GlobalExceptionHandler`: without one, a lost change answers 500, not 409.
+
 - **The domain type holds what the business owns,** with no Spring Data type in it: `Referee` is
   `id` and `name`. A strict rule in `ArchitectureTest` holds every feature's `domain` to that.
 - **The document holds the stored shape:** the domain fields, plus `version`, `schemaVersion`, and
-  the `createdAt` and `modifiedAt` instants. It knows nothing of the business. Its creator is marked
+  the `createdAt` and `modifiedAt` instants, which `IdentityDocument` holds for a named identity. It knows nothing of the business. Its creator is marked
   `@PersistenceCreator`: see `[object-construction-on-read]` in
   `context/workflow/databases/mongodb/design/persistence.md`. The collection is named in
   `@Document`, because the default would follow the class name.
@@ -46,7 +54,7 @@ The pattern to follow when a domain type is parted from its stored form.
   domain, applies the change there, and maps the result back onto that document. The domain never
   sees the version, and the save is checked against the version that was read. A reader that
   needs the version, such as a game's tag, gets it beside the domain type from the service, in a
-  `Versioned*` record read with it. A game's read, `GameRead`, carries the game's version, so the
+  `Versioned` record read with it. A game's read, `GameRead`, carries the game's version, so the
   version a caller sends back on an absolute action reaches every answer; `KumiteGame` never sees
   it. A save replaces the
   whole document, so the mapper must copy `createdAt` from the stored one: auditing sets it only

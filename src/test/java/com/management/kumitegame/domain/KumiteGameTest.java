@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +32,24 @@ class KumiteGameTest {
 
   private String id() {
     return "entry-" + ++next;
+  }
+
+  /** Judges named {@code judge-1} onwards. */
+  private static List<PanelMember> panelOf(int size) {
+    return IntStream.rangeClosed(1, size)
+        .mapToObj(judge -> new PanelMember("judge-" + judge, PanelRole.JUDGE))
+        .toList();
+  }
+
+  private static KumiteGame created(List<PanelMember> panel, Settings settings) {
+    return KumiteGame.create(
+        "game-5",
+        new NewGame(GameFormat.ELIMINATION, false, false, "a", "b", panel),
+        settings,
+        TestGames.ids("x"),
+        SK,
+        T0,
+        TestGames.rules());
   }
 
   private static Instant at(double seconds) {
@@ -990,18 +1009,63 @@ class KumiteGameTest {
       assertThat(game.assignments()).hasSize(4);
     }
 
+    private Recorded addJudge(KumiteGame to, String refereeId) {
+      return to.recordAssignment(
+          new NewAssignment(id(), AssignmentKind.PANEL_ADD, null, null, refereeId, PanelRole.JUDGE),
+          SK,
+          T0);
+    }
+
     @Test
-    void panelChanges_applyAsGiven() {
+    void panelAdd_ofRefereeAlreadyOnThePanel_isRefused_andTheRoleStays() {
+      assertThatThrownBy(() -> addJudge(game, TestGames.REFEREE))
+          .isInstanceOf(ActionRefusedException.class)
+          .hasMessageContaining("already on the panel");
+
+      assertThat(game.state().panel())
+          .containsExactly(new PanelMember(TestGames.REFEREE, PanelRole.REFEREE));
+    }
+
+    @Test
+    void panelRole_changesByRemovingAndAddingAgain_andRemovingSomeoneAbsentChangesNothing() {
+      game.recordAssignment(
+          new NewAssignment(id(), AssignmentKind.PANEL_REMOVE, null, null, "nobody", null), SK, T0);
+      game.recordAssignment(
+          new NewAssignment(id(), AssignmentKind.PANEL_REMOVE, null, null, TestGames.REFEREE, null),
+          SK,
+          T0);
       game.recordAssignment(
           new NewAssignment(
               id(), AssignmentKind.PANEL_ADD, null, null, TestGames.REFEREE, PanelRole.KANSA),
           SK,
           T0);
-      game.recordAssignment(
-          new NewAssignment(id(), AssignmentKind.PANEL_REMOVE, null, null, "nobody", null), SK, T0);
 
       assertThat(game.state().panel())
           .containsExactly(new PanelMember(TestGames.REFEREE, PanelRole.KANSA));
+    }
+
+    /** The game was created with one referee, under the default limit of 10. */
+    @Test
+    void panelAdd_fillsThePanelToTheLimit_andRefusesOneMore() {
+      for (int judge = 2; judge <= 10; judge++) {
+        addJudge(game, "judge-" + judge);
+      }
+      assertThat(game.state().panel()).hasSize(10);
+
+      assertThatThrownBy(() -> addJudge(game, "judge-11"))
+          .isInstanceOf(ActionRefusedException.class)
+          .hasMessageContaining("already holds 10 referees");
+      assertThat(game.state().panel()).hasSize(10);
+    }
+
+    @Test
+    void panelAdd_readsTheLimitFromTheGamesSettings() {
+      KumiteGame limitOfTwo = created(panelOf(1), TestGames.settings(120_000, 2));
+      addJudge(limitOfTwo, "judge-2");
+
+      assertThatThrownBy(() -> addJudge(limitOfTwo, "judge-3"))
+          .isInstanceOf(ActionRefusedException.class);
+      assertThat(limitOfTwo.state().panel()).hasSize(2);
     }
 
     @Test
@@ -1047,6 +1111,23 @@ class KumiteGameTest {
     }
 
     @Test
+    void creation_takesPanelUpToTheLimit_andRefusesOneMore() {
+      assertThat(created(panelOf(10), TestGames.settings()).state().panel()).hasSize(10);
+
+      assertThatThrownBy(() -> created(panelOf(11), TestGames.settings()))
+          .isInstanceOf(InvalidGameRequestException.class)
+          .hasMessageContaining("at most 10 referees");
+    }
+
+    @Test
+    void creation_readsTheLimitFromTheSettings() {
+      assertThat(created(panelOf(2), TestGames.settings(120_000, 2)).state().panel()).hasSize(2);
+
+      assertThatThrownBy(() -> created(panelOf(3), TestGames.settings(120_000, 2)))
+          .isInstanceOf(InvalidGameRequestException.class);
+    }
+
+    @Test
     void creation_recordsTheAthletesAndPanelAsTheFirstEntries() {
       assertThat(game.assignments())
           .extracting(assignment -> assignment.meta().order())
@@ -1061,12 +1142,13 @@ class KumiteGameTest {
   class SettingsAndResults {
 
     @Test
-    void settingsChange_beforeTheStart_keepsTheRulebookVersion() {
+    void settingsChange_beforeTheStart_keepsTheRulebookVersionAndThePanelLimit() {
       Recorded changed = game.changeSettings(newSettings(90_000));
 
       assertThat(changed.raisedWarnings()).as("only the creation entries").isEmpty();
       assertThat(game.settings().durationMs()).isEqualTo(90_000);
       assertThat(game.settings().rulebookVersion()).isEqualTo("WKF 2026.01");
+      assertThat(game.settings().panelLimit()).isEqualTo(10);
       assertThat(game.state().mainClock().remainingMs()).isEqualTo(90_000);
     }
 

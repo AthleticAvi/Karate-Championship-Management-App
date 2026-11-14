@@ -14,12 +14,12 @@ import static org.mockito.Mockito.verify;
 
 import com.management.athlete.domain.Athlete;
 import com.management.athlete.service.AthleteService;
-import com.management.athlete.service.VersionedAthlete;
 import com.management.config.KumiteGameProperties;
 import com.management.kumitegame.data.KumiteGameDocument;
 import com.management.kumitegame.data.KumiteGameDocumentMapper;
 import com.management.kumitegame.data.KumiteGameRepository;
 import com.management.kumitegame.domain.ActingRole;
+import com.management.kumitegame.domain.ActionRefusedException;
 import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
 import com.management.kumitegame.domain.GameChangedException;
@@ -37,6 +37,7 @@ import com.management.kumitegame.domain.NewScore;
 import com.management.kumitegame.domain.NewSettings;
 import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.Outcome;
+import com.management.kumitegame.domain.PanelMember;
 import com.management.kumitegame.domain.PanelRole;
 import com.management.kumitegame.domain.Recording;
 import com.management.kumitegame.domain.ResultReason;
@@ -54,7 +55,7 @@ import com.management.kumitegame.service.KumiteGameWriter;
 import com.management.kumitegame.service.VersionedGameRead;
 import com.management.referee.domain.Referee;
 import com.management.referee.service.RefereeService;
-import com.management.referee.service.VersionedReferee;
+import com.management.service.Versioned;
 import com.management.testsupport.FakeRepositories;
 import com.management.testsupport.InMemoryMongo;
 import com.management.testsupport.TestClock;
@@ -67,6 +68,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -112,6 +114,11 @@ class KumiteGameServiceTest {
 
   private static KumiteGameProperties properties(
       Duration duration, int ipponPoints, int leadToWin) {
+    return properties(duration, ipponPoints, leadToWin, 10);
+  }
+
+  private static KumiteGameProperties properties(
+      Duration duration, int ipponPoints, int leadToWin, int panelLimit) {
     return new KumiteGameProperties(
         new KumiteGameProperties.Rules(
             duration,
@@ -125,6 +132,7 @@ class KumiteGameServiceTest {
             List.of(Duration.ofSeconds(10), Duration.ofSeconds(20), Duration.ofSeconds(30)),
             Duration.ofMinutes(3),
             Duration.ofSeconds(1),
+            panelLimit,
             "WKF 2026.01"),
         Map.of(Side.AKA, "red", Side.AO, "blue"));
   }
@@ -207,6 +215,58 @@ class KumiteGameServiceTest {
     }
   }
 
+  /** The panel limit a game is held to is the one configured, here 2 and not the shipped 10. */
+  @Test
+  void panelLimit_isReadFromConfiguration() {
+    given(referees.findAll(anyCollection()))
+        .willAnswer(call -> {
+          Collection<String> ids = call.getArgument(0);
+          return ids.stream()
+              .collect(Collectors.toMap(Function.identity(), id -> new Referee(id, id)));
+        });
+    KumiteGameService limitOfTwo = service(properties(Duration.ofMinutes(2), 3, 8, 2));
+
+    assertThatThrownBy(() -> limitOfTwo.create(withPanel(3), TestGames.SCOREKEEPER))
+        .isInstanceOf(InvalidGameRequestException.class)
+        .hasMessageContaining("at most 2 referees");
+    assertThat(storage.count(KumiteGameDocument.class)).isZero();
+    String gameId = limitOfTwo.create(withPanel(2), TestGames.SCOREKEEPER).game().game().id();
+    assertThatThrownBy(() ->
+            limitOfTwo.recordAssignment(
+                gameId,
+                new NewAssignment(
+                    "a1", AssignmentKind.PANEL_ADD, null, null, "judge-3", PanelRole.JUDGE),
+                TestGames.SCOREKEEPER))
+        .isInstanceOf(ActionRefusedException.class)
+        .hasMessageContaining("already holds 2 referees");
+    assertThat(limitOfTwo.get(gameId).state().panel()).hasSize(2);
+  }
+
+  /**
+   * A panel the game refuses costs no read: unknown referees, too many of them, answer the limit.
+   */
+  @Test
+  void create_withPanelOverTheLimit_isRefusedBeforeAnyRead() {
+    assertThatThrownBy(() -> service.create(withPanel(11), TestGames.SCOREKEEPER))
+        .isInstanceOf(InvalidGameRequestException.class)
+        .hasMessageContaining("at most 10 referees");
+    verify(referees, never()).findAll(anyCollection());
+    verify(athletes, never()).findAll(anyCollection());
+    assertThat(storage.count(KumiteGameDocument.class)).isZero();
+  }
+
+  private static NewGame withPanel(int size) {
+    return new NewGame(
+        GameFormat.ELIMINATION,
+        false,
+        false,
+        TestGames.AKA_ATHLETE,
+        TestGames.AO_ATHLETE,
+        IntStream.rangeClosed(1, size)
+            .mapToObj(judge -> new PanelMember("judge-" + judge, PanelRole.JUDGE))
+            .toList());
+  }
+
   @Test
   void create_namesTheAthletesAndReferees_lookedUpWhenRead() {
     Recording recording =
@@ -226,9 +286,9 @@ class KumiteGameServiceTest {
   void getVersioned_readsTheGameWithTheVersionOfEveryRecordItShows() {
     String gameId = created();
     given(athletes.findAllVersioned(anyCollection()))
-        .willReturn(Map.of(TestGames.AKA_ATHLETE, new VersionedAthlete(KENJI, 4)));
+        .willReturn(Map.of(TestGames.AKA_ATHLETE, new Versioned<>(KENJI, 4)));
     given(referees.findAllVersioned(anyCollection()))
-        .willReturn(Map.of(TestGames.REFEREE, new VersionedReferee(SATO, 2)));
+        .willReturn(Map.of(TestGames.REFEREE, new Versioned<>(SATO, 2)));
     long stored = storage.findById(KumiteGameDocument.class, gameId).orElseThrow().getVersion();
 
     VersionedGameRead versioned = service.getVersioned(gameId);

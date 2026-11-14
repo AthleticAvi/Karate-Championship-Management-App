@@ -3,7 +3,9 @@ package com.management.kumitegame.data;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.management.kumitegame.data.KumiteGameDocument.StoredSettings;
 import com.management.kumitegame.domain.ActingRole;
+import com.management.kumitegame.domain.ActionRefusedException;
 import com.management.kumitegame.domain.AmendmentKind;
 import com.management.kumitegame.domain.AssignmentKind;
 import com.management.kumitegame.domain.ClockActionKind;
@@ -34,6 +36,7 @@ import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGames;
 import java.time.Instant;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -244,6 +247,110 @@ class KumiteGameDocumentMapperTest {
 
     assertThat(read.results().getFirst().suggested())
         .isEqualTo(SuggestedResult.win(Side.AKA, ResultReason.POINTS));
+  }
+
+  /** The stored game at this shape, its settings holding this panel limit. */
+  private static KumiteGameDocument withPanelLimit(
+      KumiteGameDocument current, int schemaVersion, @Nullable Integer panelLimit) {
+    StoredSettings settings = current.getSettings();
+    return new KumiteGameDocument(
+        current.getId(),
+        1,
+        schemaVersion,
+        current.getFormat(),
+        current.isMedalGame(),
+        current.isExtraGame(),
+        new StoredSettings(
+            settings.durationMs(),
+            settings.durationsOfferedMs(),
+            settings.pointValues(),
+            settings.leadToWin(),
+            settings.finalWindowMs(),
+            settings.lateScoreWindowMs(),
+            settings.chuiLimit(),
+            settings.roundRobinForfeitPoints(),
+            settings.addTimeStepsMs(),
+            settings.medicalTimeMs(),
+            settings.timeShownToleranceMs(),
+            panelLimit,
+            settings.rulebookVersion()),
+        current.getSides(),
+        current.getAssignments(),
+        current.getClockActions(),
+        current.getSenshuRecords(),
+        current.getAmendments(),
+        current.getResults(),
+        current.getStatusChanges(),
+        CREATED,
+        MODIFIED);
+  }
+
+  /**
+   * Stored history may hold a larger panel than its limit: it loads as written, and an add is
+   * refused naming the limit, not the panel's size.
+   */
+  @Test
+  void storedPanelOverItsLimit_loadsAsWritten_andAnAddIsRefusedNamingTheLimit() {
+    KumiteGame tenJudges = TestGames.game();
+    for (int judge = 2; judge <= 10; judge++) {
+      tenJudges.recordAssignment(
+          new NewAssignment(
+              "add-" + judge,
+              AssignmentKind.PANEL_ADD,
+              null,
+              null,
+              "judge-" + judge,
+              PanelRole.JUDGE),
+          TestGames.SCOREKEEPER,
+          TestClock.NOW);
+    }
+    KumiteGameDocument overItsLimit =
+        withPanelLimit(
+            KumiteGameDocumentMapper.toNewDocument(tenJudges),
+            KumiteGameDocument.CURRENT_SCHEMA_VERSION,
+            5);
+
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(overItsLimit, TestGames.rules());
+
+    assertThat(read.state().panel()).hasSize(10);
+    assertThat(read.state().warnings()).isEmpty();
+    assertThatThrownBy(() ->
+            read.recordAssignment(
+                new NewAssignment(
+                    "add-11", AssignmentKind.PANEL_ADD, null, null, "judge-11", PanelRole.JUDGE),
+                TestGames.SCOREKEEPER,
+                TestClock.NOW))
+        .isInstanceOf(ActionRefusedException.class)
+        .hasMessage("The panel already holds 10 referees, and this game's panel holds at most 5.");
+  }
+
+  /**
+   * Shape 4 stored no panel limit: the game was created with none, so it reads with none, takes a
+   * panel of any size, and is saved with none.
+   */
+  @Test
+  void shapeFourSettings_readWithNoPanelLimit_andSaveWithNone() {
+    KumiteGameDocument shapeFour =
+        withPanelLimit(KumiteGameDocumentMapper.toNewDocument(TestGames.game()), 4, null);
+
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(shapeFour, TestGames.rules());
+    for (int judge = 2; judge <= 11; judge++) {
+      read.recordAssignment(
+          new NewAssignment(
+              "add-" + judge,
+              AssignmentKind.PANEL_ADD,
+              null,
+              null,
+              "judge-" + judge,
+              PanelRole.JUDGE),
+          TestGames.SCOREKEEPER,
+          TestClock.NOW);
+    }
+
+    assertThat(read.settings().panelLimit()).isNull();
+    assertThat(read.state().panel()).hasSize(11);
+    assertThat(KumiteGameDocumentMapper.toDocument(read, shapeFour).getSettings().panelLimit())
+        .isNull();
   }
 
   /** Shape 3 stored no suggestion on a result: it reads with none. */

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Settings as the client sent them: every value a game may change before it starts. The rulebook
- * version is not one of them: it stays what configuration gave the game.
+ * version and the panel limit are not among them: they stay what configuration gave the game.
  */
 public record NewSettings(
     long durationMs,
@@ -20,7 +20,8 @@ public record NewSettings(
     long medicalTimeMs,
     long timeShownToleranceMs) {
 
-  Settings under(String rulebookVersion) {
+  /** These values, with what the game's current settings keep from configuration. */
+  Settings replacing(Settings current) {
     return new Settings(
         durationMs,
         durationsOfferedMs,
@@ -33,6 +34,7 @@ public record NewSettings(
         addTimeStepsMs,
         medicalTimeMs,
         timeShownToleranceMs,
-        rulebookVersion);
+        current.panelLimit(),
+        current.rulebookVersion());
   }
 }

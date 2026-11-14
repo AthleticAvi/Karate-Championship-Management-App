@@ -54,6 +54,18 @@ class KumiteGamePropertiesTest {
         });
   }
 
+  /** A game copies the configured panel limit, whatever value is configured. */
+  @Test
+  void panelLimit_isCopiedFromConfiguration() throws IOException {
+    List<String> values = shipped();
+    values.add("kumite-game.rules.panel-limit=4");
+
+    runner(values)
+        .run(context ->
+            assertThat(context.getBean(KumiteGameProperties.class).rules().snapshot().panelLimit())
+                .isEqualTo(4));
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -62,6 +74,7 @@ class KumiteGamePropertiesTest {
         "kumite-game.rules.medical-time=0s",
         "kumite-game.rules.lead-to-win=0",
         "kumite-game.rules.chui-limit=0",
+        "kumite-game.rules.panel-limit=0",
         "kumite-game.rules.point-values.yuko=0",
         "kumite-game.rules.time-shown-tolerance=-1ms",
         "kumite-game.rules.durations-offered=",
@@ -80,7 +93,8 @@ class KumiteGamePropertiesTest {
       strings = {
         "kumite-game.rules.point-values.waza-ari",
         "kumite-game.side-colours.aka",
-        "kumite-game.rules.duration"
+        "kumite-game.rules.duration",
+        "kumite-game.rules.panel-limit"
       })
   void missingValue_stopsTheApplication(String missing) throws IOException {
     List<String> values = shipped();

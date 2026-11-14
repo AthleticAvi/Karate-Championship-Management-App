@@ -145,6 +145,10 @@ Retryable writes are on by default in current drivers, but they need a replica s
   silently gone. With whole-document saves, bump the version for an added field too, so the older
   build refuses the document instead. Otherwise bump it when a field is renamed, moved or changes
   meaning.
+- **A field in a base class that several documents extend is a field of each.** A change there
+  bumps every one of their versions. Moving existing fields up into a base keeps their names and
+  values but can change the key order of a stored document: compare stored shapes by keys, never by
+  order.
 - **Absorb old shapes in one place:** the mapping between the stored document and the domain type.
   Otherwise every query must check every location a field has ever had, and a field stored at two
   levels needs two indexes.

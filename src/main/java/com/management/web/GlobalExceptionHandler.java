@@ -3,20 +3,19 @@ package com.management.web;
 import com.management.account.domain.AccountAlreadyExistsException;
 import com.management.account.domain.AccountNotFoundException;
 import com.management.account.domain.LastAdminException;
-import com.management.athlete.domain.AthleteChangedException;
-import com.management.athlete.domain.AthleteInUseException;
-import com.management.athlete.domain.AthleteNotFoundException;
+import com.management.athlete.domain.Athlete;
 import com.management.athlete.web.AthleteMapper;
 import com.management.config.KumiteGameProperties;
+import com.management.domain.IdentityChangedException;
+import com.management.domain.IdentityInUseException;
+import com.management.domain.IdentityNotFoundException;
 import com.management.kumitegame.domain.ActionForbiddenException;
 import com.management.kumitegame.domain.ActionRefusedException;
 import com.management.kumitegame.domain.GameChangedException;
 import com.management.kumitegame.domain.GameNotFoundException;
 import com.management.kumitegame.domain.InvalidGameRequestException;
 import com.management.kumitegame.web.KumiteGameMapper;
-import com.management.referee.domain.RefereeChangedException;
-import com.management.referee.domain.RefereeInUseException;
-import com.management.referee.domain.RefereeNotFoundException;
+import com.management.referee.domain.Referee;
 import com.management.referee.web.RefereeMapper;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,6 +32,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -152,32 +152,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return notFound("Game not found", ex);
   }
 
-  @ExceptionHandler(AthleteNotFoundException.class)
-  public ProblemDetail handleAthleteNotFound(AthleteNotFoundException ex) {
-    return notFound("Athlete not found", ex);
-  }
-
-  @ExceptionHandler(RefereeNotFoundException.class)
-  public ProblemDetail handleRefereeNotFound(RefereeNotFoundException ex) {
-    return notFound("Referee not found", ex);
+  /** No athlete or referee has the id: the title names which. */
+  @ExceptionHandler(IdentityNotFoundException.class)
+  public ProblemDetail handleIdentityNotFound(IdentityNotFoundException ex) {
+    return notFound(StringUtils.capitalize(ex.noun()) + " not found", ex);
   }
 
   /**
-   * A rename that lost to another write: 409, with the referee as it now stands.
+   * A change to an athlete or referee that lost to another write: 409, with it as it now stands.
    *
-   * <p>A rename sets a value, so retrying it would overwrite a name the caller never saw. The
-   * current referee goes back in a {@code current} extension property, so the caller can decide
-   * without a second read.
+   * <p>A change sets values, so retrying it would overwrite what the caller never saw. The current
+   * one goes back in a {@code current} extension property, in its own response shape, so the caller
+   * can decide without a second read. A kind with no case here is a server fault.
    */
-  @ExceptionHandler(RefereeChangedException.class)
-  public ProblemDetail handleRefereeChanged(RefereeChangedException ex) {
-    return changed(ex, "referee", RefereeMapper.toResponse(ex.current()));
-  }
-
-  /** An update that lost to another write: 409, with the athlete as it now stands. */
-  @ExceptionHandler(AthleteChangedException.class)
-  public ProblemDetail handleAthleteChanged(AthleteChangedException ex) {
-    return changed(ex, "athlete", AthleteMapper.toResponse(ex.current()));
+  @ExceptionHandler(IdentityChangedException.class)
+  public ProblemDetail handleIdentityChanged(IdentityChangedException ex) {
+    return switch (ex.current()) {
+      case Athlete athlete -> changed(ex, ex.noun(), AthleteMapper.toResponse(athlete));
+      case Referee referee -> changed(ex, ex.noun(), RefereeMapper.toResponse(referee));
+      default -> handleUnexpectedException(ex);
+    };
   }
 
   /**
@@ -193,14 +187,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ex, "game", KumiteGameMapper.toResponse(ex.current(), gameProperties.sideColours()));
   }
 
-  @ExceptionHandler(AthleteInUseException.class)
-  public ProblemDetail handleAthleteInUse(AthleteInUseException ex) {
-    return clientError(HttpStatus.CONFLICT, "Athlete in use", ex);
-  }
-
-  @ExceptionHandler(RefereeInUseException.class)
-  public ProblemDetail handleRefereeInUse(RefereeInUseException ex) {
-    return clientError(HttpStatus.CONFLICT, "Referee in use", ex);
+  /** Deleting an athlete or referee a game names: the title names which. */
+  @ExceptionHandler(IdentityInUseException.class)
+  public ProblemDetail handleIdentityInUse(IdentityInUseException ex) {
+    return clientError(HttpStatus.CONFLICT, StringUtils.capitalize(ex.noun()) + " in use", ex);
   }
 
   /**

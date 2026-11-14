@@ -176,6 +176,7 @@ class SuggestedResultChainTest {
             defaults.addTimeStepsMs(),
             defaults.medicalTimeMs(),
             defaults.timeShownToleranceMs(),
+            defaults.panelLimit(),
             defaults.rulebookVersion());
     assertThat(
             CHAIN.suggest(

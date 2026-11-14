@@ -35,9 +35,11 @@ public class KumiteGameDocument {
    *   <li>2: adds {@code senshuRecords}. A shape 1 game reads with none.
    *   <li>3: adds {@code statusChanges}. A shape 2 game reads with none.
    *   <li>4: adds {@code suggested} to each result. A shape 3 result reads with none.
+   *   <li>5: adds {@code panelLimit} to the settings. A shape 4 game reads with none and is saved
+   *       with none: it keeps no limit, as it was created.
    * </ul>
    */
-  public static final int CURRENT_SCHEMA_VERSION = 4;
+  public static final int CURRENT_SCHEMA_VERSION = 5;
 
   @Id private String id;
 
@@ -109,7 +111,7 @@ public class KumiteGameDocument {
       String recordedBy,
       List<String> raisedWarnings) {}
 
-  /** The rule values the game runs under. */
+  /** The rule values the game runs under. {@code panelLimit} is absent before shape 5. */
   public record StoredSettings(
       long durationMs,
       List<Long> durationsOfferedMs,
@@ -122,6 +124,7 @@ public class KumiteGameDocument {
       List<Long> addTimeStepsMs,
       long medicalTimeMs,
       long timeShownToleranceMs,
+      Integer panelLimit,
       String rulebookVersion) {}
 
   /** One side's scores and penalties, keyed by the side's name in {@code sides}. */

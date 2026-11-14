@@ -45,7 +45,8 @@ application, and `KumiteGamePropertiesTest` proves it.
 
 **A game copies these when it is created and keeps its copy.** Rules read only the copy, so a value
 changed and redeployed reaches new games only, and a running or finished game never changes its
-rules. A game's copy may change through its settings resource, before it starts only.
+rules. A game's copy may change through its settings resource, before it starts only, except the
+rulebook version and the panel limit, which stay what configuration gave it.
 
 | Setting | Default | Key | Article |
 |---|---|---|---|
@@ -59,6 +60,7 @@ rules. A game's copy may change through its settings resource, before it starts 
 | Add-time steps | 10s, 20s, 30s, and any other positive one | `add-time-steps` | |
 | Medical time | 3m | `medical-time` | 11.2.3 |
 | Time-shown tolerance | 1s | `time-shown-tolerance` | |
+| Panel limit: the most referees on a panel, at creation and when one is added | 10 | `panel-limit` | 4.1.1, and the owner |
 | Rulebook version | WKF 2026.01 | `rulebook-version` | |
 
 | Setting | Default | Key |
@@ -112,8 +114,8 @@ server can land in the moment before the context closes.
 `AuditingConfiguration` turns on Spring Data auditing, and its `DateTimeProvider` reads the `Clock`
 bean, so a stored instant is UTC in whole milliseconds and a test that replaces the clock fixes it.
 It is a class of its own, not an annotation on `KumiteGameStarter`, so a web slice does not start it.
-Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: `KumiteGameDocument`,
-`AthleteDocument` and `RefereeDocument`.
+Only a type with `@CreatedDate` or `@LastModifiedDate` is touched: `KumiteGameDocument`, and
+`AthleteDocument` and `RefereeDocument` through the `IdentityDocument` they extend.
 
 ## [profiles] Profiles
 
