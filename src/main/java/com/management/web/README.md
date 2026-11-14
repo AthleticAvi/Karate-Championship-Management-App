@@ -370,9 +370,11 @@ every success. So:
 `POST /api/v1/accounts` states its own 409, because a body of its own can collide: the rules give a
 409 only to a path parameter. `PUT /api/v1/referees/{refereeId}`, `PUT /api/v1/athletes/{athleteId}`,
 and a game's `settings`, `clock-actions` and `results` state their 409 to say that `current` holds the
-record as it now stands, and that a stale `expectedVersion` gives it, in words only: the shared
-problem schema cannot list it, because a 400 does not carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409
-on deleting an athlete or referee comes from the rules: a game names it.
+record as it now stands, in words only: the shared problem schema cannot list it, because a 400 does
+not carry it. A game's four absolute actions, `status-changes` included, also say that a stale
+`expectedVersion` answers it; athletes and referees take none. Stating any status stops the
+generator adding the 200, so that is stated too. The 409 on deleting an athlete or referee comes
+from the rules: a game names it.
 
 A game's `status-changes` states its 403 and its 409 too: its row is at Scorekeeper level, and the
 game refuses an Admin's move from a Scorekeeper.
