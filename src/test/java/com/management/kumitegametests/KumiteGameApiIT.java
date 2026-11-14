@@ -1049,4 +1049,14 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(body(read(gameId)).get("version").asLong()).isEqualTo(stored);
     assertThat(body(readPublic(gameId, null)).get("version").asLong()).isEqualTo(stored);
   }
+
+  @Test
+  void create_answersTheStoredVersion() {
+    ResponseEntity<String> created = createWithPanel(List.of(referee));
+    assertThat(status(created)).isEqualTo(201);
+    JsonNode game = body(created).get("game");
+
+    assertThat(game.get("version").asLong())
+        .isEqualTo(stored(game.get("id").asString()).getLong("version"));
+  }
 }
