@@ -37,9 +37,11 @@ public class KumiteGameDocument {
    *   <li>4: adds {@code suggested} to each result. A shape 3 result reads with none.
    *   <li>5: adds {@code panelLimit} to the settings. A shape 4 game reads with none and is saved
    *       with none: it keeps no limit, as it was created.
+   *   <li>6: adds {@code exchangeNamed} to each score, penalty and SENSHU record. A shape 5 entry
+   *       reads as one whose exchange the server filled in.
    * </ul>
    */
-  public static final int CURRENT_SCHEMA_VERSION = 5;
+  public static final int CURRENT_SCHEMA_VERSION = 6;
 
   @Id private String id;
 
@@ -130,11 +132,23 @@ public class KumiteGameDocument {
   /** One side's scores and penalties, keyed by the side's name in {@code sides}. */
   public record StoredSide(List<StoredScore> scores, List<StoredPenalty> penalties) {}
 
+  /** A score. {@code exchangeNamed} is absent before shape 6. */
   public record StoredScore(
-      String level, String source, Integer exchange, Long clockRemainingMs, StoredMeta meta) {}
+      String level,
+      String source,
+      Integer exchange,
+      Boolean exchangeNamed,
+      Long clockRemainingMs,
+      StoredMeta meta) {}
 
+  /** A penalty. {@code exchangeNamed} is absent before shape 6. */
   public record StoredPenalty(
-      String level, String infraction, Integer exchange, Long clockRemainingMs, StoredMeta meta) {}
+      String level,
+      String infraction,
+      Integer exchange,
+      Boolean exchangeNamed,
+      Long clockRemainingMs,
+      StoredMeta meta) {}
 
   public record StoredAssignment(
       String kind, String side, String athleteId, String refereeId, String role, StoredMeta meta) {}
@@ -148,11 +162,13 @@ public class KumiteGameDocument {
       String pauseReason,
       StoredMeta meta) {}
 
+  /** A SENSHU record. {@code exchangeNamed} is absent before shape 6. */
   public record StoredSenshuRecord(
       String side,
       String kind,
       String reason,
       Integer exchange,
+      Boolean exchangeNamed,
       Long clockRemainingMs,
       StoredMeta meta) {}
 
