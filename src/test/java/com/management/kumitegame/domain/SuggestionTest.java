@@ -615,8 +615,9 @@ class SuggestionTest {
   class Disqualified {
 
     private Map<Side, Boolean> disqualified() {
+      GameState state = state();
       return Map.of(
-          Side.AKA, state().isDisqualified(Side.AKA), Side.AO, state().isDisqualified(Side.AO));
+          Side.AKA, state.isDisqualified(Side.AKA), Side.AO, state.isDisqualified(Side.AO));
     }
 
     private static Map<Side, Boolean> disqualified(boolean aka, boolean ao) {
