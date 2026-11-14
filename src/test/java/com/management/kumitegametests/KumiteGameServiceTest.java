@@ -344,6 +344,19 @@ class KumiteGameServiceTest {
     verify(referees, never()).findAll(anyCollection());
   }
 
+  /**
+   * The game's version is answered in two places, for the tag and on the read, and they are one: a
+   * caller sends back the read's on an absolute action.
+   */
+  @Test
+  void getVersioned_answersOneGameVersion_forTheTagAndOnTheRead() {
+    String gameId = created();
+
+    VersionedGameRead versioned = service.getVersioned(gameId);
+
+    assertThat(versioned.read().version()).isEqualTo(versioned.gameVersion());
+  }
+
   /** One failing result rule must not take every game down with it. */
   @Test
   void resultRulesThatThrow_leaveTheGameReadAndWritten_withNoSuggestion_andTheWarning() {
