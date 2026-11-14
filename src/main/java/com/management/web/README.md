@@ -82,7 +82,7 @@ sees a document: each feature keeps its stored form in `data`.
 
 | Response type | Endpoint | Shape |
 |---|---|---|
-| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, `warnings`, and every note in free text. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. `settings` carries every rule value the game runs under, in both views, `panelLimit` included: empty for a game created before the limit existed, which has none. `PUT .../settings` cannot change it. Each side carries `senshu`, true for the holder, `hansokuCount`, `shikkakuCount` and `disqualified`, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
+| `KumiteGameResponse` | `GET /api/v1/kumite-games/{gameId}/full-view`, and `current` in a game's 409. `GET /api/v1/kumite-games/{gameId}` sends the public view of it: every field but `recordedBy` and `raisedWarnings` in each `meta`, `warnings`, and every note in free text. See `[conditional-reads]` | `id`, `format`, `medalGame`, `extraGame`, `settings`, `status`, `exchange`, `mainClock`, `aka`, `ao`, `panel`, `assignments`, `clockActions`, `senshuClosed`, `senshuRecords`, `amendments`, `results`, `currentResult`, `suggestedResult`, `statusChanges`, `warnings`, `serverTime`. `settings` carries every rule value the game runs under, in both views, `panelLimit` included: empty for a game created before the limit existed, which has none. `PUT .../settings` cannot change it: a body that sends it answers 400. Each side carries `senshu`, true for the holder, `hansokuCount`, `shikkakuCount` and `disqualified`, and `effectiveScore`. `currentResult` is empty after a reopen of a DECIDED game, and on a VOIDED one. `suggestedResult`, and `suggested` on each result, is empty when the rules point to nothing. A suggested HANTEI is a WIN with an empty `winner`: the officials' vote names it, unlike a recorded WIN |
 | `RecordedResponse` | every game mutation | `game`, the `KumiteGameResponse`, and `raisedWarnings` |
 | `PagedModel` of `KumiteGameSummaryResponse` | `GET /api/v1/kumite-games` | `content`, the summaries, and `page`. A summary is `id`, `status`, `aka` and `ao`, each `colour` and `athlete`, and `currentResult`: `outcome`, `winner`, `reason`, `bothDisqualified`. See `[lists]` |
 | `PagedModel` of `AthleteResponse`, of `RefereeResponse` | `GET /api/v1/athletes`, `GET /api/v1/referees` | `content` and `page`: see `[lists]` |
@@ -124,7 +124,7 @@ passes the role, as `ActingRole`, from `HttpServletRequest.isUserInRole`: the se
 Spring Security answers, and which the description leaves out like `Principal`. The role is found
 by the account role's name, which `ActingRoleTest` ties, because the game feature may not import the
 account's type. No request has room
-for it, and a body that still sends one is not refused: the field is not read. `Principal` is the
+for it, so a body that sends one is refused as a field the request does not take: see `[validation]`. `Principal` is the
 JDK's type, so the description does not list it as a parameter and no Spring Security type comes
 near the signature.
 
@@ -175,6 +175,29 @@ Request DTOs are records with Jakarta Bean Validation constraints, triggered by 
 `@RequestBody` parameters: required fields, sizes, and a duration of zero or less. Rules that span
 fields, such as a WIN naming a winner or a medical timer naming its side, are domain validation and
 answer 400 as `InvalidGameRequestException`.
+
+**A request body follows the API description, or it is refused.** Two Jackson settings in
+`application.properties` do it, in the framework, with no code of ours:
+
+- `spring.jackson.deserialization.fail-on-unknown-properties`: a field the request does not take
+  answers 400 in the shape of a field error, `errors` naming its path as Bean Validation writes one,
+  such as `panelLimit` or `panel[0].seat`. Spring Boot turns the check off by default, which is how
+  a settings change sending `panelLimit` used to answer 200 and change nothing.
+- `spring.jackson.datatype.enum.fail-on-numbers-for-enums`: an enum sent as a number, or a number
+  in text, answers 400. Jackson otherwise reads it as the constant at that position.
+
+Jackson stops at the first unknown field, and reads the body before Bean Validation runs, so a body
+with an unknown field and a broken constraint names only the unknown field. A missing `boolean` or
+number of a primitive type, such as `medalGame` or `durationMs`, answers 400 as an unreadable body:
+Jackson 3 fails on a missing primitive. Query parameters are unchanged: one a list does not take is
+ignored, as `sort` is.
+
+`ApiDescriptionIT` walks every request body the description states and breaks each thing it states,
+one at a time, from a body that passes: a field taken away, a field added at every level, and each
+`maxLength`, `minimum`, `exclusiveMinimum`, `pattern`, `minItems`, `minProperties` and `enum`. Each
+answers 400 naming the path, except an enum, which answers the unreadable body. A constraint it has
+no case for fails it. It does not prove `type`: Jackson coerces a scalar, so `"5"` reads as a number
+and `5` as text.
 
 **A missing `expectedVersion` answers in two shapes.** A settings change, a result and a status
 change require it as a field, so its absence answers with the `errors` map. A clock action needs it
@@ -411,6 +434,13 @@ has no body. It is not a failure a client can treat as refused.
 The same class marks every field of a response as required, because a response always carries them,
 and adds `null` to the values of a nullable enum, which the generator leaves out.
 
+**A request states that it takes no other field.** The same class sets `additionalProperties: false`
+on every record a request body reaches, nested ones such as `PanelMemberRequest` included, because
+the API refuses any other: see `[validation]`. A map keeps the schema of its values. Responses do not
+say it, so a field can be added to one without breaking a client. `ApiDescriptionIT` pins both sides,
+and ties the records reached to the request records in the code and the bodies to the handlers that
+read one.
+
 **Not in the description:** values that come from configuration, such as the side colours; the `X-Correlation-ID` a caller may send;
 that a text field must not be blank, because `@Size` renders `minLength: 0` and `@Size(min = 1)` would
 add a second message to the `errors` body. Required response fields follow references into lists,
@@ -477,6 +507,8 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Failure | Status | Exception | Detail |
 |---|---|---|---|
 | Request fails Bean Validation | 400 | `MethodArgumentNotValidException` (framework) | generic, plus an `errors` extension property mapping each failing field path to its message |
+| A body field the request does not take | 400 | `HttpMessageNotReadableException` (framework), caused by Jackson's `UnrecognizedPropertyException` | fixed, plus `errors` holding the field's path, the first one only. The name is the caller's text, so it is a key there and never in the detail |
+| Any other body that does not read: malformed JSON, a value outside an enum, a missing primitive, no body | 400 | `HttpMessageNotReadableException` (framework) | the base class's generic `Failed to read request`, no `errors` |
 | A query value that does not convert, such as a status that does not exist | 400 | `TypeMismatchException` (framework) | fixed, naming the parameter and never the value sent |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
