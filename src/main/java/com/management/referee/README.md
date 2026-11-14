@@ -55,10 +55,10 @@ handler in `GlobalExceptionHandler`: without one, a lost change answers 500, not
   checked against the version that was read. A save replaces the whole document, so the mapper
   must copy `createdAt` from the stored one: auditing sets it only on an insert.
 - **An aggregate type never carries the stored version;** a composed read the service builds may
-  carry it, when a caller must send it back. `Referee`, `Athlete` and `KumiteGame` never see it.
-  `GameRead` carries the game's, so the version a caller sends back on an absolute action reaches
-  every answer. A reader that only compares versions, such as a game's tag, gets them beside the
-  aggregate from the service, in a `Versioned` record or `VersionedGameRead`.
+  carry it, when a caller must send it back. `GameRead` carries the game's, so the version a caller
+  sends back on an absolute action reaches every answer; `KumiteGame` never sees it. A reader that
+  only compares versions, such as a game's tag, gets them beside the aggregate from the service, in
+  a `Versioned` record or `VersionedGameRead`.
 - **Instants come from auditing,** never set by hand: see `[auditing]` in the config README.
 - **A primitive `version` is stored as 1 on insert** and rises by one on each save. A document
   stored without one reads as version 0, so its next save is an insert and fails on the duplicate

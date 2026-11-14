@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import com.management.athlete.domain.Athlete;
@@ -64,6 +66,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -345,15 +348,23 @@ class KumiteGameServiceTest {
   }
 
   /**
-   * The game's version is answered in two places, for the tag and on the read, and they are one: a
-   * caller sends back the read's on an absolute action.
+   * The game's version is answered in two places, for the tag and on the read, and both are the
+   * stored one: a caller sends back the read's on an absolute action. The double never raises a
+   * version, so the stored game is read at one that is neither 0 nor 1.
    */
   @Test
-  void getVersioned_answersOneGameVersion_forTheTagAndOnTheRead() {
+  void getVersioned_answersTheStoredVersion_forTheTagAndOnTheRead() {
     String gameId = created();
+    KumiteGameDocument stored =
+        spy(storage.findById(KumiteGameDocument.class, gameId).orElseThrow());
+    willReturn(7L).given(stored).getVersion();
+    given(repository.findById(gameId)).willReturn(Optional.of(stored));
+    given(athletes.findAllVersioned(anyCollection())).willReturn(Map.of());
+    given(referees.findAllVersioned(anyCollection())).willReturn(Map.of());
 
     VersionedGameRead versioned = service.getVersioned(gameId);
 
+    assertThat(versioned.gameVersion()).isEqualTo(7);
     assertThat(versioned.read().version()).isEqualTo(versioned.gameVersion());
   }
 

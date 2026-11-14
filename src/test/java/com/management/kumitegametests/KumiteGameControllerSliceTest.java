@@ -217,7 +217,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
   /** The same versions, with a fold the test can watch. */
   private static VersionedGameRead versioned(Supplier<GameRead> fold) {
     return new VersionedGameRead(
-        7, Map.of(TestGames.AKA_ATHLETE, 3L), Map.of(TestGames.REFEREE, 2L), fold);
+        VERSION, Map.of(TestGames.AKA_ATHLETE, 3L), Map.of(TestGames.REFEREE, 2L), fold);
   }
 
   /**
@@ -592,7 +592,10 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     VersionedGameRead before = versioned(scored());
     VersionedGameRead renamed =
         new VersionedGameRead(
-            7, Map.of(TestGames.AKA_ATHLETE, 4L), Map.of(TestGames.REFEREE, 2L), before.fold());
+            VERSION,
+            Map.of(TestGames.AKA_ATHLETE, 4L),
+            Map.of(TestGames.REFEREE, 2L),
+            before.fold());
     given(kumiteGameService().getVersioned("game-1")).willReturn(before, renamed);
     String stale = tagFrom(mockMvc.perform(get(GAME, "game-1")));
 
