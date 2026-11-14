@@ -65,7 +65,7 @@ class RepresentationCharacterizationTest {
     // The id is given before the insert; the version and the schema version are stored.
     assertThat(stored.get("_id")).isEqualTo(TestGames.GAME_ID);
     assertThat(stored.get("version")).isEqualTo(0L);
-    assertThat(stored.get("schemaVersion")).isEqualTo(5);
+    assertThat(stored.get("schemaVersion")).isEqualTo(6);
     // Spring Data writes a type hint alongside the data.
     assertThat(stored.get("_class")).isEqualTo("com.management.kumitegame.data.KumiteGameDocument");
     // Enums are stored as their names.
@@ -80,6 +80,8 @@ class RepresentationCharacterizationTest {
     Document score = aka.getList("scores", Document.class).getFirst();
     assertThat(score.get("level")).isEqualTo("WAZA_ARI");
     assertThat(score.get("exchange")).isEqualTo(1);
+    // The client left the exchange out, so the server filled it in.
+    assertThat(score.get("exchangeNamed")).isEqualTo(false);
     Document meta = score.get("meta", Document.class);
     // The client's id is stored as entryId: a nested "id" would be mapped to "_id".
     assertThat(meta.get("entryId")).isEqualTo("score-1");

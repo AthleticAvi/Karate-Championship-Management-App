@@ -705,13 +705,15 @@ class KumiteGameTest {
               TestGames.settings(),
               Map.of(
                   Side.AKA,
-                  List.of(new Score(ScoreLevel.IPPON, ScoreSource.JUDGES, 1, null, scoreMeta)),
+                  List.of(
+                      new Score(ScoreLevel.IPPON, ScoreSource.JUDGES, 1, false, null, scoreMeta)),
                   Side.AO,
                   List.of(
                       new Score(
                           ScoreLevel.IPPON,
                           ScoreSource.JUDGES,
                           1,
+                          false,
                           null,
                           new EntryMeta("score-1", 8, T0, SK, List.of())))),
               Map.of(),
@@ -874,6 +876,7 @@ class KumiteGameTest {
                           ScoreLevel.IPPON,
                           ScoreSource.JUDGES,
                           7,
+                          true,
                           null,
                           new EntryMeta("score-1", 5, T0, SK, List.of())))),
               Map.of(
@@ -883,6 +886,7 @@ class KumiteGameTest {
                           PenaltyLevel.CHUI,
                           null,
                           7,
+                          true,
                           null,
                           new EntryMeta("penalty-1", 6, T0, SK, List.of())))),
               TestGames.game().assignments(),
@@ -901,6 +905,7 @@ class KumiteGameTest {
                       SenshuRecordKind.AWARDED,
                       null,
                       7,
+                      true,
                       null,
                       new EntryMeta("senshu-1", 7, T0, SK, List.of()))),
               List.of(),
@@ -938,23 +943,25 @@ class KumiteGameTest {
       assertThat(game.scores(Side.AKA).getFirst().meta().recordedAt()).isEqualTo(at(1));
     }
 
-    /** The server filled the exchange in, so a retry that leaves it out is the same request. */
+    /**
+     * The server filled the exchange in, so a retry that leaves it out is the same request, and one
+     * that names it is another, after the counter moved too.
+     */
     @Test
-    void retryLeavingOutTheExchange_isTheSameRequest_afterTheCounterMoved() {
+    void retry_comparesTheExchangeAsSent_afterTheCounterMoved() {
       start();
       game.recordScore(yuko, SK, at(1));
       clock(ClockActionKind.PAUSE, 110_000, null, at(10));
       clock(ClockActionKind.START, 110_000, null, at(11));
 
       assertThat(game.recordScore(yuko, SK, at(12)).replayed()).isTrue();
-      assertThat(
+      assertThatThrownBy(() ->
               game.recordScore(
-                      new NewScore(
-                          "score-1", Side.AKA, ScoreLevel.YUKO, ScoreSource.JUDGES, 1, 110_000L),
-                      SK,
-                      at(12))
-                  .replayed())
-          .isTrue();
+                  new NewScore(
+                      "score-1", Side.AKA, ScoreLevel.YUKO, ScoreSource.JUDGES, 1, 110_000L),
+                  SK,
+                  at(12)))
+          .isInstanceOf(ActionRefusedException.class);
     }
 
     @Test
@@ -1511,6 +1518,7 @@ class KumiteGameTest {
                           ScoreLevel.IPPON,
                           ScoreSource.JUDGES,
                           null,
+                          false,
                           null,
                           new EntryMeta("late", 6, T0, SK, List.of())))),
               Map.of(),

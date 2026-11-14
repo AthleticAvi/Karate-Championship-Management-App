@@ -513,7 +513,7 @@ class SenshuTest {
     }
 
     private SenshuRecord record(String id, int order, Side side, SenshuRecordKind kind) {
-      return new SenshuRecord(side, kind, null, null, null, meta(id, order));
+      return new SenshuRecord(side, kind, null, null, false, null, meta(id, order));
     }
 
     /** Two holders cannot come from appending, only from stored history: it loads, and warns. */
@@ -569,9 +569,9 @@ class SenshuTest {
                   mainClock(ClockActionKind.START, meta("c5", 8))),
               List.of(
                   new SenshuRecord(
-                      Side.AKA, SenshuRecordKind.AWARDED, null, 1, null, meta("s1", 9)),
+                      Side.AKA, SenshuRecordKind.AWARDED, null, 1, true, null, meta("s1", 9)),
                   new SenshuRecord(
-                      Side.AKA, SenshuRecordKind.AWARDED, null, 3, null, meta("s2", 10))),
+                      Side.AKA, SenshuRecordKind.AWARDED, null, 3, false, null, meta("s2", 10))),
               List.of(),
               List.of(),
               List.of(),

@@ -431,7 +431,8 @@ no logic.
 They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a username has one home.
 
 - Name records `*Request` and `*Response`. A `DTO` suffix fails Checkstyle, as an abbreviation.
-- Every entry request carries `id`, made by the client and sent again on a retry.
+- Every entry request carries `id`, made by the client and sent again on a retry, with the body
+  as first sent: an exchange left out stays left out. Any other body under the id is a 409.
 - `SettingsRequest`, `ResultRequest` and `StatusChangeRequest` require `expectedVersion`;
   `ClockActionRequest` takes it for SET_TIME only. `KumiteGameResponse` carries `version`.
 - `@Schema` on them feeds the API description and nothing else: see `[description]`.

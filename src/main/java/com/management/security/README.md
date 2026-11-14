@@ -82,6 +82,9 @@ the shared `web`: a strict rule in `ArchitectureTest` fails on any other.
   refusing the login. Nothing refuses in that case, so a restart is what checks again.
 - **`ADMIN_USERNAME` and `ADMIN_PASSWORD` do nothing once an Admin exists.** Changing them later
   changes no password.
+  To drive the application locally without the existing Admin's password, start it with
+  `MONGO_DB` naming a database of its own, so it creates a first Admin there, and drop that database
+  afterwards.
 - **Spring Security's firewall answers first.** A path with a `;`, an encoded slash or a method that
   is not standard gets a 400 through the error dispatch, which is why that dispatch is permitted. It
   carries a correlation ID and is not a problem detail.
