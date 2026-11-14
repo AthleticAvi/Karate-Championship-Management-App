@@ -55,8 +55,8 @@ class KumiteGameDocumentMapperTest {
   private static final String SK = TestGames.SCOREKEEPER;
 
   /**
-   * Every kind of entry, with every optional field set but the penalty's exchange, which the server
-   * fills in, and warnings on some.
+   * Every kind of entry, with every optional field set, and warnings on some. One penalty leaves
+   * its exchange out, for the server to fill in.
    */
   private static KumiteGame everyEntry() {
     KumiteGame game = TestGames.game();
@@ -81,6 +81,10 @@ class KumiteGameDocumentMapperTest {
         t.plusSeconds(12));
     game.recordPenalty(
         new NewPenalty("p1", Side.AO, PenaltyLevel.HANSOKU, Infraction.JOGAI, null, 109_000L),
+        SK,
+        t.plusSeconds(13));
+    game.recordPenalty(
+        new NewPenalty("p2", Side.AKA, PenaltyLevel.CHUI, Infraction.MUBOBI, 1, 109_000L),
         SK,
         t.plusSeconds(13));
     game.recordSenshu(
@@ -364,8 +368,8 @@ class KumiteGameDocumentMapperTest {
 
   /**
    * Shape 5 stored no {@code exchangeNamed}: each score, penalty and SENSHU record reads as one
-   * whose exchange the server filled in, so a retry leaving the exchange out replays, and it is
-   * saved so.
+   * whose exchange the server filled in, so a retry leaving the exchange out replays, one naming it
+   * is refused even where the first request named it, and it is saved so.
    */
   @Test
   void shapeFiveEntries_readAsExchangeFilledIn_andSaveSo() {
@@ -452,6 +456,13 @@ class KumiteGameDocumentMapperTest {
                     TestClock.NOW)
                 .replayed())
         .isTrue();
+    assertThatThrownBy(() ->
+            read.recordScore(
+                new NewScore(
+                    "s1", Side.AKA, ScoreLevel.IPPON, ScoreSource.VIDEO_REVIEW, 1, 109_000L),
+                SK,
+                TestClock.NOW))
+        .isInstanceOf(ActionRefusedException.class);
     KumiteGameDocument saved = KumiteGameDocumentMapper.toDocument(read, shapeFive);
     assertThat(saved.getSchemaVersion()).isEqualTo(KumiteGameDocument.CURRENT_SCHEMA_VERSION);
     assertThat(saved.getSides().get("AKA").scores().getFirst().exchangeNamed()).isFalse();
