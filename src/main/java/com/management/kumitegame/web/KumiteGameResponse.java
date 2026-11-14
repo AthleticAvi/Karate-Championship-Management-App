@@ -35,6 +35,8 @@ import org.jspecify.annotations.Nullable;
  * browser's cached copy of this answer, keeps the countdown going: see {@code [countdown]} in
  * {@code src/main/java/com/management/web/README.md}.
  *
+ * @param version the stored game's version this answer shows: sent back as {@code expectedVersion}
+ *     on setting the time, a result, a settings change or a status change
  * @param exchange the number of main-clock starts so far
  * @param senshuClosed SENSHU was withdrawn in the final window, so nobody should earn it again
  * @param currentResult the latest result; empty while none is recorded, after a reopen of a DECIDED
@@ -48,6 +50,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record KumiteGameResponse(
     String id,
+    long version,
     GameFormat format,
     boolean medalGame,
     boolean extraGame,

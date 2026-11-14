@@ -12,10 +12,15 @@ import java.util.Map;
  * <p>An athlete or referee the game names but that no longer exists is simply absent from its map,
  * and reads as unknown: the accepted race between creating a game and deleting one it names.
  *
+ * <p>The version is the stored game's, the one this read shows. The game itself never sees it: a
+ * caller sends it back on an absolute action, and the service refuses a stale one.
+ *
+ * @param version the stored game's version this read shows
  * @param serverTime the server's time when it was read, so a screen's countdown does not drift
  */
 public record GameRead(
     KumiteGame game,
+    long version,
     GameState state,
     Map<String, Athlete> athletes,
     Map<String, Referee> referees,

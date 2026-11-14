@@ -1,11 +1,13 @@
 package com.management.kumitegame.domain;
 
 /**
- * An absolute action lost to another write on the same game: setting the time, recording a result,
- * changing the settings, or approving, reopening or voiding.
+ * An absolute action chosen against a version the game has since moved past, or that lost to
+ * another write inside the request: setting the time, recording a result, changing the settings, or
+ * approving, reopening or voiding.
  *
- * <p>Not retried, because it sets a value the caller chose while looking at what is now stale. The
- * game as it now stands goes back instead, so the caller can decide.
+ * <p>Not applied and not retried, because it sets a value the caller chose while looking at what is
+ * now stale. The game as it now stands goes back instead, with its version, so the caller can
+ * decide.
  */
 public class GameChangedException extends RuntimeException {
 

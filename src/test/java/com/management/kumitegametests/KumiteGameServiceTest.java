@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import com.management.athlete.domain.Athlete;
@@ -34,6 +36,7 @@ import com.management.kumitegame.domain.NewClockAction;
 import com.management.kumitegame.domain.NewGame;
 import com.management.kumitegame.domain.NewResult;
 import com.management.kumitegame.domain.NewScore;
+import com.management.kumitegame.domain.NewSettings;
 import com.management.kumitegame.domain.NewStatusChange;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.PanelMember;
@@ -63,6 +66,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -195,6 +199,7 @@ class KumiteGameServiceTest {
       leadOfSix.recordClockAction(
           gameId,
           new NewClockAction("c", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+          null,
           TestGames.SCOREKEEPER);
       for (String id : List.of("s1", "s2")) {
         leadOfSix.recordScore(
@@ -342,6 +347,27 @@ class KumiteGameServiceTest {
     verify(referees, never()).findAll(anyCollection());
   }
 
+  /**
+   * The game's version is answered in two places, for the tag and on the read, and both are the
+   * stored one: a caller sends back the read's on an absolute action. The double never raises a
+   * version, so the stored game is read at one that is neither 0 nor 1.
+   */
+  @Test
+  void getVersioned_answersTheStoredVersion_forTheTagAndOnTheRead() {
+    String gameId = created();
+    KumiteGameDocument stored =
+        spy(storage.findById(KumiteGameDocument.class, gameId).orElseThrow());
+    willReturn(7L).given(stored).getVersion();
+    given(repository.findById(gameId)).willReturn(Optional.of(stored));
+    given(athletes.findAllVersioned(anyCollection())).willReturn(Map.of());
+    given(referees.findAllVersioned(anyCollection())).willReturn(Map.of());
+
+    VersionedGameRead versioned = service.getVersioned(gameId);
+
+    assertThat(versioned.gameVersion()).isEqualTo(7);
+    assertThat(versioned.read().version()).isEqualTo(versioned.gameVersion());
+  }
+
   /** One failing result rule must not take every game down with it. */
   @Test
   void resultRulesThatThrow_leaveTheGameReadAndWritten_withNoSuggestion_andTheWarning() {
@@ -417,7 +443,9 @@ class KumiteGameServiceTest {
     service.recordClockAction(
         gameId,
         new NewClockAction("c1", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+        null,
         "scorekeeper");
+    long read = service.get(gameId).version();
     willThrow(new OptimisticLockingFailureException("stale version"))
         .given(repository)
         .save(any(KumiteGameDocument.class));
@@ -427,6 +455,7 @@ class KumiteGameServiceTest {
                 gameId,
                 new NewClockAction(
                     "c2", Timer.MAIN, null, ClockActionKind.SET_TIME, 119_000, 60_000L, null),
+                read,
                 "scorekeeper"))
         .isInstanceOfSatisfying(
             GameChangedException.class,
@@ -467,6 +496,7 @@ class KumiteGameServiceTest {
   @Test
   void absoluteAction_thatLosesRace_answersTheCurrentGameAndIsNotRetried() {
     String gameId = created();
+    long read = service.get(gameId).version();
     willAnswer(
             call -> {
               KumiteGameDocument stored = storage.findById(KumiteGameDocument.class, gameId).get();
@@ -485,6 +515,7 @@ class KumiteGameServiceTest {
             service.recordResult(
                 gameId,
                 new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.POINTS, null, false),
+                read,
                 "scorekeeper"))
         .isInstanceOfSatisfying(
             GameChangedException.class,
@@ -499,6 +530,7 @@ class KumiteGameServiceTest {
   @Test
   void statusChange_thatLosesRace_answersTheCurrentGameAndIsNotRetried() {
     String gameId = created();
+    long read = service.get(gameId).version();
     willAnswer(
             call -> {
               KumiteGameDocument stored = storage.findById(KumiteGameDocument.class, gameId).get();
@@ -517,6 +549,7 @@ class KumiteGameServiceTest {
             service.recordStatusChange(
                 gameId,
                 new NewStatusChange("v1", StatusChangeKind.VOID, "never fought"),
+                read,
                 ActingRole.ADMIN,
                 "admin"))
         .isInstanceOfSatisfying(
@@ -526,5 +559,168 @@ class KumiteGameServiceTest {
               assertThat(changed.current().game().statusChanges()).isEmpty();
             });
     verify(repository).save(any(KumiteGameDocument.class));
+  }
+
+  /** The version a screen read before another scorekeeper's write moved the game on. */
+  private long staleVersion(String gameId) {
+    return service.get(gameId).version() - 1;
+  }
+
+  private static NewSettings ninetySeconds() {
+    return new NewSettings(
+        90_000,
+        List.of(90_000L),
+        Map.of(ScoreLevel.IPPON, 3, ScoreLevel.WAZA_ARI, 2, ScoreLevel.YUKO, 1),
+        8,
+        15_000,
+        1_500,
+        3,
+        4,
+        List.of(10_000L),
+        180_000,
+        1_000);
+  }
+
+  @Test
+  void settingsChange_withStaleVersion_answersTheCurrentGame_andWritesNothing() {
+    String gameId = created();
+    long stale = staleVersion(gameId);
+    clearInvocations(repository);
+
+    assertThatThrownBy(() -> service.changeSettings(gameId, ninetySeconds(), stale))
+        .isInstanceOfSatisfying(
+            GameChangedException.class,
+            changed ->
+                assertThat(changed.current().game().settings().durationMs()).isEqualTo(120_000));
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+  }
+
+  @Test
+  void setTime_withStaleVersion_answersTheCurrentGame_andWritesNothing() {
+    String gameId = created();
+    long stale = staleVersion(gameId);
+    clearInvocations(repository);
+
+    assertThatThrownBy(() ->
+            service.recordClockAction(
+                gameId,
+                new NewClockAction(
+                    "c1", Timer.MAIN, null, ClockActionKind.SET_TIME, 120_000, 60_000L, null),
+                stale,
+                "scorekeeper"))
+        .isInstanceOfSatisfying(
+            GameChangedException.class,
+            changed -> assertThat(changed.current().game().clockActions()).isEmpty());
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+  }
+
+  @Test
+  void result_withStaleVersion_answersTheCurrentGame_andWritesNothing() {
+    String gameId = created();
+    long stale = staleVersion(gameId);
+    clearInvocations(repository);
+
+    assertThatThrownBy(() ->
+            service.recordResult(
+                gameId,
+                new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, null, false),
+                stale,
+                "scorekeeper"))
+        .isInstanceOfSatisfying(
+            GameChangedException.class,
+            changed -> assertThat(changed.current().game().results()).isEmpty());
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+  }
+
+  @Test
+  void statusChange_withStaleVersion_answersTheCurrentGame_andWritesNothing() {
+    String gameId = created();
+    long stale = staleVersion(gameId);
+    clearInvocations(repository);
+
+    assertThatThrownBy(() ->
+            service.recordStatusChange(
+                gameId,
+                new NewStatusChange("v1", StatusChangeKind.VOID, "never fought"),
+                stale,
+                ActingRole.ADMIN,
+                "admin"))
+        .isInstanceOfSatisfying(
+            GameChangedException.class,
+            changed ->
+                assertThat(changed.current().state().status()).isNotEqualTo(GameStatus.VOIDED));
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+  }
+
+  @Test
+  void result_withCurrentVersion_isRecorded() {
+    String gameId = created();
+    long current = service.get(gameId).version();
+
+    Recording recorded =
+        service.recordResult(
+            gameId,
+            new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, null, false),
+            current,
+            "scorekeeper");
+
+    assertThat(recorded.game().state().status()).isEqualTo(GameStatus.DECIDED);
+    assertThat(service.get(gameId).game().results()).hasSize(1);
+  }
+
+  /**
+   * The first attempt landed and moved the game on, so the retry's version is stale: it still
+   * answers as a retry does, with the stored warnings and nothing written.
+   */
+  @Test
+  void retriedResult_whoseFirstAttemptLanded_answersAsRetry_withStaleVersion() {
+    String gameId = created();
+    long read = service.get(gameId).version();
+    NewResult kiken = new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.KIKEN, null, false);
+    service.recordResult(gameId, kiken, read, "scorekeeper");
+    clearInvocations(repository);
+
+    Recording retry = service.recordResult(gameId, kiken, read - 1, "scorekeeper");
+
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+    assertThat(retry.game().game().results()).hasSize(1);
+  }
+
+  @Test
+  void setTime_withoutVersion_isRefused_andWritesNothing() {
+    String gameId = created();
+    clearInvocations(repository);
+
+    assertThatThrownBy(() ->
+            service.recordClockAction(
+                gameId,
+                new NewClockAction(
+                    "c1", Timer.MAIN, null, ClockActionKind.SET_TIME, 120_000, 60_000L, null),
+                null,
+                "scorekeeper"))
+        .isInstanceOf(InvalidGameRequestException.class)
+        .hasMessageContaining("expectedVersion");
+    verify(repository, never()).save(any(KumiteGameDocument.class));
+  }
+
+  /**
+   * An appended clock action carries no version: one sent would read as a check that is not made.
+   */
+  @Test
+  void appendedClockAction_withVersion_isRefused_andWritesNothing() {
+    String gameId = created();
+    long current = service.get(gameId).version();
+    clearInvocations(repository);
+
+    assertThatThrownBy(() ->
+            service.recordClockAction(
+                gameId,
+                new NewClockAction(
+                    "c1", Timer.MAIN, null, ClockActionKind.START, 120_000, null, null),
+                current,
+                "scorekeeper"))
+        .isInstanceOf(InvalidGameRequestException.class)
+        .hasMessageContaining("expectedVersion");
+    verify(repository, never()).save(any(KumiteGameDocument.class));
   }
 }

@@ -68,7 +68,8 @@ import org.springframework.stereotype.Service;
  * <p><strong>Appends retry, absolute actions do not.</strong> A score, penalty, clock action,
  * SENSHU record, assignment or amendment goes through {@link KumiteGameWriter#append}. Setting the
  * time, recording a result, changing the settings, and approving, reopening or voiding set a value,
- * so a lost race answers 409 with the game as it now stands: see {@code [version-writes]} in {@code
+ * so each is made against the version the caller read: a stale one, or a race lost inside the
+ * request, answers 409 with the game as it now stands. See {@code [version-writes]} in {@code
  * context/workflow/design/concurrency-consistency.md}.
  */
 @Service
@@ -125,15 +126,15 @@ public class KumiteGameService {
             rules);
     requireAthletes(List.of(newGame.akaAthleteId(), newGame.aoAthleteId()));
     requireReferees(newGame.panel().stream().map(PanelMember::refereeId).toList());
-    KumiteGame created =
-        KumiteGameDocumentMapper.toDomain(
-            kumiteGameRepository.insert(KumiteGameDocumentMapper.toNewDocument(game)), rules);
-    GameRead read = read(created);
+    KumiteGameDocument inserted =
+        kumiteGameRepository.insert(KumiteGameDocumentMapper.toNewDocument(game));
+    GameRead read = read(KumiteGameDocumentMapper.toDomain(inserted, rules), inserted.getVersion());
     return new Recording(read, read.state().warnings().stream().map(GameWarning::code).toList());
   }
 
   public GameRead get(String gameId) {
-    return read(KumiteGameDocumentMapper.toDomain(stored(gameId), rules));
+    KumiteGameDocument stored = stored(gameId);
+    return read(KumiteGameDocumentMapper.toDomain(stored, rules), stored.getVersion());
   }
 
   /**
@@ -151,7 +152,9 @@ public class KumiteGameService {
         stored.getVersion(),
         Versioned.versions(athletes),
         Versioned.versions(referees),
-        () -> read(game, Versioned.values(athletes), Versioned.values(referees)));
+        () ->
+            read(
+                game, stored.getVersion(), Versioned.values(athletes), Versioned.values(referees)));
   }
 
   /**
@@ -172,8 +175,9 @@ public class KumiteGameService {
             : kumiteGameRepository.findByAssignmentsAthleteId(athleteId, NEWEST_FIRST);
     List<Folded> matching =
         stored.stream()
-            .flatMap(document -> readable(document).stream())
-            .map(game -> new Folded(game, game.state()))
+            .flatMap(document ->
+                readable(document).stream()
+                    .map(game -> new Folded(game, document.getVersion(), game.state())))
             .filter(folded -> matches(folded.state(), statuses, athleteId))
             .toList();
     List<Folded> page =
@@ -187,6 +191,7 @@ public class KumiteGameService {
             .map(folded ->
                 new GameRead(
                     folded.game(),
+                    folded.version(),
                     folded.state(),
                     named(athletes, athleteIds(folded.game())),
                     named(referees, refereeIds(folded.game())),
@@ -196,8 +201,9 @@ public class KumiteGameService {
         matching.size());
   }
 
-  public Recording changeSettings(String gameId, NewSettings settings) {
-    return absolute(gameId, game -> game.changeSettings(settings));
+  /** Absolute. A change has no entry id, so one sent again after it landed answers 409. */
+  public Recording changeSettings(String gameId, NewSettings settings, long expectedVersion) {
+    return absolute(gameId, expectedVersion, game -> game.changeSettings(settings));
   }
 
   public Recording recordScore(String gameId, NewScore score, String recordedBy) {
@@ -208,13 +214,27 @@ public class KumiteGameService {
     return append(gameId, game -> game.recordPenalty(penalty, recordedBy, clock.instant()));
   }
 
-  /** SET_TIME sets a value, so it is absolute; every other clock action is appended. */
-  public Recording recordClockAction(String gameId, NewClockAction action, String recordedBy) {
+  /**
+   * SET_TIME sets a value, so it is absolute and needs the version the caller read. Every other
+   * clock action is appended and carries none: one sent is refused, so no caller believes an append
+   * was checked against it.
+   */
+  public Recording recordClockAction(
+      String gameId, NewClockAction action, @Nullable Long expectedVersion, String recordedBy) {
     Function<KumiteGame, Recorded> record =
         game -> game.recordClockAction(action, recordedBy, clock.instant());
-    return action.action() == ClockActionKind.SET_TIME
-        ? absolute(gameId, record)
-        : append(gameId, record);
+    if (action.action() != ClockActionKind.SET_TIME) {
+      if (expectedVersion != null) {
+        throw new InvalidGameRequestException(
+            "Only SET_TIME takes expectedVersion: " + action.action() + " is appended.");
+      }
+      return append(gameId, record);
+    }
+    if (expectedVersion == null) {
+      throw new InvalidGameRequestException(
+          "SET_TIME needs expectedVersion, the version of the game it was chosen against.");
+    }
+    return absolute(gameId, expectedVersion, record);
   }
 
   public Recording recordSenshu(String gameId, NewSenshuRecord record, String recordedBy) {
@@ -238,8 +258,10 @@ public class KumiteGameService {
     return append(gameId, game -> game.recordAmendment(amendment, recordedBy, clock.instant()));
   }
 
-  public Recording recordResult(String gameId, NewResult result, String recordedBy) {
-    return absolute(gameId, game -> game.recordResult(result, recordedBy, clock.instant()));
+  public Recording recordResult(
+      String gameId, NewResult result, long expectedVersion, String recordedBy) {
+    return absolute(
+        gameId, expectedVersion, game -> game.recordResult(result, recordedBy, clock.instant()));
   }
 
   /**
@@ -249,23 +271,34 @@ public class KumiteGameService {
    * @param role the role the signed-in account acts under, which some moves need
    */
   public Recording recordStatusChange(
-      String gameId, NewStatusChange change, ActingRole role, String recordedBy) {
+      String gameId,
+      NewStatusChange change,
+      long expectedVersion,
+      ActingRole role,
+      String recordedBy) {
     return absolute(
-        gameId, game -> game.recordStatusChange(change, role, recordedBy, clock.instant()));
+        gameId,
+        expectedVersion,
+        game -> game.recordStatusChange(change, role, recordedBy, clock.instant()));
   }
 
   private Recording append(String gameId, Function<KumiteGame, Recorded> action) {
-    KumiteGameWriter.Applied applied = writer.append(gameId, action);
-    return new Recording(read(applied.game()), applied.recorded().raisedWarnings());
+    return recording(writer.append(gameId, action));
   }
 
-  private Recording absolute(String gameId, Function<KumiteGame, Recorded> action) {
+  /** A stale version, or a race lost inside the request, answers the game as it now stands. */
+  private Recording absolute(
+      String gameId, long expectedVersion, Function<KumiteGame, Recorded> action) {
     try {
-      KumiteGameWriter.Applied applied = writer.applyOnce(gameId, action);
-      return new Recording(read(applied.game()), applied.recorded().raisedWarnings());
+      return recording(writer.applyAt(gameId, expectedVersion, action));
     } catch (OptimisticLockingFailureException lost) {
       throw new GameChangedException(get(gameId), lost);
     }
+  }
+
+  private Recording recording(KumiteGameWriter.Applied applied) {
+    return new Recording(
+        read(applied.game(), applied.version()), applied.recorded().raisedWarnings());
   }
 
   private static boolean matches(
@@ -298,7 +331,7 @@ public class KumiteGameService {
   }
 
   /** A game with what its entries fold to, folded once for both the filter and the read. */
-  private record Folded(KumiteGame game, GameState state) {}
+  private record Folded(KumiteGame game, long version, GameState state) {}
 
   /** Those of {@code byId} that one game names, so its read holds only its own. */
   private static <T> Map<String, T> named(Map<String, T> byId, Set<String> ids) {
@@ -313,15 +346,18 @@ public class KumiteGameService {
         .orElseThrow(() -> new GameNotFoundException("No game has the id " + gameId));
   }
 
-  /** The game with the athletes and referees it names, as they now stand. */
-  private GameRead read(KumiteGame game) {
+  /** The game at that stored version, with the athletes and referees it names as they now stand. */
+  private GameRead read(KumiteGame game, long version) {
     return read(
-        game, athleteService.findAll(athleteIds(game)), refereeService.findAll(refereeIds(game)));
+        game,
+        version,
+        athleteService.findAll(athleteIds(game)),
+        refereeService.findAll(refereeIds(game)));
   }
 
   private GameRead read(
-      KumiteGame game, Map<String, Athlete> athletes, Map<String, Referee> referees) {
-    return new GameRead(game, game.state(), athletes, referees, clock.instant());
+      KumiteGame game, long version, Map<String, Athlete> athletes, Map<String, Referee> referees) {
+    return new GameRead(game, version, game.state(), athletes, referees, clock.instant());
   }
 
   /** Every athlete the game names, a replaced one included, so every entry still finds its name. */

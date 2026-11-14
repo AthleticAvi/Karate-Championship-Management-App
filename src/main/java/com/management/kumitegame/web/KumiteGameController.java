@@ -75,8 +75,8 @@ public class KumiteGameController {
   private static final CacheControl PUBLIC_POLICY = CacheControl.noCache();
 
   private static final String CURRENT_GAME =
-      "Conflict. Refused, or another write won: on a lost race `current` holds the game as it now"
-          + " stands";
+      "Conflict. Refused, or the game changed since expectedVersion: then `current` holds the game"
+          + " as it now stands";
 
   private final KumiteGameService kumiteGameService;
   private final KumiteGameProperties properties;
@@ -193,7 +193,8 @@ public class KumiteGameController {
   }
 
   /**
-   * Replaces the settings, only before the start. Absolute, so a lost race is not retried.
+   * Replaces the settings, only before the start. Absolute: made against the version sent, and not
+   * retried.
    *
    * <p>The 200 is stated because stating any status stops the generator adding its own.
    */
@@ -209,7 +210,8 @@ public class KumiteGameController {
   public RecordedResponse changeSettings(
       @PathVariable String gameId, @Valid @RequestBody SettingsRequest settings) {
     return answer(
-        kumiteGameService.changeSettings(gameId, KumiteGameMapper.toNewSettings(settings)));
+        kumiteGameService.changeSettings(
+            gameId, KumiteGameMapper.toNewSettings(settings), settings.expectedVersion()));
   }
 
   @PostMapping("/{gameId}/scores")
@@ -230,7 +232,10 @@ public class KumiteGameController {
             gameId, KumiteGameMapper.toNewPenalty(penalty), principal.getName()));
   }
 
-  /** SET_TIME is absolute, so a lost race answers 409 with the game as it now stands. */
+  /**
+   * SET_TIME is absolute: made against the version sent, so a stale one answers 409 with the game
+   * as it now stands. Every other clock action is appended.
+   */
   @ApiResponse(responseCode = "200", description = "OK")
   @ApiResponse(
       responseCode = "409",
@@ -246,7 +251,10 @@ public class KumiteGameController {
       Principal principal) {
     return answer(
         kumiteGameService.recordClockAction(
-            gameId, KumiteGameMapper.toNewClockAction(action), principal.getName()));
+            gameId,
+            KumiteGameMapper.toNewClockAction(action),
+            action.expectedVersion(),
+            principal.getName()));
   }
 
   @PostMapping("/{gameId}/senshu-records")
@@ -279,7 +287,7 @@ public class KumiteGameController {
             gameId, KumiteGameMapper.toNewAmendment(amendment), principal.getName()));
   }
 
-  /** Absolute, so a lost race answers 409 with the game as it now stands. */
+  /** Absolute: made against the version sent, so a stale one answers 409 with the game. */
   @ApiResponse(responseCode = "200", description = "OK")
   @ApiResponse(
       responseCode = "409",
@@ -293,12 +301,15 @@ public class KumiteGameController {
       @PathVariable String gameId, @Valid @RequestBody ResultRequest result, Principal principal) {
     return answer(
         kumiteGameService.recordResult(
-            gameId, KumiteGameMapper.toNewResult(result), principal.getName()));
+            gameId,
+            KumiteGameMapper.toNewResult(result),
+            result.expectedVersion(),
+            principal.getName()));
   }
 
   /**
-   * Approves, reopens or voids. Absolute, so a lost race answers 409 with the game as it now
-   * stands.
+   * Approves, reopens or voids. Absolute: made against the version sent, so a stale one answers 409
+   * with the game as it now stands.
    *
    * <p>The role table admits a Scorekeeper and an Admin, because which a move needs depends on the
    * status: the game refuses an Admin's move from a Scorekeeper with a 403. The role goes down as a
@@ -331,7 +342,11 @@ public class KumiteGameController {
         request.isUserInRole(ActingRole.ADMIN.name()) ? ActingRole.ADMIN : ActingRole.SCOREKEEPER;
     return answer(
         kumiteGameService.recordStatusChange(
-            gameId, KumiteGameMapper.toNewStatusChange(change), role, principal.getName()));
+            gameId,
+            KumiteGameMapper.toNewStatusChange(change),
+            change.expectedVersion(),
+            role,
+            principal.getName()));
   }
 
   private RecordedResponse answer(Recording recording) {

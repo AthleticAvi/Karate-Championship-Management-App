@@ -51,12 +51,14 @@ handler in `GlobalExceptionHandler`: without one, a lost change answers 500, not
 - **The mapper sits in `data`** and is the one place an old shape is absorbed. It reads every shape
   up to `CURRENT_SCHEMA_VERSION`, refuses a newer one, and every write stores the current shape.
 - **A change carries the stored metadata through.** The service reads the document, maps it to the
-  domain, applies the change there, and maps the result back onto that document. The domain never
-  sees the version, and the save is checked against the version that was read. A reader that
-  needs the version, such as a game's tag, gets it beside the domain type from the service, in a
-  `Versioned` record read with it. A save replaces the
-  whole document, so the mapper must copy `createdAt` from the stored one: auditing sets it only
-  on an insert.
+  domain, applies the change there, and maps the result back onto that document. The save is
+  checked against the version that was read. A save replaces the whole document, so the mapper
+  must copy `createdAt` from the stored one: auditing sets it only on an insert.
+- **An aggregate type never carries the stored version;** a composed read the service builds may
+  carry it, when a caller must send it back. `GameRead` carries the game's, so the version a caller
+  sends back on an absolute action reaches every answer; `KumiteGame` never sees it. A reader that
+  only compares versions, such as a game's tag, gets them beside the aggregate from the service, in
+  a `Versioned` record or `VersionedGameRead`.
 - **Instants come from auditing,** never set by hand: see `[auditing]` in the config README.
 - **A primitive `version` is stored as 1 on insert** and rises by one on each save. A document
   stored without one reads as version 0, so its next save is an insert and fails on the duplicate

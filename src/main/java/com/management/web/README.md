@@ -157,8 +157,11 @@ between this contract and a silent shift under a dependency upgrade.
 ## [mutations] Mutations return the new state
 
 Every game mutation answers `RecordedResponse`: the game as it now stands and the warnings the
-action raised, so a screen never needs a follow-up read. A create answers 201 with a `Location`;
-every other mutation 200, a retried one included, which answers the warnings stored with the first.
+action raised, so a screen never needs a follow-up read. The game carries its `version` in every
+answer, both views and the 409 included: a screen sends it back as `expectedVersion` on setting the
+time, a result, a settings change or a status change. See `[writes]` in the service README. A
+create answers 201 with a `Location`; every other mutation 200, a retried one included, which
+answers the warnings stored with the first.
 `PUT /api/v1/athletes/{id}` and `PUT /api/v1/referees/{id}` answer the updated record.
 `DELETE /api/v1/athletes/{id}`, `DELETE /api/v1/referees/{id}` and `DELETE /api/v1/accounts/{username}`
 answer 204 with no body. `POST /api/v1/accounts` answers 201 with a `Location`, though no `GET`
@@ -170,6 +173,12 @@ Request DTOs are records with Jakarta Bean Validation constraints, triggered by 
 `@RequestBody` parameters: required fields, sizes, and a duration of zero or less. Rules that span
 fields, such as a WIN naming a winner or a medical timer naming its side, are domain validation and
 answer 400 as `InvalidGameRequestException`.
+
+**A missing `expectedVersion` answers in two shapes.** A settings change, a result and a status
+change require it as a field, so its absence answers with the `errors` map. A clock action needs it
+only for SET_TIME, and refuses it on every other action: a rule across fields, so the service holds
+it, as the paragraph above says, and it answers with a `detail`. Like a missing field, it is
+checked before the game is read, so an unknown game still answers 400 here, not 404.
 
 Failures map to the table in `[errors]`.
 
@@ -362,8 +371,10 @@ every success. So:
 409 only to a path parameter. `PUT /api/v1/referees/{refereeId}`, `PUT /api/v1/athletes/{athleteId}`,
 and a game's `settings`, `clock-actions` and `results` state their 409 to say that `current` holds the
 record as it now stands, in words only: the shared problem schema cannot list it, because a 400 does
-not carry it. Stating any status stops the generator adding the 200, so that is stated too. The 409
-on deleting an athlete or referee comes from the rules: a game names it.
+not carry it. A game's four absolute actions, `status-changes` included, also say that a stale
+`expectedVersion` answers it; athletes and referees take none. Stating any status stops the
+generator adding the 200, so that is stated too. The 409 on deleting an athlete or referee comes
+from the rules: a game names it.
 
 A game's `status-changes` states its 403 and its 409 too: its row is at Scorekeeper level, and the
 game refuses an Admin's move from a Scorekeeper.
@@ -380,8 +391,9 @@ rows only, because a Scorekeeper row admits both roles an account can hold. Ever
 one states the `basicAuth` scheme. The access rows come from `ApiAccess`.
 
 A 409 from a concurrent update cannot be provoked on demand, and a 500 needs a fault, so
-those rest on reading `GlobalExceptionHandler`. A 405 belongs to no operation, and the chain answers
-an unlisted method first anyway, and a CORS refusal is never visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
+those rest on reading `GlobalExceptionHandler`. A 409 from a stale `expectedVersion` can be:
+`KumiteGameApiIT` checks its `current` per absolute action. A 405 belongs to no operation, and the
+chain answers an unlisted method first anyway, and a CORS refusal is never visible to code, so neither is listed. Nor is a 406: no mapping declares what it produces, so it is
 decided while writing the answer, after a write has already happened, and for a malformed `Accept` it
 has no body. It is not a failure a client can treat as refused.
 
@@ -420,6 +432,8 @@ They may use `domain` enums, and `Account.USERNAME_PATTERN`, so the rule for a u
 
 - Name records `*Request` and `*Response`. A `DTO` suffix fails Checkstyle, as an abbreviation.
 - Every entry request carries `id`, made by the client and sent again on a retry.
+- `SettingsRequest`, `ResultRequest` and `StatusChangeRequest` require `expectedVersion`;
+  `ClockActionRequest` takes it for SET_TIME only. `KumiteGameResponse` carries `version`.
 - `@Schema` on them feeds the API description and nothing else: see `[description]`.
 - Requests stop at the gateway. No `service` package imports them.
 - `AccountRequest` holds a password in clear, so its `toString` leaves it out. A password within the
@@ -462,7 +476,7 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Removing the last Admin | 409 | `LastAdminException` | the message |
 | A write that lost to another through every retry | 409 | `OptimisticLockingFailureException`, `DataIntegrityViolationException` (framework) | generic |
 | An athlete update or a referee rename that lost to another write | 409 | `IdentityChangedException`: `AthleteChangedException`, `RefereeChangedException` | fixed, plus a `current` extension property holding the athlete or referee as it now stands. Not retried. A kind with no response shape in the handler answers 500 |
-| Setting the time, a result, a settings change, or an approve, reopen or void that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands. Not retried |
+| Setting the time, a result, a settings change, or an approve, reopen or void sent with a stale `expectedVersion`, or that lost to another write | 409 | `GameChangedException` | fixed, plus `current`, the game as it now stands, with its `version`. Not retried |
 | An action the data would contradict: an entry id reused for another action, a CANCEL of something missing or cancelled, a settings change after the start, one athlete on both sides, a referee already on the panel, a full panel, an exchange that has not happened | 409 | `ActionRefusedException` | the message |
 | Deleting an athlete or referee a game names | 409 | `IdentityInUseException`: `AthleteInUseException`, `RefereeInUseException` | the message |
 | No such game | 404 | `GameNotFoundException` | the message |

@@ -175,10 +175,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * An absolute action on a game that lost to another write: 409, with the game as it now stands.
+   * An absolute action on a game that has changed since the version the caller sent, or that lost
+   * to another write inside the request: 409, with the game as it now stands.
    *
-   * <p>Setting the time, recording a result or changing the settings sets a value, so retrying it
-   * would overwrite what the caller never saw.
+   * <p>Setting the time, recording a result, changing the settings or a status change sets a value,
+   * so applying it anyway would overwrite what the caller never saw.
    */
   @ExceptionHandler(GameChangedException.class)
   public ProblemDetail handleGameChanged(GameChangedException ex) {

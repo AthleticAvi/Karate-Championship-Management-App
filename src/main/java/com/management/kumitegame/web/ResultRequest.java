@@ -3,6 +3,7 @@ package com.management.kumitegame.web;
 import com.management.kumitegame.domain.Outcome;
 import com.management.kumitegame.domain.ResultReason;
 import com.management.kumitegame.domain.Side;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,6 +15,7 @@ import org.jspecify.annotations.Nullable;
  * @param id made by the client, one per action, and sent again on a retry of that action
  * @param reasonDetail such as the 10-second rule on a KIKEN
  * @param bothDisqualified keeps the fact in a medal game decided on points
+ * @param expectedVersion the game's {@code version} the result was chosen against
  */
 public record ResultRequest(
     @NotBlank @Size(max = 64) String id,
@@ -21,4 +23,10 @@ public record ResultRequest(
     @Nullable Side winner,
     @NotNull ResultReason reason,
     @Nullable @Size(max = 200) String reasonDetail,
-    boolean bothDisqualified) {}
+    boolean bothDisqualified,
+    @Schema(
+            description =
+                "The game's version the screen showed. A stale one answers 409 with the game as it"
+                    + " now stands")
+        @NotNull
+        Long expectedVersion) {}

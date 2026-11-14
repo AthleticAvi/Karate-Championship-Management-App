@@ -26,7 +26,8 @@ covers the `service` package of each feature.
   gateway builds the game's tag from them. The fold waits until the gateway asks for the read, and
   reads nothing again, so a 304 costs only those reads. See `[conditional-reads]` in the web README.
 - `KumiteGameWriter`, in `kumitegame.service`: reads a game, applies an action, saves it against the
-  version it read. Appends retry; absolute actions do not. See `[writes]`.
+  version it read. Appends retry; absolute actions do not, and are made against the version the
+  caller read. See `[writes]`.
 - `GameReferences`, in `kumitegame.service`: answers `AthleteReferences` and `RefereeReferences`,
   whether a game names an athlete or referee.
 - `AthleteService`, in `athlete.service`, and `RefereeService`, in `referee.service`: leaves that
@@ -54,8 +55,8 @@ One game is one document, so every action is one atomic write, with no transacti
 | Operation | Atomic unit | Invariants | Guard | Acknowledgement |
 |---|---|---|---|---|
 | Score, penalty, clock action but SET_TIME, SENSHU record, assignment, amendment | One `kumiteGame` document | `KumiteGame`: refusals, then warnings | Version, bounded retry | `w=majority` |
-| SET_TIME, result, settings change | One `kumiteGame` document | `KumiteGame`: the status matrix | Version, no retry, 409 with the game as it stands | `w=majority` |
-| Approve, reopen, void | One `kumiteGame` document | `KumiteGame`: the status move and the role | Version, no retry, 409 with the game as it stands | `w=majority` |
+| SET_TIME, result, settings change | One `kumiteGame` document | `KumiteGame`: the status matrix | `expectedVersion` equals the stored one, then the versioned save; no retry; 409 with the game as it stands | `w=majority` |
+| Approve, reopen, void | One `kumiteGame` document | `KumiteGame`: the status move and the role | `expectedVersion` equals the stored one, then the versioned save; no retry; 409 with the game as it stands | `w=majority` |
 | Create a game | One new `kumiteGame` document | Athletes and referees exist, read first; `KumiteGame`: each referee once, the panel within its limit | Insert | `w=majority` |
 | Create, update an athlete or referee | One document | The domain type | Version | `w=majority` |
 | Delete an athlete or referee | One document | No game names it, read first | None | `w=majority` |
@@ -64,17 +65,31 @@ One game is one document, so every action is one atomic write, with no transacti
   `KumiteGameWriter.append`: re-read, re-apply, at most ten attempts, then a 409. A retry that
   finds its entry id on record applies nothing, which is what makes it safe. `KumiteGameWriter` is
   its own bean because `@Retryable` works through a proxy, which a self-call would bypass.
-- **An absolute action does not retry.** It sets a value the caller chose while looking at what is
-  now stale, so the loser answers 409 with the game as it now stands, in `current`.
 - **The panel limit rests on the same guard.** An add that loses a race is re-applied to the game
   it re-read, so the limit is checked against the panel as it now stands.
+- **An absolute action does not retry.** It sets a value the caller chose while looking at what is
+  now stale, so the loser answers 409 with the game as it now stands, in `current`.
+- **An absolute action is made against the version the caller read.** Each sends `expectedVersion`,
+  the `version` of the game its screen showed. A stored game at any other version answers 409 with
+  the game, `current.version` included, and writes nothing; so does a write that lands between the
+  read and the save. A version of 0 or below never matches, so it answers 409 too, not 400: it is
+  as stale as any other. Missing, it is refused with 400 before anything is read. Appends carry no
+  version: a SET_TIME needs one, and any other clock action that sends one is refused with 400, so
+  no caller believes an append was checked.
+- **The action is applied before the version is compared,** in `KumiteGameWriter`. A retry of an
+  action already on record, whose first attempt is what moved the version on, answers as a retry,
+  with nothing written. A request the game refuses as it now stands answers with that refusal,
+  which writes nothing. A settings change has no entry id, so one sent again after it landed
+  answers 409.
 - **A retried entry writes nothing.** The writer skips the save when the domain answers a replay.
 - **The residual race with a delete is accepted.** A game created between a delete's check and the
   delete names an athlete that is gone, and reads it as unknown.
 
 `KumiteGameApiIT` proves concurrent appends all land, with a latch, and that a score leaves the
 athlete's version alone. `KumiteGameServiceTest` proves an absolute action that loses answers the
-current game and is not retried.
+current game and is not retried. Both prove, per absolute action, that a stale version answers 409
+with the game and writes nothing, and that a retried result whose first attempt landed answers as
+a retry.
 
 ## [creation] Everything is read before anything is written
 
