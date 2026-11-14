@@ -38,7 +38,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.StreamConstraintsException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
  * Maps every exception this API can raise to a status code and an RFC 9457 problem detail.
@@ -257,7 +259,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * A body past the JSON parser's size limit is 413, not the framework's 400.
+   * A body past the JSON parser's size limit is 413, and a field the request does not take is a
+   * field error, not the framework's bare 400.
    *
    * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
    * wrong fault. Everything else unreadable stays with the base class, including the parser's other
@@ -269,6 +272,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
+    if (ex.getMostSpecificCause() instanceof UnrecognizedPropertyException unknown) {
+      return handleUnknownField(unknown, ex, headers, status, request);
+    }
     if (!isBodyTooLong(ex)) {
       return super.handleHttpMessageNotReadable(ex, headers, status, request);
     }
@@ -277,6 +283,37 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail.forStatusAndDetail(tooLarge, "The request body is too large.");
     problem.setTitle("Request too large");
     return handleExceptionInternal(ex, problem, headers, tooLarge, request);
+  }
+
+  /**
+   * A field the request does not take, in the shape of a field error, keyed by its path as Bean
+   * Validation writes one, such as {@code panel[0].extra}.
+   *
+   * <p>Jackson refuses it, through {@code
+   * spring.jackson.deserialization.fail-on-unknown-properties} in {@code application.properties},
+   * and stops at the first, so one field is named. The name is the caller's own text, so it goes
+   * back only as a key of {@code errors}, never in the detail. Jackson's message is not used: it
+   * lists the class and every field it knows.
+   */
+  private @Nullable ResponseEntity<Object> handleUnknownField(
+      UnrecognizedPropertyException unknown,
+      HttpMessageNotReadableException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    StringBuilder path = new StringBuilder();
+    for (JacksonException.Reference step : unknown.getPath()) {
+      if (step.getPropertyName() == null) {
+        path.append('[').append(step.getIndex()).append(']');
+      } else {
+        path.append(path.isEmpty() ? "" : ".").append(step.getPropertyName());
+      }
+    }
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(status, "The request has a field it does not take.");
+    problem.setTitle("Invalid request");
+    problem.setProperty("errors", Map.of(path.toString(), "is not a field of this request"));
+    return handleExceptionInternal(ex, problem, headers, status, request);
   }
 
   /**

@@ -789,7 +789,7 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
     then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
-  /** The recorder comes from the signed-in account: a body that names one is not read. */
+  /** The recorder comes from the signed-in account. */
   @Test
   void result_takesTheRecorderFromTheAccount() throws Exception {
     NewResult expected =
@@ -804,12 +804,33 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
                 .content(
                     """
                     {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "HANTEI",
-                     "bothDisqualified": false, "recordedBy": "someone-else",
-                     "expectedVersion": 7}
+                     "bothDisqualified": false, "expectedVersion": 7}
                     """))
         .andExpect(status().isOk());
 
     then(kumiteGameService()).should().recordResult("game-1", expected, VERSION, "kenta");
+  }
+
+  /** No body has room for a recorder, so one that names one is refused, naming the field. */
+  @Test
+  void result_namingTheRecorder_isRefusedNamingTheField() throws Exception {
+    mockMvc
+        .perform(
+            post(GAME + "/results", "game-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"id": "r1", "outcome": "WIN", "winner": "AKA", "reason": "HANTEI",
+                     "bothDisqualified": false, "recordedBy": "someone-else",
+                     "expectedVersion": 7}
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.errors.recordedBy").value("is not a field of this request"))
+        .andExpect(jsonPath("$.errors.length()").value(1));
+
+    then(kumiteGameService()).shouldHaveNoInteractions();
   }
 
   @Test
