@@ -240,6 +240,19 @@ class KumiteGameServiceTest {
     assertThat(limitOfTwo.get(gameId).state().panel()).hasSize(2);
   }
 
+  /**
+   * A panel the game refuses costs no read: unknown referees, too many of them, answer the limit.
+   */
+  @Test
+  void create_withPanelOverTheLimit_isRefusedBeforeAnyRead() {
+    assertThatThrownBy(() -> service.create(withPanel(11), TestGames.SCOREKEEPER))
+        .isInstanceOf(InvalidGameRequestException.class)
+        .hasMessageContaining("at most 10 referees");
+    verify(referees, never()).findAll(anyCollection());
+    verify(athletes, never()).findAll(anyCollection());
+    assertThat(storage.count(KumiteGameDocument.class)).isZero();
+  }
+
   private static NewGame withPanel(int size) {
     return new NewGame(
         GameFormat.ELIMINATION,

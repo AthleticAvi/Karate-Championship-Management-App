@@ -79,7 +79,8 @@ current game and is not retried.
 ## [creation] Everything is read before anything is written
 
 A game is created with one insert, after the athletes and referees it names have been read. A
-missing one answers 400 and writes nothing. An assignment naming an athlete or referee reads it
+missing one answers 400 and writes nothing. The game checks the request first, so a panel over its
+limit, or one athlete on both sides, is refused before any read. An assignment naming an athlete or referee reads it
 first the same way. The game's id and the ids of its first entries are given by the service, so
 the domain type is never without an id: a create is not retried by id, and a retried create makes a
 second game.

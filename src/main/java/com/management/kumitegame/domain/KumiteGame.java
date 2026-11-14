@@ -786,7 +786,11 @@ public final class KumiteGame {
     Integer limit = settings.panelLimit();
     if (limit != null && panel.size() >= limit) {
       throw new ActionRefusedException(
-          "The panel already holds " + panel.size() + " referees, the most it may hold.");
+          "The panel already holds "
+              + panel.size()
+              + " referees, and this game's panel holds at most "
+              + limit
+              + ".");
     }
   }
 
