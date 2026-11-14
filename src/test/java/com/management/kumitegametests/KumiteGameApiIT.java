@@ -21,6 +21,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.bson.Document;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -143,7 +145,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
     String gameId = create();
 
     Document stored = stored(gameId);
-    assertThat(stored.get("schemaVersion")).isEqualTo(4);
+    assertThat(stored.get("schemaVersion")).isEqualTo(5);
     assertThat(stored.get("version")).isEqualTo(1L);
     assertThat(stored.get("createdAt")).isInstanceOf(Date.class);
     assertThat(stored.get("modifiedAt")).isInstanceOf(Date.class);
@@ -531,6 +533,80 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(summary.get("currentResult").get("reason").asString()).isEqualTo("KIKEN");
     assertThat(answer.getBody())
         .doesNotContain("AO could not go on", SCOREKEEPER, "recordedBy", "warnings");
+  }
+
+  private ResponseEntity<String> createWithPanel(List<String> refereeIds) {
+    String panel =
+        refereeIds.stream()
+            .map(id -> "{\"refereeId\": \"%s\", \"role\": \"JUDGE\"}".formatted(id))
+            .collect(Collectors.joining(", "));
+    return asScorekeeper()
+        .postForEntity(
+            GAMES,
+            json(
+                """
+                {"format": "ELIMINATION", "medalGame": false, "extraGame": false,
+                 "akaAthleteId": "%s", "aoAthleteId": "%s", "panel": [%s]}
+                """
+                    .formatted(aka, ao, panel)),
+            String.class);
+  }
+
+  private static String panelChange(String id, String kind, String refereeId) {
+    return """
+    {"id": "%s", "kind": "%s", "refereeId": "%s", "role": %s}
+    """
+        .formatted(id, kind, refereeId, kind.equals("PANEL_ADD") ? "\"JUDGE\"" : "null");
+  }
+
+  /**
+   * The panel holds at most the configured 10, at creation and when a referee is added, and a
+   * referee sits on it once. A panel past the 20 the request once capped reaches the game.
+   */
+  @Test
+  void panel_holdsAtMostTheConfiguredLimit_andEachRefereeOnce() {
+    List<String> judges =
+        IntStream.rangeClosed(1, 21)
+            .mapToObj(judge ->
+                referees.save(RefereeDocumentMapper.toNewDocument("Judge " + judge)).getId())
+            .toList();
+
+    for (int size : List.of(21, 11)) {
+      ResponseEntity<String> tooMany = createWithPanel(judges.subList(0, size));
+      assertThat(status(tooMany)).isEqualTo(400);
+      assertThat(body(tooMany).get("detail").asString())
+          .isEqualTo("A panel holds at most 10 referees, but " + size + " were given.");
+      assertThat(body(tooMany).has("errors")).isFalse();
+    }
+    ResponseEntity<String> full = createWithPanel(judges.subList(0, 10));
+    assertThat(status(full)).isEqualTo(201);
+    String gameId = body(full).get("game").get("id").asString();
+
+    assertThat(
+            status(
+                post(
+                    asScorekeeper(),
+                    gameId,
+                    "assignments",
+                    panelChange("a1", "PANEL_ADD", judges.get(10)))))
+        .isEqualTo(409);
+    assertThat(
+            status(
+                post(
+                    asScorekeeper(),
+                    gameId,
+                    "assignments",
+                    panelChange("a2", "PANEL_REMOVE", judges.get(0)))))
+        .isEqualTo(200);
+    assertThat(
+            status(
+                post(
+                    asScorekeeper(),
+                    gameId,
+                    "assignments",
+                    panelChange("a3", "PANEL_ADD", judges.get(1)))))
+        .isEqualTo(409);
+    assertThat(body(read(gameId)).get("panel")).hasSize(9);
   }
 
   /** Such as one stored by a newer build before a rollback: reading it fails, listing does not. */

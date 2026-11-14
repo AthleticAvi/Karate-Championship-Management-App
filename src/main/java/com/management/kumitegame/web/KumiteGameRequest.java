@@ -10,7 +10,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A new game: its format, the athlete on each side and the panel. Its settings come from
- * configuration, and change through the settings resource before the start.
+ * configuration, and change through the settings resource before the start. The most referees the
+ * panel may hold is one of its settings, so the game refuses a larger panel, not this request.
  */
 public record KumiteGameRequest(
     @NotNull GameFormat format,
@@ -18,4 +19,4 @@ public record KumiteGameRequest(
     boolean extraGame,
     @NotBlank @Size(max = 64) String akaAthleteId,
     @NotBlank @Size(max = 64) String aoAthleteId,
-    @Nullable @Size(max = 20) List<@Valid @NotNull PanelMemberRequest> panel) {}
+    @Nullable List<@Valid @NotNull PanelMemberRequest> panel) {}

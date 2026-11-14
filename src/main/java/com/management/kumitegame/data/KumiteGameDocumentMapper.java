@@ -180,6 +180,7 @@ public final class KumiteGameDocumentMapper {
         orEmpty(stored.addTimeStepsMs()),
         stored.medicalTimeMs(),
         stored.timeShownToleranceMs(),
+        stored.panelLimit(),
         stored.rulebookVersion());
   }
 
@@ -200,6 +201,7 @@ public final class KumiteGameDocumentMapper {
         settings.addTimeStepsMs(),
         settings.medicalTimeMs(),
         settings.timeShownToleranceMs(),
+        settings.panelLimit(),
         settings.rulebookVersion());
   }
 

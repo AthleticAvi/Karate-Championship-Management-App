@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The rule values a game runs under: a snapshot copied from configuration when the game is created.
@@ -24,6 +25,8 @@ import java.util.Objects;
  * @param addTimeStepsMs the time additions a screen offers; any other positive one is allowed too
  * @param medicalTimeMs a medical timer's starting time (Article 11.2.3)
  * @param timeShownToleranceMs how far the time a screen showed may be from the derived clock
+ * @param panelLimit the most referees the panel holds: more are refused (Article 4.1.1 composes the
+ *     panel; the limit is the owner's). None for a game created before the limit existed
  * @param rulebookVersion which rulebook the game ran under
  */
 public record Settings(
@@ -38,6 +41,7 @@ public record Settings(
     List<Long> addTimeStepsMs,
     long medicalTimeMs,
     long timeShownToleranceMs,
+    @Nullable Integer panelLimit,
     String rulebookVersion) {
 
   /** Refuses values no game can run under: a duration of zero or less, a level with no value. */
