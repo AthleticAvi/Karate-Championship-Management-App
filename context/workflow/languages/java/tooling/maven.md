@@ -1,6 +1,6 @@
 # Maven
 
-Applies when: running a build, Maven phases, surefire, failsafe, test suffixes, git hooks from the build, single-file Java tools
+Applies when: running a build, two builds at once, a coverage check failing with green tests, Maven phases, surefire, failsafe, test suffixes, git hooks from the build, single-file Java tools
 Status: enforced
 Builds on: `tooling/static-analysis.md`
 
@@ -16,6 +16,9 @@ Builds on: `tooling/static-analysis.md`
 
 - `mvn verify` runs every check and both test suites. `mvn test` does not run integration tests.
 - Report what actually ran. A green `mvn test` is not a green gate.
+- **One build per checkout at a time.** Two builds share `target/`: a second run, even one test,
+  rewrites the coverage data the first is still collecting, and the first then fails its coverage
+  check with numbers far below normal and every test green. Run the other build in its own clone.
 
 ## [suites] Suffixes select the suite
 
