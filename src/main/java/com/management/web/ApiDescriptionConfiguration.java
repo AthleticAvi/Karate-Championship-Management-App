@@ -17,8 +17,11 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,6 +67,7 @@ class ApiDescriptionConfiguration {
                       .getResponses()
                       .values()
                       .forEach(response -> requireEveryField(response, schemas));
+                  allowNoOtherFields(operation, schemas);
                   addFailures(method, operation);
                   addAccess(ApiAccess.levelOf(method.name(), path), operation);
                   addHeaders(operation);
@@ -102,35 +106,65 @@ class ApiDescriptionConfiguration {
       response
           .getContent()
           .values()
-          .forEach(media -> requireEveryField(media.getSchema(), schemas));
+          .forEach(media ->
+              forEachRecordReached(
+                  media.getSchema(),
+                  schemas,
+                  schema -> schema.setRequired(new ArrayList<>(schema.getProperties().keySet())),
+                  new HashSet<>()));
+    }
+  }
+
+  /**
+   * A request body takes only the fields it states, so a client learns from the description that
+   * any other is refused. Responses do not say so: a field can be added to one without breaking a
+   * client.
+   */
+  private static void allowNoOtherFields(Operation operation, Map<String, ?> schemas) {
+    if (operation.getRequestBody() != null) {
+      operation
+          .getRequestBody()
+          .getContent()
+          .values()
+          .forEach(media ->
+              forEachRecordReached(
+                  media.getSchema(),
+                  schemas,
+                  schema -> schema.setAdditionalProperties(false),
+                  new HashSet<>()));
     }
   }
 
   /**
    * Follows a field into a list, a map, or a nullable reference, which the generator writes as a
-   * choice of the reference and null, so a nested response is held to the same rule.
+   * choice of the reference and null, so a nested record is held to the same rule as the one that
+   * holds it. Only a named schema is a record: a map written inline keeps its own values.
    */
   @SuppressWarnings("rawtypes")
-  private static void requireEveryField(Schema<?> reference, Map<String, ?> schemas) {
+  private static void forEachRecordReached(
+      Schema<?> reference, Map<String, ?> schemas, Consumer<Schema<?>> action, Set<String> seen) {
     if (reference.getItems() != null) {
-      requireEveryField(reference.getItems(), schemas);
+      forEachRecordReached(reference.getItems(), schemas, action, seen);
     }
     if (reference.getAdditionalProperties() instanceof Schema<?> values) {
-      requireEveryField(values, schemas);
+      forEachRecordReached(values, schemas, action, seen);
     }
     for (List<Schema> choices : choicesOf(reference)) {
-      choices.forEach(choice -> requireEveryField(choice, schemas));
+      choices.forEach(choice -> forEachRecordReached(choice, schemas, action, seen));
     }
     if (reference.get$ref() == null) {
       return;
     }
     String name = reference.get$ref().substring(Components.COMPONENTS_SCHEMAS_REF.length());
     // An annotation can name a schema this class adds afterwards, and that one states its own.
-    if (!(schemas.get(name) instanceof Schema<?> schema)) {
+    if (!seen.add(name) || !(schemas.get(name) instanceof Schema<?> schema)) {
       return;
     }
-    schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
-    schema.getProperties().values().forEach(field -> requireEveryField(field, schemas));
+    action.accept(schema);
+    schema
+        .getProperties()
+        .values()
+        .forEach(field -> forEachRecordReached(field, schemas, action, seen));
   }
 
   @SuppressWarnings("rawtypes")
@@ -245,7 +279,9 @@ class ApiDescriptionConfiguration {
                 "errors",
                 new MapSchema()
                     .additionalProperties(new StringSchema())
-                    .description("Each failing field and why, on a failed validation only"));
+                    .description(
+                        "Each failing field and why, on a failed validation or a field the"
+                            + " request does not take"));
     problem.setRequired(List.of("title", "status", "detail", "instance"));
     return problem;
   }
