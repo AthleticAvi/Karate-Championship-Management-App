@@ -3,7 +3,11 @@ package com.management.kumitegame.data;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.management.kumitegame.data.KumiteGameDocument.StoredPenalty;
+import com.management.kumitegame.data.KumiteGameDocument.StoredScore;
+import com.management.kumitegame.data.KumiteGameDocument.StoredSenshuRecord;
 import com.management.kumitegame.data.KumiteGameDocument.StoredSettings;
+import com.management.kumitegame.data.KumiteGameDocument.StoredSide;
 import com.management.kumitegame.domain.ActingRole;
 import com.management.kumitegame.domain.ActionRefusedException;
 import com.management.kumitegame.domain.AmendmentKind;
@@ -36,6 +40,8 @@ import com.management.testsupport.TestClock;
 import com.management.testsupport.TestGames;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,7 +54,10 @@ class KumiteGameDocumentMapperTest {
   private static final Instant MODIFIED = Instant.parse("2026-01-02T08:30:00.123Z");
   private static final String SK = TestGames.SCOREKEEPER;
 
-  /** Every kind of entry, with every optional field set, and warnings on some. */
+  /**
+   * Every kind of entry, with every optional field set, and warnings on some. One penalty leaves
+   * its exchange out, for the server to fill in.
+   */
   private static KumiteGame everyEntry() {
     KumiteGame game = TestGames.game();
     Instant t = TestClock.NOW;
@@ -71,7 +80,11 @@ class KumiteGameDocumentMapperTest {
         SK,
         t.plusSeconds(12));
     game.recordPenalty(
-        new NewPenalty("p1", Side.AO, PenaltyLevel.HANSOKU, Infraction.JOGAI, 1, 109_000L),
+        new NewPenalty("p1", Side.AO, PenaltyLevel.HANSOKU, Infraction.JOGAI, null, 109_000L),
+        SK,
+        t.plusSeconds(13));
+    game.recordPenalty(
+        new NewPenalty("p2", Side.AKA, PenaltyLevel.CHUI, Infraction.MUBOBI, 1, 109_000L),
         SK,
         t.plusSeconds(13));
     game.recordSenshu(
@@ -351,6 +364,110 @@ class KumiteGameDocumentMapperTest {
     assertThat(read.state().panel()).hasSize(11);
     assertThat(KumiteGameDocumentMapper.toDocument(read, shapeFour).getSettings().panelLimit())
         .isNull();
+  }
+
+  /**
+   * Shape 5 stored no {@code exchangeNamed}: each score, penalty and SENSHU record reads as one
+   * whose exchange the server filled in, so a retry leaving the exchange out replays, one naming it
+   * is refused even where the first request named it, and it is saved so.
+   */
+  @Test
+  void shapeFiveEntries_readAsExchangeFilledIn_andSaveSo() {
+    KumiteGame game = everyEntry();
+    KumiteGameDocument current = stored(game);
+    KumiteGameDocument shapeFive =
+        new KumiteGameDocument(
+            current.getId(),
+            current.getVersion(),
+            5,
+            current.getFormat(),
+            current.isMedalGame(),
+            current.isExtraGame(),
+            current.getSettings(),
+            current.getSides().entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        side ->
+                            new StoredSide(
+                                side.getValue().scores().stream()
+                                    .map(s ->
+                                        new StoredScore(
+                                            s.level(),
+                                            s.source(),
+                                            s.exchange(),
+                                            null,
+                                            s.clockRemainingMs(),
+                                            s.meta()))
+                                    .toList(),
+                                side.getValue().penalties().stream()
+                                    .map(p ->
+                                        new StoredPenalty(
+                                            p.level(),
+                                            p.infraction(),
+                                            p.exchange(),
+                                            null,
+                                            p.clockRemainingMs(),
+                                            p.meta()))
+                                    .toList()))),
+            current.getAssignments(),
+            current.getClockActions(),
+            current.getSenshuRecords().stream()
+                .map(r ->
+                    new StoredSenshuRecord(
+                        r.side(),
+                        r.kind(),
+                        r.reason(),
+                        r.exchange(),
+                        null,
+                        r.clockRemainingMs(),
+                        r.meta()))
+                .toList(),
+            current.getAmendments(),
+            current.getResults(),
+            current.getStatusChanges(),
+            CREATED,
+            MODIFIED);
+
+    KumiteGame read = KumiteGameDocumentMapper.toDomain(shapeFive, TestGames.rules());
+
+    assertThat(read.state()).isEqualTo(game.state());
+    assertThat(
+            read.recordScore(
+                    new NewScore(
+                        "s1", Side.AKA, ScoreLevel.IPPON, ScoreSource.VIDEO_REVIEW, null, 109_000L),
+                    SK,
+                    TestClock.NOW)
+                .replayed())
+        .isTrue();
+    assertThat(
+            read.recordPenalty(
+                    new NewPenalty(
+                        "p1", Side.AO, PenaltyLevel.HANSOKU, Infraction.JOGAI, null, 109_000L),
+                    SK,
+                    TestClock.NOW)
+                .replayed())
+        .isTrue();
+    assertThat(
+            read.recordSenshu(
+                    new NewSenshuRecord(
+                        "k1", Side.AKA, SenshuRecordKind.AWARDED, "video review", null, 109_000L),
+                    SK,
+                    TestClock.NOW)
+                .replayed())
+        .isTrue();
+    assertThatThrownBy(() ->
+            read.recordScore(
+                new NewScore(
+                    "s1", Side.AKA, ScoreLevel.IPPON, ScoreSource.VIDEO_REVIEW, 1, 109_000L),
+                SK,
+                TestClock.NOW))
+        .isInstanceOf(ActionRefusedException.class);
+    KumiteGameDocument saved = KumiteGameDocumentMapper.toDocument(read, shapeFive);
+    assertThat(saved.getSchemaVersion()).isEqualTo(KumiteGameDocument.CURRENT_SCHEMA_VERSION);
+    assertThat(saved.getSides().get("AKA").scores().getFirst().exchangeNamed()).isFalse();
+    assertThat(saved.getSides().get("AO").penalties().getFirst().exchangeNamed()).isFalse();
+    assertThat(saved.getSenshuRecords().getFirst().exchangeNamed()).isFalse();
   }
 
   /** Shape 3 stored no suggestion on a result: it reads with none. */

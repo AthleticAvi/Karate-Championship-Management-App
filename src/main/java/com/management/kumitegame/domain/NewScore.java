@@ -17,14 +17,14 @@ public record NewScore(
     @Nullable Long clockRemainingMs) {
 
   /**
-   * The same request: only what the client sent, and who sent it, are compared. An exchange the
-   * client left out was filled in by the server, so it is not compared.
+   * The same request: only what the client sent, and who sent it, are compared. The exchange is
+   * compared as sent: one left out matches only an exchange the server filled in.
    */
   boolean matches(Score stored, @Nullable Side storedSide, String recordedBy) {
     return side == storedSide
         && level == stored.level()
         && source == stored.source()
-        && (exchange == null || exchange.equals(stored.exchange()))
+        && Objects.equals(exchange, stored.exchangeNamed() ? stored.exchange() : null)
         && Objects.equals(clockRemainingMs, stored.clockRemainingMs())
         && recordedBy.equals(stored.meta().recordedBy());
   }

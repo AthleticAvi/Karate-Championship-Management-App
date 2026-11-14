@@ -228,6 +228,7 @@ public final class KumiteGameDocumentMapper {
         ScoreLevel.valueOf(stored.level()),
         ScoreSource.valueOf(stored.source()),
         stored.exchange(),
+        Boolean.TRUE.equals(stored.exchangeNamed()),
         stored.clockRemainingMs(),
         meta(stored.meta()));
   }
@@ -237,6 +238,7 @@ public final class KumiteGameDocumentMapper {
         score.level().name(),
         score.source().name(),
         score.exchange(),
+        score.exchangeNamed(),
         score.clockRemainingMs(),
         storedMeta(score.meta()));
   }
@@ -246,6 +248,7 @@ public final class KumiteGameDocumentMapper {
         PenaltyLevel.valueOf(stored.level()),
         parse(Infraction.class, stored.infraction()),
         stored.exchange(),
+        Boolean.TRUE.equals(stored.exchangeNamed()),
         stored.clockRemainingMs(),
         meta(stored.meta()));
   }
@@ -255,6 +258,7 @@ public final class KumiteGameDocumentMapper {
         penalty.level().name(),
         name(penalty.infraction()),
         penalty.exchange(),
+        penalty.exchangeNamed(),
         penalty.clockRemainingMs(),
         storedMeta(penalty.meta()));
   }
@@ -307,6 +311,7 @@ public final class KumiteGameDocumentMapper {
         SenshuRecordKind.valueOf(stored.kind()),
         stored.reason(),
         stored.exchange(),
+        Boolean.TRUE.equals(stored.exchangeNamed()),
         stored.clockRemainingMs(),
         meta(stored.meta()));
   }
@@ -317,6 +322,7 @@ public final class KumiteGameDocumentMapper {
         record.kind().name(),
         record.reason(),
         record.exchange(),
+        record.exchangeNamed(),
         record.clockRemainingMs(),
         storedMeta(record.meta()));
   }

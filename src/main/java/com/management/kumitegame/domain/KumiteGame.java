@@ -219,7 +219,14 @@ public final class KumiteGame {
     }
     return append(
         scoresOf(score.side()),
-        meta -> new Score(score.level(), score.source(), exchange, score.clockRemainingMs(), meta),
+        meta ->
+            new Score(
+                score.level(),
+                score.source(),
+                exchange,
+                score.exchange() != null,
+                score.clockRemainingMs(),
+                meta),
         score.id(),
         state,
         recordedBy,
@@ -261,7 +268,12 @@ public final class KumiteGame {
         penaltiesOf(penalty.side()),
         meta ->
             new Penalty(
-                penalty.level(), penalty.infraction(), exchange, penalty.clockRemainingMs(), meta),
+                penalty.level(),
+                penalty.infraction(),
+                exchange,
+                penalty.exchange() != null,
+                penalty.clockRemainingMs(),
+                meta),
         penalty.id(),
         state,
         recordedBy,
@@ -342,6 +354,7 @@ public final class KumiteGame {
                 record.kind(),
                 record.reason(),
                 exchange,
+                record.exchange() != null,
                 record.clockRemainingMs(),
                 meta),
         record.id(),

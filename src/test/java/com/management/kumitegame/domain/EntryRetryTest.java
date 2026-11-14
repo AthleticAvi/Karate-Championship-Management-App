@@ -57,10 +57,22 @@ class EntryRetryTest {
             new NewPenalty("p", Side.AKA, PenaltyLevel.HANSOKU, Infraction.JOGAI, 1, 100_000L),
             new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.MUBOBI, 1, 100_000L),
             new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.JOGAI, 2, 100_000L),
+            new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.JOGAI, null, 100_000L),
             new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.JOGAI, 1, 90_000L)),
         penalty -> game.recordPenalty(penalty, SK, T0));
     assertThatThrownBy(() -> game.recordPenalty(original, "other", T0))
         .isInstanceOf(ActionRefusedException.class);
+  }
+
+  /** The server filled the exchange in, so a retry naming it, even the same one, is another. */
+  @Test
+  void penalty_leavingOutTheExchange() {
+    KumiteGame game = started();
+    provesRetries(
+        game,
+        new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.JOGAI, null, 100_000L),
+        List.of(new NewPenalty("p", Side.AKA, PenaltyLevel.CHUI, Infraction.JOGAI, 1, 100_000L)),
+        penalty -> game.recordPenalty(penalty, SK, T0));
   }
 
   @Test
@@ -75,7 +87,19 @@ class EntryRetryTest {
             new NewScore("s", Side.AKA, ScoreLevel.YUKO, ScoreSource.JUDGES, 1, 100_000L),
             new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.VIDEO_REVIEW, 1, 100_000L),
             new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, 2, 100_000L),
+            new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, null, 100_000L),
             new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, 1, null)),
+        score -> game.recordScore(score, SK, T0));
+  }
+
+  /** The server filled the exchange in, so a retry naming it, even the same one, is another. */
+  @Test
+  void score_leavingOutTheExchange() {
+    KumiteGame game = started();
+    provesRetries(
+        game,
+        new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, null, 100_000L),
+        List.of(new NewScore("s", Side.AKA, ScoreLevel.IPPON, ScoreSource.JUDGES, 1, 100_000L)),
         score -> game.recordScore(score, SK, T0));
   }
 
@@ -125,10 +149,23 @@ class EntryRetryTest {
             new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.WITHDRAWN, "judges", 1, 100_000L),
             new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, null, 1, 100_000L),
             new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 2, 100_000L),
+            new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", null, 100_000L),
             new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 1, null)),
         record -> game.recordSenshu(record, SK, T0));
     assertThatThrownBy(() -> game.recordSenshu(original, "other", T0))
         .isInstanceOf(ActionRefusedException.class);
+  }
+
+  /** The server filled the exchange in, so a retry naming it, even the same one, is another. */
+  @Test
+  void senshuRecord_leavingOutTheExchange() {
+    KumiteGame game = started();
+    provesRetries(
+        game,
+        new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", null, 100_000L),
+        List.of(
+            new NewSenshuRecord("s", Side.AKA, SenshuRecordKind.AWARDED, "judges", 1, 100_000L)),
+        record -> game.recordSenshu(record, SK, T0));
   }
 
   @Test

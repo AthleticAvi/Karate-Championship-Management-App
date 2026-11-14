@@ -147,7 +147,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
     String gameId = create();
 
     Document stored = stored(gameId);
-    assertThat(stored.get("schemaVersion")).isEqualTo(5);
+    assertThat(stored.get("schemaVersion")).isEqualTo(6);
     assertThat(stored.get("version")).isEqualTo(1L);
     assertThat(stored.get("createdAt")).isInstanceOf(Date.class);
     assertThat(stored.get("modifiedAt")).isInstanceOf(Date.class);
