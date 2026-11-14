@@ -200,10 +200,10 @@ what the API is, and no deployment tunes it.
 **What a browser keeps, and what that costs.** A preflight answer is kept per origin, URL, method
 and request header. The answer names only the headers the preflight asked for, so a later request
 that adds one asks again. A browser caps the age: Safari at 10 minutes, Chromium at 2 hours, Firefox
-at 24 hours, so Safari still asks every 10 minutes. A refused preflight is not kept, so a header or method newly allowed works at once. The cost runs the other way: a request
-header taken off the list stays allowed, in a browser that kept it, until the answer expires,
-because the server checks request headers on the preflight only. A removed origin or method is
-refused on every request.
+at 24 hours, so Safari still asks every 10 minutes. A refused preflight is not kept, so a header or
+method newly allowed works at once. The cost runs the other way: a request header taken off the list
+stays allowed, in a browser that kept it, until the answer expires, because the server checks
+request headers on the preflight only. A removed origin or method is refused on every request.
 
 An origin not on the list gets a 403 before anything runs, on a preflight and on a real request. The
 body is the framework's `Invalid CORS request`, with no content type: not a problem detail, and no
