@@ -47,6 +47,14 @@ Rules:
 - **Never hand-write a null or emptiness check** that a constraint expresses.
 - **Delete hand-rolled validation as constraints replace it.** Leaving both means two sources of truth that will disagree.
 
+**What the JSON reader accepts before a constraint runs (Jackson 3):**
+
+- Spring Boot turns off the unknown-property check, so a field the request does not take is silently ignored with a 200. `spring.jackson.deserialization.fail-on-unknown-properties=true` refuses it, at its name, before the value is read.
+- An enum is read from a number, or a number in text, as the constant at that position. `spring.jackson.datatype.enum.fail-on-numbers-for-enums=true` refuses both.
+- A scalar of another type is coerced: `"5"` reads as a number and `5` as text.
+- A missing primitive record component fails the read, as an unreadable body, not a field error.
+- Once unknown fields are refused, a test that sends one to reach a parser limit inside its value fails at the name instead, still with a 400, so it passes for the wrong reason.
+
 ## [what-constraints-cannot-express] What constraints cannot express
 
 An annotation sees one request in isolation. It cannot see the database, other records, or the current state of the thing being changed. Anything requiring that context is a domain invariant, not input validation.
