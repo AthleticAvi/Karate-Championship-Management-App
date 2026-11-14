@@ -926,7 +926,7 @@ class ApiDescriptionIT {
     if (!broken.named()) {
       assertThat(problem.has("errors")).as(label).isFalse();
     } else {
-      assertThat(problem.get("errors").propertyNames()).as(label).containsExactly(broken.at());
+      assertThat(problem.path("errors").propertyNames()).as(label).containsExactly(broken.at());
     }
   }
 

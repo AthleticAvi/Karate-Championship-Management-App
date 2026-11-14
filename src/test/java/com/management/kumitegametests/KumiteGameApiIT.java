@@ -294,7 +294,7 @@ class KumiteGameApiIT extends IntegrationTestBase {
 
     assertThat(changed.getStatusCode().value()).isEqualTo(400);
     assertThat(changed.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
-    assertThat(body(changed).get("errors").propertyNames()).containsExactly("panelLimit");
+    assertThat(body(changed).path("errors").propertyNames()).containsExactly("panelLimit");
     JsonNode game = body(read(gameId));
     assertThat(game.get("version").asLong()).isEqualTo(before);
     assertThat(game.get("settings").get("durationMs").asLong()).isEqualTo(120_000);
