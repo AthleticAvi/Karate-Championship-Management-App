@@ -9,7 +9,7 @@
 - [auditing] Created and modified instants
 - [profiles] Profiles
 - [server] Server limits
-- [cors] Allowed origins and the API description
+- [cors] Allowed origins, preflight max age and the API description
 - [accounts] The first Admin
 - [actuator] Actuator
 - [logging] Logging
@@ -186,7 +186,7 @@ What the hosting proxy sends is unknown until the hosting check, so the values s
 `Location` is a relative path, so it is right behind a proxy that keeps the path, whatever these
 settings are. Absolute URLs built from the request depend on them.
 
-## [cors] Allowed origins and the API description
+## [cors] Allowed origins, preflight max age and the API description
 
 | Setting | Default | Key | Differs |
 |---|---|---|---|

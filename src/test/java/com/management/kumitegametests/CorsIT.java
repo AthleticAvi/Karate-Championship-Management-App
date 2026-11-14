@@ -359,8 +359,8 @@ class CorsIT {
   @Test
   void startup_withNegativeMaxAge_failsNamingTheKey() {
     assertThatThrownBy(() -> boot("dev", Map.of("cors.max-age", "-1s")))
-        .hasStackTraceContaining("cors")
-        .hasStackTraceContaining("maxAge");
+        .hasStackTraceContaining("object 'cors' on field 'maxAge'")
+        .hasStackTraceContaining("must be longer than or equal to 0");
   }
 
   private static ConfigurableApplicationContext boot(String profile, Map<String, String> args) {
