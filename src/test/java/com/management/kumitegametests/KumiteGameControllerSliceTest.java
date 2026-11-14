@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -145,7 +146,8 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
           "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1},
           "leadToWin": 8, "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
           "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000, 20000, 30000],
-          "medicalTimeMs": 180000, "timeShownToleranceMs": 1000, "rulebookVersion": "WKF 2026.01"
+          "medicalTimeMs": 180000, "timeShownToleranceMs": 1000, "panelLimit": 10,
+          "rulebookVersion": "WKF 2026.01"
         },
         "status": "FIGHTING", "exchange": 1,
         "mainClock": {"running": true, "remainingMs": 118000},
@@ -392,6 +394,39 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(content().string(not(containsString("raisedWarnings"))))
         .andExpect(content().string(not(containsString("\"warnings\""))))
         .andExpect(jsonPath("$.serverTime").value("2026-01-01T12:00:02Z"));
+  }
+
+  /**
+   * A game stored before the panel limit existed has none, and says so in both views. It is built
+   * as a stored game is read, because only a stored game can lack the limit.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {GAME, FULL_VIEW})
+  void read_ofGameWithNoPanelLimit_answersItEmpty(String view) throws Exception {
+    KumiteGame game =
+        new KumiteGame(
+            TestGames.GAME_ID,
+            GameFormat.ELIMINATION,
+            false,
+            false,
+            TestGames.settings(120_000, null),
+            Map.of(),
+            Map.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            TestGames.rules());
+    given(kumiteGameService().getVersioned("game-1"))
+        .willReturn(
+            versioned(new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER)));
+
+    mockMvc
+        .perform(get(view, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.settings.panelLimit").value(nullValue()));
   }
 
   /**

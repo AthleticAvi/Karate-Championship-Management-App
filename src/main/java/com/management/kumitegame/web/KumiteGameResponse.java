@@ -73,7 +73,12 @@ public record KumiteGameResponse(
     @JsonView(GameViews.Scorekeeper.class) List<GameWarningResponse> warnings,
     Instant serverTime) {
 
-  /** The rule values the game runs under. */
+  /**
+   * The rule values the game runs under, in both views.
+   *
+   * @param panelLimit the most referees the panel holds; empty for a game created before the limit
+   *     existed, which has none
+   */
   public record SettingsResponse(
       long durationMs,
       List<Long> durationsOfferedMs,
@@ -86,6 +91,7 @@ public record KumiteGameResponse(
       List<Long> addTimeStepsMs,
       long medicalTimeMs,
       long timeShownToleranceMs,
+      @Nullable Integer panelLimit,
       String rulebookVersion) {}
 
   /** A clock: whether it runs, and the time left at {@code serverTime}. */

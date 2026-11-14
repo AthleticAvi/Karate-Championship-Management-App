@@ -18,6 +18,10 @@ Status: enforced
 - `git ls-files --eol <file>` shows both: `i/lf w/crlf` is the case above.
 - Match line breaks as `\r?\n`, or read the file with its line endings normalised. Check that the
   replacement happened: count the matches before writing.
+- An in-place stream edit can rewrite every line ending, not only the line it changes: a Unix
+  `sed -i` on Windows may write the file back as LF. The diff then shows the whole file, and a
+  formatter check fails the build on it, which hides the edit's real effect. Keep the endings with
+  binary mode, such as `sed -b -i`, and check that the diff shows only the intended lines.
 - A file a tool or test compares byte for byte is pinned with `text eol=lf` in `.gitattributes`, so
   it reads the same on every platform.
 
