@@ -191,11 +191,16 @@ settings are. Absolute URLs built from the request depend on them.
 | Setting | Default | Key | Differs |
 |---|---|---|---|
 | Origins that may call the API | none | `cors.allowed-origins`, from `CORS_ALLOWED_ORIGINS` | `dev` allows `http://localhost:5173` |
+| How long a browser keeps a preflight answer | 30m | `cors.max-age` | none |
 | Serve the API description | off | `springdoc.api-docs.enabled` | `dev` turns it on |
 
 `prod` allows no origin until a real one exists: set `CORS_ALLOWED_ORIGINS` on the deployment, comma
 separated. Each value is one exact origin, as a browser sends it. A wildcard, a path, a trailing slash
 or a scheme's default port stops startup.
+
+`cors.max-age` is sent in whole seconds. Zero makes a browser ask before every request; a negative
+value stops startup. A longer age means fewer preflights, and a request header taken off the allowed
+list stays allowed for longer in a browser that kept the answer: see `[cors]` in the web README.
 
 The rest of the CORS rules and the reasons for the description settings are in `[cors]` and
 `[description]` in the web README.
