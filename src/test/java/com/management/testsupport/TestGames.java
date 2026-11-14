@@ -46,12 +46,19 @@ public final class TestGames {
     throw new IllegalStateException("Utility class cannot be instantiated");
   }
 
-  /** WKF 2026.01 defaults: 2 minutes, 3/2/1, lead of 8, 1 second tolerance, 1.5 s late window. */
+  /**
+   * WKF 2026.01 defaults: 2 minutes, 3/2/1, lead of 8, 1 second tolerance, 1.5 s late window, and a
+   * panel of at most 10.
+   */
   public static Settings settings() {
     return settings(120_000);
   }
 
   public static Settings settings(long durationMs) {
+    return settings(durationMs, 10);
+  }
+
+  public static Settings settings(long durationMs, int panelLimit) {
     return new Settings(
         durationMs,
         List.of(90_000L, 120_000L, 180_000L),
@@ -64,6 +71,7 @@ public final class TestGames {
         List.of(10_000L, 20_000L, 30_000L),
         180_000,
         1_000,
+        panelLimit,
         "WKF 2026.01");
   }
 

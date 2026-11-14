@@ -52,6 +52,7 @@ public record KumiteGameProperties(
       @NotEmpty List<@NotNull @DurationMin(millis = 1) Duration> addTimeSteps,
       @NotNull @DurationMin(millis = 1) Duration medicalTime,
       @NotNull @DurationMin(millis = 0) Duration timeShownTolerance,
+      @Positive int panelLimit,
       @NotBlank String rulebookVersion) {
 
     @AssertTrue(message = "every score level needs a value")
@@ -74,6 +75,7 @@ public record KumiteGameProperties(
           millis(addTimeSteps),
           medicalTime.toMillis(),
           timeShownTolerance.toMillis(),
+          panelLimit,
           rulebookVersion);
     }
 

@@ -121,6 +121,16 @@ public final class KumiteGame {
           }
         });
 
+    Integer limit = settings.panelLimit();
+    if (limit != null && newGame.panel().size() > limit) {
+      throw new InvalidGameRequestException(
+          "A panel holds at most "
+              + limit
+              + " referees, but "
+              + newGame.panel().size()
+              + " were given.");
+    }
+
     List<Assignment> assignments = new ArrayList<>();
     Map<Side, String> athletes =
         Map.of(Side.AKA, newGame.akaAthleteId(), Side.AO, newGame.aoAthleteId());
@@ -167,8 +177,8 @@ public final class KumiteGame {
   }
 
   /**
-   * Replaces the settings, keeping the rulebook version. Only before the start: a game never
-   * changes its rules mid-way. No history is kept.
+   * Replaces the settings, keeping the rulebook version and the panel limit. Only before the start:
+   * a game never changes its rules mid-way. No history is kept.
    *
    * <p>Entries recorded before the start are then folded with the new values, and the warnings
    * stored on them were raised under the old ones, so a change after any entry but an assignment,
@@ -179,7 +189,7 @@ public final class KumiteGame {
   public Recorded changeSettings(NewSettings newSettings) {
     GameState state = state();
     refuseIfFinal(EntryKind.SETTINGS_CHANGE, state);
-    Settings changed = newSettings.under(settings.rulebookVersion());
+    Settings changed = newSettings.replacing(settings);
     List<Warning> raised = admit(EntryKind.SETTINGS_CHANGE, state);
     if (entries().anyMatch(placed -> !(placed.entry() instanceof Assignment))) {
       raised.add(Warning.SETTINGS_CHANGE_AFTER_ENTRIES);
@@ -342,8 +352,9 @@ public final class KumiteGame {
   }
 
   /**
-   * Puts an athlete on a side, or changes the panel. Changing the panel applies as given: adding a
-   * referee already on it changes their role, and removing one not on it changes nothing.
+   * Puts an athlete on a side, or changes the panel. Adding a referee already on the panel, or to a
+   * panel that holds as many as the settings allow, is refused: a role changes by removing the
+   * referee and adding them again. Removing one not on it changes nothing.
    */
   public Recorded recordAssignment(NewAssignment assignment, String recordedBy, Instant now) {
     Optional<Recorded> replay =
@@ -372,6 +383,9 @@ public final class KumiteGame {
               + ", so cannot also be on "
               + side
               + ".");
+    }
+    if (assignment.kind() == AssignmentKind.PANEL_ADD) {
+      refuseIfPanelCannotTake(assignment.refereeId(), state.panel());
     }
     List<Warning> raised = admit(EntryKind.ASSIGNMENT, state);
     return append(
@@ -759,6 +773,24 @@ public final class KumiteGame {
       throw new InvalidGameRequestException(
           "ATHLETE names a side and an athlete, PANEL_ADD a referee and a role, and PANEL_REMOVE"
               + " a referee, each with nothing else.");
+    }
+  }
+
+  private void refuseIfPanelCannotTake(@Nullable String refereeId, List<PanelMember> panel) {
+    if (panel.stream().anyMatch(member -> member.refereeId().equals(refereeId))) {
+      throw new ActionRefusedException(
+          "Referee "
+              + refereeId
+              + " is already on the panel. To change their role, remove them and add them again.");
+    }
+    Integer limit = settings.panelLimit();
+    if (limit != null && panel.size() >= limit) {
+      throw new ActionRefusedException(
+          "The panel already holds "
+              + panel.size()
+              + " referees, and this game's panel holds at most "
+              + limit
+              + ".");
     }
   }
 

@@ -107,14 +107,13 @@ public class KumiteGameService {
 
   /**
    * Creates a game with a copy of the configured settings. Everything that can fail does so before
-   * the one insert: the athletes and referees are read first.
+   * the one insert. The game checks what it was sent first, such as the size of the panel, so a
+   * request it refuses costs no read; then the athletes and referees are read.
    *
    * <p>Not retried by id: a retried create makes a second game. The id and the ids of the first
    * entries are given here.
    */
   public Recording create(NewGame newGame, String recordedBy) {
-    requireAthletes(List.of(newGame.akaAthleteId(), newGame.aoAthleteId()));
-    requireReferees(newGame.panel().stream().map(PanelMember::refereeId).toList());
     KumiteGame game =
         KumiteGame.create(
             UUID.randomUUID().toString(),
@@ -124,6 +123,8 @@ public class KumiteGameService {
             recordedBy,
             clock.instant(),
             rules);
+    requireAthletes(List.of(newGame.akaAthleteId(), newGame.aoAthleteId()));
+    requireReferees(newGame.panel().stream().map(PanelMember::refereeId).toList());
     KumiteGame created =
         KumiteGameDocumentMapper.toDomain(
             kumiteGameRepository.insert(KumiteGameDocumentMapper.toNewDocument(game)), rules);
