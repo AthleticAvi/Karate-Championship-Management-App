@@ -44,6 +44,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `git/github/ci.md`: [scope] [actions]
 - `git/github/issues-and-prs.md`: [assignee] [issues] [prs] [pr-body]
 - `git/github/repo-settings.md`: [main]
+- `git/line-endings.md`: [crlf-working-tree] [verify]
 - `languages/java/standards/standards.md`: [rules] [do] [dont] [encoding] [naming] [third-party-code-generation] [verify] [sources]
 - `languages/java/testing/unit.md`: [rules] [final-field-trap] [do] [dont] [testing-time-dependent-logic] [verify]
 - `languages/java/tooling/maven.md`: [gate] [suites] [hooks] [single-file-tools] [verify]
