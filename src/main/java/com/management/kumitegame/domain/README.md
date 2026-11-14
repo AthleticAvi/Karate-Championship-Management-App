@@ -236,8 +236,8 @@ Officials decide who gets SENSHU and when it is withdrawn, and the scorekeeper r
 level forfeits it (Articles 10.4.16, 12.2.8 differ): the referee withdraws it, and that is recorded.
 
 - **Recorded:** `senshuRecords`, each `{ side, kind: AWARDED | WITHDRAWN, reason?, exchange?,
-  clockRemaining?, meta }`, appended and retried like any entry. The exchange is filled in, or
-  refused when it has not happened, as for a score.
+  exchangeNamed, clockRemaining?, meta }`, appended and retried like any entry. The exchange is
+  filled in, or refused when it has not happened, as for a score.
 - **Derived, never stored:** `GameState.senshu`, the holder, one side or none, so both can never
   hold it, and whether SENSHU is closed. `SenshuFold` replays the standing records in order:
   AWARDED gives it to its side; WITHDRAWN takes it from its side, and closes it when it came in the
@@ -292,8 +292,11 @@ retries. The check runs per game, inside the versioned save:
 - Same id, same request: nothing is applied, and the stored warnings answer.
 - Same id, any other request: refused.
 - "The same request" compares only what the client sent, plus `recordedBy`. Order, instant and
-  warnings differ on a retry by design. An exchange the client left out was filled in by the server,
-  so it is not compared.
+  warnings differ on a retry by design.
+- **The exchange is compared as sent.** A score, penalty or SENSHU record stores `exchangeNamed`,
+  false when the server filled the exchange in. A retry that leaves out an exchange the first
+  request named is refused, and so is one that names an exchange the first left out, even the same
+  one. An entry stored before shape 6 reads as filled in.
 
 ## [stored] Stored data
 
@@ -307,8 +310,9 @@ retries. The check runs per game, inside the versioned save:
 - **A new field raises the schema version too.** A build that does not know a field ignores it on
   read and drops it on its next save, so after a rollback the data is gone. Raised, the older build
   refuses the game instead. Shape 2 added `senshuRecords`, shape 3 `statusChanges`, shape 4
-  `suggested` on each result, and shape 5 `panelLimit` in the settings; an older game reads with
-  none.
+  `suggested` on each result, shape 5 `panelLimit` in the settings, and shape 6 `exchangeNamed` on
+  each score, penalty and SENSHU record; an older game reads with none, or as filled in for
+  `exchangeNamed`.
 - **The type hint follows the package.** Spring Data stores each document's class name in `_class`,
   so moving a document class changes it on every later write. A document whose name no longer loads
   still reads, through the declared type.
