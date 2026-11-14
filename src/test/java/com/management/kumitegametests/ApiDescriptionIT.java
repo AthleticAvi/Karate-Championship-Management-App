@@ -506,11 +506,14 @@ class ApiDescriptionIT {
         .contains("panelLimit");
   }
 
-  /** A game stored before the panel limit existed has none, so the limit is described as such. */
-  @Test
-  void settingsSchema_describesThePanelLimit_asAnIntegerOrNone() {
-    assertThat(
-            namesOf(schema("SettingsResponse").get("properties").path("panelLimit").path("type")))
+  /**
+   * A game stored before the panel limit existed has none, so the limit is described as such, in
+   * both views.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"SettingsResponse", "SettingsResponse" + PUBLIC_VIEW})
+  void settingsSchema_describesThePanelLimit_asAnIntegerOrNone(String settings) {
+    assertThat(namesOf(schema(settings).get("properties").path("panelLimit").path("type")))
         .containsExactlyInAnyOrder("integer", "null");
   }
 
