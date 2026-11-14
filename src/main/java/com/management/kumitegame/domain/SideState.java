@@ -17,7 +17,11 @@ public record SideState(
     int hansokuCount,
     int shikkakuCount) {
 
-  /** A standing HANSOKU or SHIKKAKU disqualifies the side from the game (Articles 10.3, 10.4). */
+  /**
+   * A standing HANSOKU or SHIKKAKU disqualifies the side from the game (Articles 10.3, 10.4). The
+   * penalties alone, as the result rules read them: {@link GameState#isDisqualified(Side)} adds the
+   * result that stands.
+   */
   public boolean isDisqualified() {
     return hansokuCount > 0 || shikkakuCount > 0;
   }

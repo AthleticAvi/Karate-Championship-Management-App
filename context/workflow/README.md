@@ -47,7 +47,7 @@ domain READMEs, which the project's `CLAUDE.md` routes to.
 - `git/line-endings.md`: [crlf-working-tree] [verify]
 - `languages/java/standards/standards.md`: [rules] [do] [dont] [encoding] [naming] [third-party-code-generation] [verify] [sources]
 - `languages/java/testing/unit.md`: [rules] [final-field-trap] [do] [dont] [testing-time-dependent-logic] [verify]
-- `languages/java/tooling/maven.md`: [gate] [suites] [hooks] [single-file-tools] [verify]
+- `languages/java/tooling/maven.md`: [gate] [suites] [hooks] [single-file-tools] [run] [verify]
 - `languages/java/tooling/static-analysis.md`: [owners] [spotless] [checkstyle] [error-prone] [jacoco] [archunit] [verify]
 - `quality/self-review.md`: [scope] [design] [code] [tests] [safety] [docs]
 - `standards/standards.md`: [one-style] [naming] [functions] [types] [errors] [config] [comments] [dependencies] [verify]

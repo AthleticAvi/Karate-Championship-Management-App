@@ -149,9 +149,11 @@ between this contract and a silent shift under a dependency upgrade.
   sides are never true.
 - **A disqualification is `hansokuCount`, `shikkakuCount` and `disqualified` on each side,** derived
   on every read and never stored, in both views. The counts are the penalties standing after
-  CANCELs, and `disqualified` is true while either is above zero, so a screen never replays the
-  penalties. They come from penalties only: a result by SHIKKAKU recorded with no penalty entry, or
-  a result's `bothDisqualified`, leaves them as they are.
+  CANCELs. `disqualified` is true while either is above zero, or while `currentResult` disqualifies
+  the side: a WIN by HANSOKU or SHIKKAKU it lost, or a result disqualifying both, by
+  `bothDisqualified` or DOUBLE_DISQUALIFICATION. KIKEN is not a disqualification. A screen never
+  replays the penalties or reads the result to show it. See `[model]` in
+  `src/main/java/com/management/kumitegame/domain/README.md`.
 - **Enums serialise as their names**, uppercase, exactly as declared. An absent value is `null`.
 
 ## [mutations] Mutations return the new state

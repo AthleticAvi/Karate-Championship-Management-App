@@ -1,6 +1,6 @@
 # Maven
 
-Applies when: running a build, two builds at once, a coverage check failing with green tests, Maven phases, surefire, failsafe, test suffixes, git hooks from the build, single-file Java tools
+Applies when: running a build, two builds at once, a coverage check failing with green tests, Maven phases, surefire, failsafe, test suffixes, git hooks from the build, single-file Java tools, a port still held after stopping a run
 Status: enforced
 Builds on: `tooling/static-analysis.md`
 
@@ -10,6 +10,7 @@ Builds on: `tooling/static-analysis.md`
 - [suites] Suffixes select the suite
 - [hooks] Hooks from the build
 - [single-file-tools] Repo tools as single-file programs
+- [run] Stopping an application Maven started
 - [verify] Verify
 
 ## [gate] One command is the gate
@@ -41,6 +42,14 @@ Builds on: `tooling/static-analysis.md`
   `java path/to/Tool.java`, using the JDK the project already needs.
 - Living in test sources gets it compiled, formatted, analysed and tested with everything else.
 - Keep it to one file with only JDK imports, or the launcher cannot run it.
+
+## [run] Stopping an application Maven started
+
+- A run goal can start the application in a JVM of its own. Killing the Maven process, as a
+  background task stop does on Windows, can leave that JVM running: the port stays held and the
+  next start fails with the port in use, or a later check talks to the old build.
+- After stopping it, check that nothing listens on the port, and stop the leftover Java process
+  if one does.
 
 ## [verify] Verify
 

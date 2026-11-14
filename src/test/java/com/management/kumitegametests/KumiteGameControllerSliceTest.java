@@ -621,6 +621,31 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.ao.disqualified").value(true));
   }
 
+  /**
+   * A SHIKKAKU given off the mat is often only the result: the loser is disqualified in both views,
+   * with no penalty entry behind it.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {GAME, FULL_VIEW})
+  void side_isDisqualified_byTheResultThatStands_inBothViews(String view) throws Exception {
+    KumiteGame game = TestGames.game();
+    game.recordResult(
+        new NewResult("r1", Outcome.WIN, Side.AKA, ResultReason.SHIKKAKU, null, false),
+        TestGames.SCOREKEEPER,
+        LATER);
+    given(kumiteGameService().getVersioned("game-1"))
+        .willReturn(
+            versioned(new GameRead(game, VERSION, game.state(), Map.of(), Map.of(), LATER)));
+
+    mockMvc
+        .perform(get(view, "game-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ao.disqualified").value(true))
+        .andExpect(jsonPath("$.ao.hansokuCount").value(0))
+        .andExpect(jsonPath("$.ao.shikkakuCount").value(0))
+        .andExpect(jsonPath("$.aka.disqualified").value(false));
+  }
+
   /** Each version the answer shows is in the tag: one changed version answers the body again. */
   @Test
   void read_withStaleTag_answersTheGameAndTheNewTag() throws Exception {
