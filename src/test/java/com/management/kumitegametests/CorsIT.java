@@ -48,6 +48,7 @@ class CorsIT {
   private static final String ALLOW_HEADERS = "Access-Control-Allow-Headers";
   private static final String ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials";
   private static final String EXPOSE_HEADERS = "Access-Control-Expose-Headers";
+  private static final String MAX_AGE = "Access-Control-Max-Age";
   private static final String CORRELATION_ID = "X-Correlation-ID";
 
   private static ConfigurableApplicationContext dev;
@@ -86,6 +87,25 @@ class CorsIT {
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(header(response, ALLOW_HEADERS)).containsIgnoringCase(CORRELATION_ID);
+  }
+
+  /** Without it a browser asks again after about 5 seconds, before each score and poll. */
+  @Test
+  void preflight_fromAllowedOrigin_isKeptForThirtyMinutes() throws Exception {
+    HttpResponse<String> response = send(preflight(dev, ATHLETES, LOCAL_ORIGIN, "POST"));
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(header(response, MAX_AGE)).isEqualTo("1800");
+  }
+
+  @Test
+  void preflight_withAnotherMaxAgeConfigured_sendsThatValue() throws Exception {
+    try (ConfigurableApplicationContext context = boot("dev", Map.of("cors.max-age", "90s"))) {
+      HttpResponse<String> response = send(preflight(context, ATHLETES, LOCAL_ORIGIN, "POST"));
+
+      assertThat(response.statusCode()).isEqualTo(200);
+      assertThat(header(response, MAX_AGE)).isEqualTo("90");
+    }
   }
 
   @Test
@@ -334,6 +354,13 @@ class CorsIT {
     assertThatThrownBy(() -> boot("dev", Map.of("cors.allowed-origins", origin)))
         .hasStackTraceContaining("cors")
         .hasStackTraceContaining("must be one exact origin");
+  }
+
+  @Test
+  void startup_withNegativeMaxAge_failsNamingTheKey() {
+    assertThatThrownBy(() -> boot("dev", Map.of("cors.max-age", "-1s")))
+        .hasStackTraceContaining("cors")
+        .hasStackTraceContaining("maxAge");
   }
 
   private static ConfigurableApplicationContext boot(String profile, Map<String, String> args) {
