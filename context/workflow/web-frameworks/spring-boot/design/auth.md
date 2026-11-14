@@ -82,7 +82,9 @@ Browsers block cross-origin calls unless the API permits them. This is invisible
 - CORS runs before authentication, because a preflight carries no credentials. Exactly one `UrlBasedCorsConfigurationSource` bean makes Spring Security add its own CORS filter, with no call in the chain, and a second source turns that off. A bean named `corsFilter` must be a plain `CorsFilter`.
 - A CORS filter registered ahead of the chain already covers it, so turn the chain's off: it sees every path and refuses a preflight on any path outside the source.
 - `CorsFilter` ends every preflight it sees, even for a path with no configuration. Limit it in its servlet mapping, or it changes the answer on paths meant to stay out of CORS.
-- The server enforces the rules too: a refused origin gets a 403 before anything runs. Prove that with HTTP tests that send `Origin`. A browser adds what the server cannot show, so a browser check is a one-off, not the proof.
+- Set a preflight max age from configuration. Without one a browser asks again after 5 seconds, and `CorsConfiguration` built with `new` sends none. Browsers cap it: Safari at 10 minutes, Chromium at 2 hours, Firefox at 24 hours.
+- A cached preflight costs on narrowing, not widening. A refused preflight is never kept, so a header or method newly allowed works at once. The CORS processor checks origin and method on every request but request headers on the preflight only, so a header taken off the list passes until the cached answer expires.
+- The server enforces the rules too: a refused origin gets a 403 before anything runs. Prove that with HTTP tests that send `Origin`. A browser adds what the server cannot show, so a browser check is a one-off, not the proof. Headless Chrome's `--dump-dom` dumps at load and ignores pending timers: for a check that needs real time to pass, such as a preflight cache, leave the browser running and read the server's request log.
 - Same-origin is decided from the address the server sees, so a TLS proxy with forwarded headers off makes a same-origin page look cross-origin.
 
 ## [testing] Testing

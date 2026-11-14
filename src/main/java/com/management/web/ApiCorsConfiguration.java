@@ -30,6 +30,9 @@ import org.springframework.web.filter.CorsFilter;
  * If-None-Match} itself, and reads {@code ETag} and {@code Date}: a 304 has no body, so {@code
  * Date} is the only server time it carries. A browser hides both from code unless they are exposed.
  *
+ * <p><strong>A browser keeps a preflight answer</strong> for the configured max age, so scoring and
+ * polling from another origin do not ask before every request.
+ *
  * <p>The bean is not named {@code corsFilter}: Spring Security looks that name up and expects a
  * plain {@link CorsFilter}. Credentials travel in the {@code Authorization} header, so nothing here
  * allows cookies.
@@ -63,6 +66,7 @@ class ApiCorsConfiguration {
             HttpHeaders.ETAG,
             HttpHeaders.DATE));
     api.setAllowCredentials(false);
+    api.setMaxAge(properties.maxAge());
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration(ApiVersionConfiguration.PREFIX + "/**", api);

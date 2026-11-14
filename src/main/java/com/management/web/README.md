@@ -186,8 +186,9 @@ Failures map to the table in `[errors]`.
 
 ## [cors] Cross-origin calls
 
-`cors.allowed-origins` decides who may call: see `[cors]` in the config README. Everything else is
-fixed here, because it follows from what the API is, and no deployment tunes it.
+`cors.allowed-origins` decides who may call, and `cors.max-age` how long a browser keeps a preflight
+answer: see `[cors]` in the config README. Everything else is fixed here, because it follows from
+what the API is, and no deployment tunes it.
 
 | Rule | Value | Why |
 |---|---|---|
@@ -196,7 +197,15 @@ fixed here, because it follows from what the API is, and no deployment tunes it.
 | Request headers | `Authorization`, `Content-Type`, `If-None-Match`, `X-Correlation-ID` | Credentials, JSON, a game's tag sent back by code, and the ID a caller may send |
 | Exposed headers | `X-Correlation-ID`, `Location`, `ETag`, `Date` | A browser hides every other header from code, except a short list that holds `Cache-Control`. A create answers with `Location`, so a client needs it to find what it made. A poller reads a game's tag, and `Date` is the only server time a 304 carries |
 | Credentials | off | There are no cookies or sessions. `Authorization` is set by the caller, and this flag is not what allows it |
-| Max age | not set | A browser repeats a preflight after about 5 seconds. A poller that lets the browser's cache send the tag needs none: see `[countdown]` |
+| Max age | 30 minutes, from `cors.max-age` | Without it a browser repeats a preflight after about 5 seconds, before each score and each poll that sets `If-None-Match` itself. A poller that lets the browser's cache send the tag needs none: see `[countdown]` |
+
+**What a browser keeps, and what that costs.** A preflight answer is kept per origin, URL, method
+and request header. The answer names only the headers the preflight asked for, so a later request
+that adds one asks again. A browser caps the age: Safari at 10 minutes, Chromium at 2 hours, Firefox
+at 24 hours, so Safari still asks every 10 minutes. A refused preflight is not kept, so a header or
+method newly allowed works at once. The cost runs the other way: a request header taken off the list
+stays allowed, in a browser that kept it, until the answer expires, because the server checks
+request headers on the preflight only. A removed origin or method is refused on every request.
 
 An origin not on the list gets a 403 before anything runs, on a preflight and on a real request. The
 body is the framework's `Invalid CORS request`, with no content type: not a problem detail, and no
@@ -302,8 +311,8 @@ A screen polling the public view keeps its countdown right this way:
   the browser sends does not count.
 - **Send the tag from code:** `If-None-Match` set on the request. The browser then leaves its cache
   out, and code sees the 304 itself, with no body. The header is not one a browser sends freely, so
-  each such poll from another origin needs a preflight, repeated about every 5 seconds: see
-  `[cors]`.
+  each such poll from another origin needs a preflight, once per URL until the browser's kept
+  answer expires: see `[cors]`.
 
 A one-off check in headless Chrome, from another origin, showed both: three cached polls each read
 200 with the first `serverTime` and a later `Date` while the server logged 304s, and a poll with the
