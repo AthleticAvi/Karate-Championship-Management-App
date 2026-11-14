@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Every setting a game may change before it starts, in whole milliseconds. The rulebook version is
- * not here: it stays what configuration gave the game.
+ * Every setting a game may change before it starts, in whole milliseconds. The rulebook version and
+ * the panel limit are not here: they stay what configuration gave the game.
  *
  * @param expectedVersion the game's {@code version} the change was chosen against
  */

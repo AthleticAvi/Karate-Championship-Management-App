@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 /**
@@ -58,7 +59,8 @@ public final class TestGames {
     return settings(durationMs, 10);
   }
 
-  public static Settings settings(long durationMs, int panelLimit) {
+  /** The defaults with this duration and panel limit; null is a game stored before the limit. */
+  public static Settings settings(long durationMs, @Nullable Integer panelLimit) {
     return new Settings(
         durationMs,
         List.of(90_000L, 120_000L, 180_000L),

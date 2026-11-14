@@ -443,6 +443,10 @@ class ApiDescriptionIT {
         .containsExactlyInAnyOrderElementsOf(
             namesOf(schema("SideResponse" + PUBLIC_VIEW).get("required")))
         .contains("hansokuCount", "shikkakuCount", "disqualified");
+    assertThat(fieldsOf(game.get("settings").toString()))
+        .containsExactlyInAnyOrderElementsOf(
+            namesOf(schema("SettingsResponse" + PUBLIC_VIEW).get("required")))
+        .contains("panelLimit");
   }
 
   /** A note in free text is described on the full view only. */
@@ -497,6 +501,20 @@ class ApiDescriptionIT {
     assertThat(fieldsOf(game.get("assignments").get(0).get("meta").toString()))
         .containsExactlyInAnyOrderElementsOf(namesOf(schema("EntryMetaResponse").get("required")));
     assertThat(game.get("currentResult").isNull()).isTrue();
+    assertThat(fieldsOf(game.get("settings").toString()))
+        .containsExactlyInAnyOrderElementsOf(namesOf(schema("SettingsResponse").get("required")))
+        .contains("panelLimit");
+  }
+
+  /**
+   * A game stored before the panel limit existed has none, so the limit is described as such, in
+   * both views.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"SettingsResponse", "SettingsResponse" + PUBLIC_VIEW})
+  void settingsSchema_describesThePanelLimit_asAnIntegerOrNone(String settings) {
+    assertThat(namesOf(schema(settings).get("properties").path("panelLimit").path("type")))
+        .containsExactlyInAnyOrder("integer", "null");
   }
 
   /** An absolute action needs the version it was chosen against; an append takes none. */
