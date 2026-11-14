@@ -59,7 +59,7 @@ public final class TestGames {
     return settings(durationMs, 10);
   }
 
-  /** The defaults with this duration and panel limit, or none, as a game stored before it had. */
+  /** The defaults with this duration and panel limit; null is a game stored before the limit. */
   public static Settings settings(long durationMs, @Nullable Integer panelLimit) {
     return new Settings(
         durationMs,

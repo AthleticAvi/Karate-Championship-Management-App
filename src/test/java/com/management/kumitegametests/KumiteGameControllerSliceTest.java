@@ -396,18 +396,28 @@ class KumiteGameControllerSliceTest extends WebSliceTestBase {
         .andExpect(jsonPath("$.serverTime").value("2026-01-01T12:00:02Z"));
   }
 
-  /** A game stored before the panel limit existed has none, and says so in both views. */
+  /**
+   * A game stored before the panel limit existed has none, and says so in both views. It is built
+   * as a stored game is read, because only a stored game can lack the limit.
+   */
   @ParameterizedTest
   @ValueSource(strings = {GAME, FULL_VIEW})
   void read_ofGameWithNoPanelLimit_answersItEmpty(String view) throws Exception {
     KumiteGame game =
-        KumiteGame.create(
+        new KumiteGame(
             TestGames.GAME_ID,
-            TestGames.newGame(GameFormat.ELIMINATION, false, false),
+            GameFormat.ELIMINATION,
+            false,
+            false,
             TestGames.settings(120_000, null),
-            TestGames.ids("created"),
-            TestGames.SCOREKEEPER,
-            TestClock.NOW,
+            Map.of(),
+            Map.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
             TestGames.rules());
     given(kumiteGameService().getVersioned("game-1"))
         .willReturn(
