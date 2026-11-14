@@ -80,6 +80,7 @@ class ApiDescriptionIT {
   private static ConfigurableApplicationContext dev;
   private static ConfigurableApplicationContext prod;
   private static JsonNode description;
+  private static Set<String> apiShapes;
 
   @BeforeAll
   static void readTheDescription() throws Exception {
@@ -89,6 +90,7 @@ class ApiDescriptionIT {
     HttpResponse<String> response = send(request(dev, DESCRIPTION).GET());
     assertThat(response.statusCode()).isEqualTo(200);
     description = JsonMapper.shared().readTree(response.body());
+    apiShapes = readApiShapes();
   }
 
   @AfterAll
@@ -313,7 +315,7 @@ class ApiDescriptionIT {
 
   @Test
   void schemas_areExactlyTheApiShapes() {
-    Set<String> shapes = apiShapes();
+    Set<String> shapes = apiShapes;
 
     assertThat(shapes).contains("AthleteRequest", "KumiteGameResponse", "ScoreResponse");
     Collection<String> described = description.get("components").get("schemas").propertyNames();
@@ -612,7 +614,7 @@ class ApiDescriptionIT {
 
     assertThat(requests)
         .containsExactlyInAnyOrderElementsOf(
-            apiShapes().stream().filter(name -> name.endsWith("Request")).toList())
+            apiShapes.stream().filter(name -> name.endsWith("Request")).toList())
         .contains("PanelMemberRequest")
         .doesNotContainAnyElementsOf(responses)
         .allSatisfy(name ->
@@ -1072,7 +1074,7 @@ class ApiDescriptionIT {
     return ref.substring(ref.lastIndexOf('/') + 1);
   }
 
-  private static Set<String> apiShapes() {
+  private static Set<String> readApiShapes() {
     return new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
             .importPackages("com.management")

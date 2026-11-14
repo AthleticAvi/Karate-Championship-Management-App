@@ -176,8 +176,8 @@ Request DTOs are records with Jakarta Bean Validation constraints, triggered by 
 fields, such as a WIN naming a winner or a medical timer naming its side, are domain validation and
 answer 400 as `InvalidGameRequestException`.
 
-**A request body follows the API description, or it is refused.** Two Jackson settings in
-`application.properties` do it, in the framework, with no code of ours:
+**A request body follows the API description, or it is refused.** Jackson refuses it, through two
+settings in `application.properties`. `GlobalExceptionHandler` only names the unknown field:
 
 - `spring.jackson.deserialization.fail-on-unknown-properties`: a field the request does not take
   answers 400 in the shape of a field error, `errors` naming its path as Bean Validation writes one,
@@ -532,8 +532,11 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 ## [error-facts] Error facts
 
 - The 413 is told apart by the wording of the Jackson message, because every parser limit raises the
-  same type. `RequestLimitsIT` fails if an upgrade changes it. The other limits, such as nesting
-  depth, stay 400.
+  same type. `RequestLimitsIT` fails if an upgrade changes it. The other limits, such as a name's
+  length, stay 400. A limit inside a value, such as nesting depth, is no longer reached in a body:
+  an unknown field is refused at its name, and a known one at its first token of the wrong type. A
+  body past the size limit whose bulk sits in an unknown field answers 400 for that field, since it
+  is refused before the parser gets that far.
 - **Tomcat refuses some requests before Spring runs,** so they are not problem details. Headers past
   the limit answer 400 as `text/html`, and a silent connection answers 408. No part of this
   application sees them, so they carry no correlation ID and leave no request line.

@@ -264,7 +264,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    *
    * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
    * wrong fault. Everything else unreadable stays with the base class, including the parser's other
-   * limits, such as nesting depth, which a smaller body would not cure.
+   * limits, such as a name's length, which a smaller body would not cure.
    */
   @Override
   protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(
@@ -286,8 +286,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * A field the request does not take, in the shape of a field error, keyed by its path as Bean
-   * Validation writes one, such as {@code panel[0].extra}.
+   * A field the request does not take, in the shape of a field error, keyed by its path through
+   * records and lists as Bean Validation writes one, such as {@code panel[0].extra}. No request
+   * holds a map of records, so a map key is not written in brackets.
    *
    * <p>Jackson refuses it, through {@code
    * spring.jackson.deserialization.fail-on-unknown-properties} in {@code application.properties},
