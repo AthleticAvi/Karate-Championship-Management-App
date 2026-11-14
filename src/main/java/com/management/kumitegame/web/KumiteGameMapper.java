@@ -236,6 +236,7 @@ public final class KumiteGameMapper {
         settings.addTimeStepsMs(),
         settings.medicalTimeMs(),
         settings.timeShownToleranceMs(),
+        settings.panelLimit(),
         settings.rulebookVersion());
   }
 
