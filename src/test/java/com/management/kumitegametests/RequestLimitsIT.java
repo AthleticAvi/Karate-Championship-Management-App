@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.filter.FormContentFilter;
 import org.springframework.web.multipart.MultipartResolver;
+import tools.jackson.core.StreamReadConstraints;
 
 /**
  * An oversized request is refused on the real server, whatever its shape.
@@ -61,14 +62,22 @@ class RequestLimitsIT extends IntegrationTestBase {
     assertThat(post("{not json").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
   }
 
-  /** A smaller body would not cure this, so it is not a 413. */
+  /**
+   * A smaller body would not cure this, so it is not a 413.
+   *
+   * <p>A name past the parser's limit fails while the name is read, before the body is bound, so
+   * the field is never refused as unknown. A limit inside a value, such as nesting depth, cannot be
+   * reached: an unknown field is refused at its name, and a known one at its first wrong token.
+   */
   @Test
   void post_pastAnotherParserLimit_staysA400() {
-    String nested = "[".repeat(600) + "]".repeat(600);
+    String name = "n".repeat(StreamReadConstraints.DEFAULT_MAX_NAME_LEN + 1);
 
-    ResponseEntity<String> response = post("{\"other\":" + nested + ",\"name\":\"Kata\"}");
+    ResponseEntity<String> response = post("{\"" + name + "\":1,\"name\":\"Kata\"}");
 
+    assertThat(name.length()).isLessThan(maxBody);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody()).contains("\"title\":\"Bad Request\"").doesNotContain("errors");
   }
 
   /** Tomcat answers before Spring runs, so this is its own page and not a problem detail. */

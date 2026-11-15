@@ -99,6 +99,7 @@ A field initialised inline and marked `final` cannot be replaced by a test doubl
 - Its YAML format makes Spring register a YAML message converter in every profile, even with the description off. Remove it with `configureMessageConverters`. Excluding the jar stops the application from starting.
 - `springdoc.model-converters.java-nullable-property-customizer.enabled` honours `@Nullable` on a record, but leaves `null` out of an enum's values, so a real `null` fails the schema.
 - Set `springdoc.api-docs.enabled` explicitly, or it logs a warning at startup.
+- A request schema states only some of what the API enforces: `@Positive` renders as `exclusiveMinimum`, but `@NotBlank`, a constraint on a map's values or keys, and a primitive component's being required are not stated. It never says a schema takes no other field: set `additionalProperties: false` on request schemas in a customizer when the API refuses them.
 
 ## [package-layout] Package layout
 

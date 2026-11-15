@@ -266,6 +266,41 @@ class KumiteGameApiIT extends IntegrationTestBase {
     assertThat(body(read(gameId)).get("settings").get("durationMs").asLong()).isEqualTo(120_000);
   }
 
+  /**
+   * The panel limit is not a field of a settings change, so one that sends it is refused, naming
+   * it, and changes nothing. It used to be ignored with a 200, and the limit stayed the same.
+   */
+  @Test
+  void settingsChange_sendingThePanelLimit_isRefusedNamingIt_andChangesNothing() {
+    String gameId = create();
+    long before = version(gameId);
+
+    ResponseEntity<String> changed =
+        asScorekeeper()
+            .exchange(
+                GAMES + "/" + gameId + "/settings",
+                HttpMethod.PUT,
+                json(
+                    """
+                    {"durationMs": 90000, "durationsOfferedMs": [90000],
+                     "pointValues": {"IPPON": 3, "WAZA_ARI": 2, "YUKO": 1}, "leadToWin": 8,
+                     "finalWindowMs": 15000, "lateScoreWindowMs": 1500, "chuiLimit": 3,
+                     "roundRobinForfeitPoints": 4, "addTimeStepsMs": [10000],
+                     "medicalTimeMs": 180000, "timeShownToleranceMs": 1000,
+                     "panelLimit": 3, "expectedVersion": %d}
+                    """
+                        .formatted(before)),
+                String.class);
+
+    assertThat(changed.getStatusCode().value()).isEqualTo(400);
+    assertThat(changed.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    assertThat(body(changed).path("errors").propertyNames()).containsExactly("panelLimit");
+    JsonNode game = body(read(gameId));
+    assertThat(game.get("version").asLong()).isEqualTo(before);
+    assertThat(game.get("settings").get("durationMs").asLong()).isEqualTo(120_000);
+    assertThat(game.get("settings").get("panelLimit").asInt()).isEqualTo(10);
+  }
+
   @Test
   void deletingNamedAthleteOrReferee_isRefused() {
     create();
