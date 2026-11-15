@@ -680,12 +680,12 @@ class ApiDescriptionIT {
    * <p>Each case changes one value of a body that answers anything but 400, so a 400 is for that
    * value. Refused: a field taken away, a field added at every level, a value of each JSON type the
    * schema does not take, and each stated bound broken, each answering a field error naming the
-   * path; and a number past the range of its format, answering the framework's unreadable body.
-   * Allowed: a field that is not required taken away, null where null is taken, and the edges of
-   * the text, numbers, lists, map keys and enum values the schema takes. A 400 there from Jackson
-   * or Bean Validation is a rule the server enforces and the description does not state. A 400 from
-   * a rule the domain holds, across fields or against the game, carries no {@code errors} and
-   * passes: the description does not state those.
+   * path, a number past the range of its format included. Allowed: a field that is not required
+   * taken away, null where null is taken, and the edges of the text, numbers, lists, map keys and
+   * enum values the schema takes, the lowest and largest included. A 400 there from Jackson or Bean
+   * Validation is a rule the server enforces and the description does not state. A 400 from a rule
+   * the domain holds, across fields or against the game, carries no {@code errors} and passes: the
+   * description does not state those.
    *
    * <p>A keyword this walk has no case for fails it, so a new one cannot go unproven, and a kind of
    * case that stops being made fails the count at the end.
@@ -750,10 +750,13 @@ class ApiDescriptionIT {
             "allows the longest text",
             "allows zero",
             "allows a negative number",
+            "allows the lowest number",
+            "allows the largest number",
             "allows a whole number",
             "allows true",
             "allows false",
             "allows an empty list",
+            "allows a long list",
             "allows a listed key",
             "allows a listed value");
     return tests.stream();
@@ -776,6 +779,7 @@ class ApiDescriptionIT {
     JsonNodeFactory nodes = JsonNodeFactory.instance;
     Map<String, JsonNode> samples = new LinkedHashMap<>();
     samples.put("text", nodes.stringNode("1"));
+    samples.put("empty text", nodes.stringNode(""));
     samples.put("whole number", nodes.numberNode(1));
     samples.put("fraction", nodes.numberNode(new BigDecimal("1.5")));
     samples.put("boolean", nodes.booleanNode(true));
@@ -788,7 +792,7 @@ class ApiDescriptionIT {
   /** Whether a schema's types take a sample of {@link #TYPE_SAMPLES}. */
   private static boolean takes(Set<String> types, String sample) {
     return switch (sample) {
-      case "text" -> types.contains("string");
+      case "text", "empty text" -> types.contains("string");
       case "whole number" -> types.contains("integer") || types.contains("number");
       case "fraction" -> types.contains("number");
       case "boolean" -> types.contains("boolean");
@@ -853,7 +857,7 @@ class ApiDescriptionIT {
               switch (bound.asString()) {
                 case "int32" ->
                     changes.add(
-                        unreadable(
+                        replaced(
                             "format int32",
                             passing,
                             at,
@@ -861,7 +865,7 @@ class ApiDescriptionIT {
                                 BigInteger.valueOf(Integer.MAX_VALUE).add(BigInteger.ONE))));
                 case "int64" ->
                     changes.add(
-                        unreadable(
+                        replaced(
                             "format int64",
                             passing,
                             at,
@@ -1032,6 +1036,16 @@ class ApiDescriptionIT {
         }
       });
     }
+    if (types.contains("integer") || types.contains("number")) {
+      changes.add(
+          allowed(
+              "allows the lowest number",
+              passing,
+              at,
+              nodes.numberNode(lowest(value, types.contains("integer")))));
+      changes.add(
+          allowed("allows the largest number", passing, at, nodes.numberNode(largest(value))));
+    }
     if (types.contains("number")) {
       changes.add(allowed("allows a whole number", passing, at, nodes.numberNode(1)));
     }
@@ -1041,6 +1055,13 @@ class ApiDescriptionIT {
     }
     if (types.contains("array") && !value.has("minItems")) {
       changes.add(allowed("allows an empty list", passing, at, nodes.arrayNode()));
+    }
+    if (types.contains("array")) {
+      ArrayNode longest = nodes.arrayNode();
+      for (int i = 0; i < value.path("maxItems").asInt(100); i++) {
+        longest.add(valueAt(passing, at).get(0));
+      }
+      changes.add(allowed("allows a long list", passing, at, longest));
     }
     if (types.contains("object") && value.path("additionalProperties").isObject()) {
       JsonNode first = valueAt(passing, at).valueStream().findFirst().orElseThrow();
@@ -1052,6 +1073,32 @@ class ApiDescriptionIT {
             allowed("allows any key", passing, at, nodes.objectNode().set("anyKey", first)));
       }
     }
+  }
+
+  /** The lowest number a schema takes, a whole one for an integer, or 0 where it states none. */
+  private static BigDecimal lowest(JsonNode value, boolean whole) {
+    if (value.has("minimum")) {
+      return value.get("minimum").decimalValue();
+    }
+    if (value.has("exclusiveMinimum")) {
+      BigDecimal step = whole ? BigDecimal.ONE : new BigDecimal("0.5");
+      return value.get("exclusiveMinimum").decimalValue().add(step);
+    }
+    return BigDecimal.ZERO;
+  }
+
+  /** The largest number a schema takes: its maximum, or the largest its format holds. */
+  private static BigDecimal largest(JsonNode value) {
+    if (value.has("maximum")) {
+      return value.get("maximum").decimalValue();
+    }
+    assertThat(value.has("exclusiveMaximum")).as("no case for exclusiveMaximum: add one").isFalse();
+    return switch (value.path("format").asString()) {
+      case "int32" -> BigDecimal.valueOf(Integer.MAX_VALUE);
+      case "int64" -> BigDecimal.valueOf(Long.MAX_VALUE);
+      case "double" -> new BigDecimal(Double.MAX_VALUE);
+      default -> throw new AssertionError("No largest number for format " + value.path("format"));
+    };
   }
 
   /** The passing body with the object at {@code at} changed, answering a field error. */
@@ -1070,10 +1117,6 @@ class ApiDescriptionIT {
 
   private static Change replaced(String kind, JsonNode passing, List<Object> at, JsonNode value) {
     return new Change(kind, pathOf(at), replace(passing, at, value), Answer.NAMED);
-  }
-
-  private static Change unreadable(String kind, JsonNode passing, List<Object> at, JsonNode value) {
-    return new Change(kind, pathOf(at), replace(passing, at, value), Answer.UNREADABLE);
   }
 
   private static Change allowed(String kind, JsonNode passing, List<Object> at, JsonNode value) {

@@ -39,6 +39,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.exc.StreamConstraintsException;
 import tools.jackson.databind.exc.MismatchedInputException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
@@ -265,8 +266,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    *
    * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
    * wrong fault. Everything else unreadable stays with the base class, including the parser's other
-   * limits, such as a name's length, which a smaller body would not cure, and a number past the
-   * range of its type, which Jackson reports without the field.
+   * limits, such as a name's length, which a smaller body would not cure.
    */
   @Override
   protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(
@@ -274,7 +274,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
-    if (ex.getMostSpecificCause() instanceof MismatchedInputException field
+    if (ex.getMostSpecificCause() instanceof JacksonException field
+        && (field instanceof MismatchedInputException || field instanceof InputCoercionException)
         && !field.getPath().isEmpty()) {
       return handleFieldNotRead(field, ex, headers, status, request);
     }
@@ -293,15 +294,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    * error, keyed by its path as Bean Validation writes one, such as {@code panel[0].extra} or
    * {@code pointValues[IPPON]}.
    *
-   * <p>A value its field does not take is one of another JSON type, outside an enum, or a missing
-   * or null boolean or number. Jackson refuses each, through the settings in {@code
-   * application.properties} and {@link ApiMediaTypeConfiguration}, and stops at the first, so one
-   * field is named. A name or a map key is the caller's own text, so it goes back only as a key of
-   * {@code errors}, never in the detail. Jackson's message is not used: it names the class and
-   * repeats the value.
+   * <p>A value its field does not take is one of another JSON type, outside an enum, a number past
+   * the range of its type, or a missing or null boolean or number. Jackson refuses each, through
+   * the settings in {@code application.properties} and {@link ApiMediaTypeConfiguration}, and stops
+   * at the first, so one field is named. A name or a map key is the caller's own text, so it goes
+   * back only as a key of {@code errors}, never in the detail. Jackson's message is not used: it
+   * names the class and repeats the value.
    */
   private @Nullable ResponseEntity<Object> handleFieldNotRead(
-      MismatchedInputException field,
+      JacksonException field,
       HttpMessageNotReadableException ex,
       HttpHeaders headers,
       HttpStatusCode status,
