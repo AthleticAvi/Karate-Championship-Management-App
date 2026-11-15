@@ -51,8 +51,11 @@ Rules:
 
 - Spring Boot turns off the unknown-property check, so a field the request does not take is silently ignored with a 200. `spring.jackson.deserialization.fail-on-unknown-properties=true` refuses it, at its name, before the value is read.
 - An enum is read from a number, or a number in text, as the constant at that position. `spring.jackson.datatype.enum.fail-on-numbers-for-enums=true` refuses both.
-- A scalar of another type is coerced: `"5"` reads as a number and `5` as text.
-- A missing primitive record component fails the read, as an unreadable body, not a field error.
+- A scalar of another type is coerced: `"5"` reads as a number and `5` as text. `spring.jackson.mapper.allow-coercion-of-scalars=false` refuses text for a number or a boolean, and a number for a boolean, but not a number or a boolean for text. No property reaches text: refuse those with `withCoercionConfig(LogicalType.Textual, ...)` and `CoercionAction.Fail` in a `JsonMapperBuilderCustomizer`.
+- A fraction for a whole number is cut, `1.5` to `1`, under its own setting, `spring.jackson.deserialization.accept-float-as-int`. Turned off, it refuses `1.0` too.
+- A missing or null primitive record component fails the read.
+- Each of these failures, and an unknown field, is a `MismatchedInputException` carrying the field's path, so the handler can name the field. A step whose `from()` is a `Map` is a key. A number past the range of its type is an `InputCoercionException`, a parser exception, but it carries the path too.
+- No setting refuses the text `"Infinity"`, `"NaN"` or `"-Infinity"` for a `double`, or `1e400`, which reads as infinity. Only a bound refuses them.
 - Once unknown fields are refused, a test that sends one to reach a parser limit inside its value fails at the name instead, still with a 400, so it passes for the wrong reason.
 
 ## [what-constraints-cannot-express] What constraints cannot express

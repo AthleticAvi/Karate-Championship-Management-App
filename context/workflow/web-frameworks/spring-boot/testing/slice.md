@@ -69,6 +69,8 @@ class WidgetControllerTest {
 
 Name the controller in the annotation. Omitting it loads every controller, which couples the test to unrelated changes and multiplies context builds.
 
+A slice reads `application.properties`, but scans only web types: a `JsonMapperBuilderCustomizer` bean in a plain configuration class is not in it, so the slice reads bodies differently from the application. Declare it in a `WebMvcConfigurer`, which the slice scans.
+
 ## [rules] Rules
 
 - **Assert the JSON body, not the returned object.** The wire contract is the thing under test. Object-level assertions pass while field names, formats and nesting change underneath.

@@ -90,6 +90,20 @@ class AthleteControllerSliceTest extends WebSliceTestBase {
     then(athleteService()).shouldHaveNoInteractions();
   }
 
+  /** A slice reads a body as the application does, so a number is not taken as a name. */
+  @Test
+  void create_withNumberForName_isRefusedNamingTheField() throws Exception {
+    mockMvc
+        .perform(post(ATHLETES).contentType(MediaType.APPLICATION_JSON).content("{\"name\": 5}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.errors.name").value("is not a value this field takes"))
+        .andExpect(jsonPath("$.errors.length()").value(1));
+
+    then(athleteService()).shouldHaveNoInteractions();
+  }
+
   /** The page and its size come from the caller, and the answer says where it sits among all. */
   @Test
   void list_returnsThePage_withWhereItSits() throws Exception {

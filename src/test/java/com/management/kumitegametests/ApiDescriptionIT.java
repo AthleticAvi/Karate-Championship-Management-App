@@ -13,6 +13,7 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -76,6 +78,12 @@ class ApiDescriptionIT {
   private static final String PAGE_METADATA = "PageMetadata";
 
   private static final String ACCOUNTS = "/api/v1/accounts";
+
+  /**
+   * A value of each JSON type, sent where the schema does not take it. Text looks like a number, so
+   * no conversion can hide it.
+   */
+  private static final Map<String, JsonNode> TYPE_SAMPLES = typeSamples();
 
   private static ConfigurableApplicationContext dev;
   private static ConfigurableApplicationContext prod;
@@ -665,20 +673,25 @@ class ApiDescriptionIT {
   }
 
   /**
-   * Every request body the description states, broken one way at a time from a body that passes, is
-   * refused with a 400 that names what was broken.
+   * Every request body the description states, changed one way at a time from a body that passes,
+   * proves the description and the boundary agree both ways: what the description refuses is
+   * refused, and what it allows passes.
    *
-   * <p>Each case changes one value of a body that answers anything but 400, so the 400 is for that
-   * value. A broken constraint, a field taken away and an unknown field each answer a field error
-   * naming the path. A value outside an enum answers the framework's unreadable body, which names
-   * none. A constraint this walk has no case for fails it, so a new one cannot go unproven, and a
-   * kind of constraint that stops being stated fails the count at the end.
+   * <p>Each case changes one value of a body that answers anything but 400, so a 400 is for that
+   * value. Refused: a field taken away, a field added at every level, a value of each JSON type the
+   * schema does not take, and each stated bound broken, each answering a field error naming the
+   * path, a number past the range of its format included. Allowed: a field that is not required
+   * taken away, null where null is taken, and the edges of the text, numbers, lists, map keys and
+   * enum values the schema takes, the lowest and largest included. A 400 there from Jackson or Bean
+   * Validation is a rule the server enforces and the description does not state. A 400 from a rule
+   * the domain holds, across fields or against the game, carries no {@code errors} and passes: the
+   * description does not state those.
    *
-   * <p>{@code type} is not broken: Jackson coerces a scalar of another type, such as {@code "5"}
-   * for a number, and that is outside what this walk proves.
+   * <p>A keyword this walk has no case for fails it, so a new one cannot go unproven, and a kind of
+   * case that stops being made fails the count at the end.
    */
   @TestFactory
-  Stream<DynamicTest> everyRequestBody_isRefusedWhereItBreaksTheDescription() throws Exception {
+  Stream<DynamicTest> everyRequestBody_isRefusedOrPassed_asTheDescriptionSays() throws Exception {
     Map<String, String> passing = passingBodies();
     Map<String, String> bodies = operationsWithBody();
     List<DynamicTest> tests = new ArrayList<>();
@@ -689,30 +702,30 @@ class ApiDescriptionIT {
         .containsExactlyInAnyOrderElementsOf(Set.copyOf(bodies.values()));
     bodies.forEach((endpoint, record) -> {
       JsonNode body = JsonMapper.shared().readTree(passing.get(record));
-      List<BreakCase> cases = new ArrayList<>();
-      cases.add(new BreakCase("no body", "", null, false));
-      breakRecord(schema(record), body, List.of(), cases);
-      cases.forEach(broken -> kinds.add(broken.kind()));
+      List<Change> changes = new ArrayList<>();
+      changes.add(new Change("no body", "", null, Answer.UNREADABLE));
+      changeRecord(schema(record), body, List.of(), changes);
+      changes.forEach(change -> kinds.add(change.kind()));
       String method = endpoint.substring(0, endpoint.indexOf(' '));
       String path = endpoint.substring(endpoint.indexOf(' ') + 1).replaceAll("\\{[^}]+}", "none");
       tests.add(
           DynamicTest.dynamicTest(
               endpoint + ": the passing body",
               () ->
-                  assertThat(sendAsAdmin(method, path, body.toString()).statusCode())
-                      .as("a body that follows the description passes the boundary")
-                      .isNotEqualTo(400)
-                      .isLessThan(500)));
-      cases.forEach(broken ->
+                  assertAnswered(
+                      endpoint,
+                      sendAsAdmin(method, path, body.toString()),
+                      new Change("the passing body", "", body.toString(), Answer.PASSES))));
+      changes.forEach(change ->
           tests.add(
               DynamicTest.dynamicTest(
-                  endpoint + ": " + broken.kind() + " " + broken.at(),
+                  endpoint + ": " + change.kind() + " " + change.at(),
                   () ->
-                      assertRefused(endpoint, sendAsAdmin(method, path, broken.body()), broken))));
+                      assertAnswered(endpoint, sendAsAdmin(method, path, change.body()), change))));
     });
 
     assertThat(kinds)
-        .as("every kind of constraint the description states today is walked")
+        .as("every kind of case the description calls for today is made")
         .contains(
             "required",
             "unknown field",
@@ -724,132 +737,249 @@ class ApiDescriptionIT {
             "minProperties",
             "enum",
             "enum by number",
-            "enum by number as text");
+            "enum by number as text",
+            "propertyNames",
+            "format int32",
+            "format int64")
+        .contains(TYPE_SAMPLES.keySet().stream().map(type -> "type " + type).toArray(String[]::new))
+        .contains(
+            "allows absent",
+            "allows null",
+            "allows empty text",
+            "allows blank text",
+            "allows the longest text",
+            "allows zero",
+            "allows a negative number",
+            "allows the lowest number",
+            "allows the largest number",
+            "allows a whole number",
+            "allows true",
+            "allows false",
+            "allows an empty list",
+            "allows a long list",
+            "allows a listed key",
+            "allows a listed value");
     return tests.stream();
   }
 
-  /**
-   * A body with one thing broken at a path, and whether the answer names that path: an unreadable
-   * body names none.
-   */
-  private record BreakCase(String kind, String at, @Nullable String body, boolean named) {}
+  /** What the boundary answers a body: refused naming the path, refused unread, or let through. */
+  private enum Answer {
+    NAMED,
+    UNREADABLE,
+    PASSES
+  }
+
+  /** A body with one thing changed at a path, and the answer the description calls for. */
+  private record Change(String kind, String at, @Nullable String body, Answer answer) {}
 
   /** A key of a map, which a path writes in brackets, as Bean Validation does. */
   private record Key(String name) {}
 
-  private static void breakRecord(
-      JsonNode record, JsonNode passing, List<Object> at, List<BreakCase> cases) {
+  private static Map<String, JsonNode> typeSamples() {
+    JsonNodeFactory nodes = JsonNodeFactory.instance;
+    Map<String, JsonNode> samples = new LinkedHashMap<>();
+    samples.put("text", nodes.stringNode("1"));
+    samples.put("empty text", nodes.stringNode(""));
+    samples.put("whole number", nodes.numberNode(1));
+    samples.put("fraction", nodes.numberNode(new BigDecimal("1.5")));
+    samples.put("boolean", nodes.booleanNode(true));
+    samples.put("list", nodes.arrayNode());
+    samples.put("object", nodes.objectNode());
+    samples.put("null", nodes.nullNode());
+    return samples;
+  }
+
+  /** Whether a schema's types take a sample of {@link #TYPE_SAMPLES}. */
+  private static boolean takes(Set<String> types, String sample) {
+    return switch (sample) {
+      case "text", "empty text" -> types.contains("string");
+      case "whole number" -> types.contains("integer") || types.contains("number");
+      case "fraction" -> types.contains("number");
+      case "boolean" -> types.contains("boolean");
+      case "list" -> types.contains("array");
+      case "object" -> types.contains("object");
+      default -> types.contains("null");
+    };
+  }
+
+  private static void changeRecord(
+      JsonNode record, JsonNode passing, List<Object> at, List<Change> changes) {
     assertThat(record.propertyNames())
         .as("what a record schema says")
         .contains("properties")
         .isSubsetOf("type", "properties", "required", "additionalProperties", "description");
-    cases.add(
+    if (!at.isEmpty()) {
+      changeType(record, passing, at, changes);
+    }
+    changes.add(
         changed(
             "unknown field",
             passing,
             at,
             "notAField",
             object -> ((ObjectNode) object).put("notAField", 1)));
-    record
-        .path("required")
-        .valueStream()
-        .map(JsonNode::asString)
-        .forEach(name ->
-            cases.add(
-                changed(
-                    "required", passing, at, name, object -> ((ObjectNode) object).remove(name))));
+    List<String> required = namesOf(record.path("required"));
     record
         .get("properties")
         .properties()
         .forEach(property -> {
-          List<Object> field = append(at, property.getKey());
-          assertThat(valueAt(passing, at).has(property.getKey()))
+          String name = property.getKey();
+          List<Object> field = append(at, name);
+          assertThat(valueAt(passing, at).has(name))
               .as("the passing body holds " + pathOf(field))
               .isTrue();
-          breakValue(property.getValue(), passing, field, cases);
+          if (required.contains(name)) {
+            changes.add(
+                changed(
+                    "required", passing, at, name, object -> ((ObjectNode) object).remove(name)));
+          } else {
+            changes.add(
+                new Change(
+                    "allows absent", pathOf(field), removed(passing, at, name), Answer.PASSES));
+          }
+          changeValue(property.getValue(), passing, field, changes);
         });
   }
 
-  private static void breakValue(
-      JsonNode value, JsonNode passing, List<Object> at, List<BreakCase> cases) {
+  private static void changeValue(
+      JsonNode value, JsonNode passing, List<Object> at, List<Change> changes) {
     JsonNodeFactory nodes = JsonNodeFactory.instance;
     value
         .properties()
         .forEach(keyword -> {
           JsonNode bound = keyword.getValue();
           switch (keyword.getKey()) {
-            case "type", "format", "description" -> {
-              // Not broken: see the walk's comment.
+            case "type" -> changeType(value, passing, at, changes);
+            case "description" -> {
+              // Says nothing a body can break.
             }
-            case "$ref" -> breakRecord(schema(refName(value)), passing, at, cases);
+            case "format" -> {
+              switch (bound.asString()) {
+                case "int32" ->
+                    changes.add(
+                        replaced(
+                            "format int32",
+                            passing,
+                            at,
+                            nodes.numberNode(
+                                BigInteger.valueOf(Integer.MAX_VALUE).add(BigInteger.ONE))));
+                case "int64" ->
+                    changes.add(
+                        replaced(
+                            "format int64",
+                            passing,
+                            at,
+                            nodes.numberNode(
+                                BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE))));
+                case "double", "password" -> {
+                  // A double takes any number in its range; a password is any text.
+                }
+                default ->
+                    throw new AssertionError(
+                        "No case breaks format " + bound.asString() + " at " + pathOf(at));
+              }
+            }
+            case "$ref" -> changeRecord(schema(refName(value)), passing, at, changes);
             case "anyOf", "oneOf" ->
                 bound
                     .valueStream()
-                    .filter(choice -> !"null".equals(choice.path("type").asString()))
-                    .forEach(choice -> breakValue(choice, passing, at, cases));
-            case "items" -> breakValue(bound, passing, append(at, 0), cases);
+                    .forEach(choice -> {
+                      if ("null".equals(choice.path("type").asString())) {
+                        changes.add(allowed("allows null", passing, at, nodes.nullNode()));
+                      } else {
+                        changeValue(choice, passing, at, changes);
+                      }
+                    });
+            case "items" -> changeValue(bound, passing, append(at, 0), changes);
             case "additionalProperties" ->
-                breakValue(
+                changeValue(
                     bound,
                     passing,
                     append(at, new Key(valueAt(passing, at).propertyNames().iterator().next())),
-                    cases);
-            case "maxLength" ->
-                cases.add(
-                    replaced(
-                        "maxLength", passing, at, nodes.stringNode("a".repeat(bound.asInt() + 1))));
+                    changes);
+            case "propertyNames" -> {
+              assertThat(bound.propertyNames())
+                  .as("what the keys of a map say")
+                  .containsExactlyInAnyOrder("type", "enum");
+              assertThat(namesOf(bound.get("enum"))).doesNotContain("NOT_A_KEY");
+              JsonNode first = valueAt(passing, at).valueStream().findFirst().orElseThrow();
+              changes.add(
+                  replaced(
+                      "propertyNames", passing, at, nodes.objectNode().set("NOT_A_KEY", first)));
+              bound
+                  .get("enum")
+                  .valueStream()
+                  .forEach(key ->
+                      changes.add(
+                          allowed(
+                              "allows a listed key",
+                              passing,
+                              at,
+                              nodes.objectNode().set(key.asString(), first))));
+            }
+            case "maxLength" -> {
+              changes.add(
+                  replaced(
+                      "maxLength", passing, at, nodes.stringNode("a".repeat(bound.asInt() + 1))));
+            }
             case "minLength" -> {
               if (bound.asInt() > 0) {
-                cases.add(
+                changes.add(
                     replaced(
                         "minLength", passing, at, nodes.stringNode("a".repeat(bound.asInt() - 1))));
               }
             }
             case "minimum" ->
-                cases.add(
+                changes.add(
                     replaced(
                         "minimum",
                         passing,
                         at,
                         nodes.numberNode(bound.decimalValue().subtract(BigDecimal.ONE))));
             case "exclusiveMinimum" ->
-                cases.add(
+                changes.add(
                     replaced(
                         "exclusiveMinimum", passing, at, nodes.numberNode(bound.decimalValue())));
             case "maximum" ->
-                cases.add(
+                changes.add(
                     replaced(
                         "maximum",
                         passing,
                         at,
                         nodes.numberNode(bound.decimalValue().add(BigDecimal.ONE))));
             case "exclusiveMaximum" ->
-                cases.add(
+                changes.add(
                     replaced(
                         "exclusiveMaximum", passing, at, nodes.numberNode(bound.decimalValue())));
             case "pattern" -> {
-              String outside = "!";
-              assertThat(Pattern.matches(bound.asString(), outside))
-                  .as("a value outside " + bound.asString())
-                  .isFalse();
-              cases.add(replaced("pattern", passing, at, nodes.stringNode(outside)));
+              String outside =
+                  Stream.of("!", " ", "")
+                      .filter(text -> !Pattern.compile(bound.asString()).matcher(text).find())
+                      .findFirst()
+                      .orElseThrow(() -> new AssertionError("No text outside " + bound.asString()));
+              changes.add(replaced("pattern", passing, at, nodes.stringNode(outside)));
             }
             case "minItems" -> {
               ArrayNode fewer = nodes.arrayNode();
               for (int i = 1; i < bound.asInt(); i++) {
                 fewer.add(valueAt(passing, at).get(0));
               }
-              cases.add(replaced("minItems", passing, at, fewer));
+              changes.add(replaced("minItems", passing, at, fewer));
             }
             case "minProperties" -> {
               assertThat(bound.asInt()).as("an empty map breaks it").isEqualTo(1);
-              cases.add(replaced("minProperties", passing, at, nodes.objectNode()));
+              changes.add(replaced("minProperties", passing, at, nodes.objectNode()));
             }
             case "enum" -> {
               assertThat(namesOf(bound)).doesNotContain("NOT_A_VALUE", "0");
-              cases.add(unreadable("enum", passing, at, nodes.stringNode("NOT_A_VALUE")));
-              cases.add(unreadable("enum by number", passing, at, nodes.numberNode(0)));
-              cases.add(unreadable("enum by number as text", passing, at, nodes.stringNode("0")));
+              changes.add(replaced("enum", passing, at, nodes.stringNode("NOT_A_VALUE")));
+              changes.add(replaced("enum by number", passing, at, nodes.numberNode(0)));
+              changes.add(replaced("enum by number as text", passing, at, nodes.stringNode("0")));
+              bound
+                  .valueStream()
+                  .filter(constant -> !constant.isNull())
+                  .forEach(constant ->
+                      changes.add(allowed("allows a listed value", passing, at, constant)));
             }
             default ->
                 throw new AssertionError(
@@ -858,22 +988,139 @@ class ApiDescriptionIT {
         });
   }
 
+  /**
+   * A value of each JSON type the schema does not take is refused, and the edges of the types it
+   * takes pass, where no other keyword of the schema refuses them.
+   */
+  private static void changeType(
+      JsonNode value, JsonNode passing, List<Object> at, List<Change> changes) {
+    JsonNodeFactory nodes = JsonNodeFactory.instance;
+    JsonNode type = value.get("type");
+    Set<String> types = type.isArray() ? Set.copyOf(namesOf(type)) : Set.of(type.asString());
+    for (Map.Entry<String, JsonNode> sample : TYPE_SAMPLES.entrySet()) {
+      if (!takes(types, sample.getKey())) {
+        changes.add(replaced("type " + sample.getKey(), passing, at, sample.getValue()));
+      }
+    }
+    if (types.contains("null")) {
+      changes.add(allowed("allows null", passing, at, nodes.nullNode()));
+    }
+    if (types.contains("string") && !value.has("enum")) {
+      int longest = value.path("maxLength").asInt(1000);
+      Map<String, String> texts = new LinkedHashMap<>();
+      texts.put("allows empty text", "");
+      texts.put("allows blank text", " ");
+      texts.put("allows the longest text", "a".repeat(longest));
+      texts.forEach((kind, text) -> {
+        boolean taken =
+            text.length() >= value.path("minLength").asInt(0)
+                && text.length() <= longest
+                && (!value.has("pattern")
+                    || Pattern.compile(value.get("pattern").asString()).matcher(text).find());
+        if (taken) {
+          changes.add(allowed(kind, passing, at, nodes.stringNode(text)));
+        }
+      });
+    }
+    if (types.contains("integer") || types.contains("number")) {
+      Map<String, BigDecimal> numbers = new LinkedHashMap<>();
+      numbers.put("allows zero", BigDecimal.ZERO);
+      numbers.put("allows a negative number", BigDecimal.ONE.negate());
+      numbers.forEach((kind, number) -> {
+        boolean taken =
+            (!value.has("minimum") || number.compareTo(value.get("minimum").decimalValue()) >= 0)
+                && (!value.has("exclusiveMinimum")
+                    || number.compareTo(value.get("exclusiveMinimum").decimalValue()) > 0);
+        if (taken) {
+          changes.add(allowed(kind, passing, at, nodes.numberNode(number)));
+        }
+      });
+    }
+    if (types.contains("integer") || types.contains("number")) {
+      changes.add(
+          allowed(
+              "allows the lowest number",
+              passing,
+              at,
+              nodes.numberNode(lowest(value, types.contains("integer")))));
+      changes.add(
+          allowed("allows the largest number", passing, at, nodes.numberNode(largest(value))));
+    }
+    if (types.contains("number")) {
+      changes.add(allowed("allows a whole number", passing, at, nodes.numberNode(1)));
+    }
+    if (types.contains("boolean")) {
+      changes.add(allowed("allows true", passing, at, nodes.booleanNode(true)));
+      changes.add(allowed("allows false", passing, at, nodes.booleanNode(false)));
+    }
+    if (types.contains("array") && !value.has("minItems")) {
+      changes.add(allowed("allows an empty list", passing, at, nodes.arrayNode()));
+    }
+    if (types.contains("array")) {
+      ArrayNode longest = nodes.arrayNode();
+      for (int i = 0; i < value.path("maxItems").asInt(100); i++) {
+        longest.add(valueAt(passing, at).get(0));
+      }
+      changes.add(allowed("allows a long list", passing, at, longest));
+    }
+    if (types.contains("object") && value.path("additionalProperties").isObject()) {
+      JsonNode first = valueAt(passing, at).valueStream().findFirst().orElseThrow();
+      if (!value.has("minProperties")) {
+        changes.add(allowed("allows an empty map", passing, at, nodes.objectNode()));
+      }
+      if (!value.has("propertyNames")) {
+        changes.add(
+            allowed("allows any key", passing, at, nodes.objectNode().set("anyKey", first)));
+      }
+    }
+  }
+
+  /** The lowest number a schema takes, a whole one for an integer, or 0 where it states none. */
+  private static BigDecimal lowest(JsonNode value, boolean whole) {
+    if (value.has("minimum")) {
+      return value.get("minimum").decimalValue();
+    }
+    if (value.has("exclusiveMinimum")) {
+      BigDecimal step = whole ? BigDecimal.ONE : new BigDecimal("0.5");
+      return value.get("exclusiveMinimum").decimalValue().add(step);
+    }
+    return BigDecimal.ZERO;
+  }
+
+  /** The largest number a schema takes: its maximum, or the largest its format holds. */
+  private static BigDecimal largest(JsonNode value) {
+    if (value.has("maximum")) {
+      return value.get("maximum").decimalValue();
+    }
+    assertThat(value.has("exclusiveMaximum")).as("no case for exclusiveMaximum: add one").isFalse();
+    return switch (value.path("format").asString()) {
+      case "int32" -> BigDecimal.valueOf(Integer.MAX_VALUE);
+      case "int64" -> BigDecimal.valueOf(Long.MAX_VALUE);
+      case "double" -> new BigDecimal(Double.MAX_VALUE);
+      default -> throw new AssertionError("No largest number for format " + value.path("format"));
+    };
+  }
+
   /** The passing body with the object at {@code at} changed, answering a field error. */
-  private static BreakCase changed(
+  private static Change changed(
       String kind, JsonNode passing, List<Object> at, String name, Consumer<JsonNode> change) {
     JsonNode body = passing.deepCopy();
     change.accept(valueAt(body, at));
-    return new BreakCase(kind, pathOf(append(at, name)), body.toString(), true);
+    return new Change(kind, pathOf(append(at, name)), body.toString(), Answer.NAMED);
   }
 
-  private static BreakCase replaced(
-      String kind, JsonNode passing, List<Object> at, JsonNode value) {
-    return new BreakCase(kind, pathOf(at), replace(passing, at, value), true);
+  private static String removed(JsonNode passing, List<Object> at, String name) {
+    JsonNode body = passing.deepCopy();
+    ((ObjectNode) valueAt(body, at)).remove(name);
+    return body.toString();
   }
 
-  private static BreakCase unreadable(
-      String kind, JsonNode passing, List<Object> at, JsonNode value) {
-    return new BreakCase(kind, pathOf(at), replace(passing, at, value), false);
+  private static Change replaced(String kind, JsonNode passing, List<Object> at, JsonNode value) {
+    return new Change(kind, pathOf(at), replace(passing, at, value), Answer.NAMED);
+  }
+
+  private static Change allowed(String kind, JsonNode passing, List<Object> at, JsonNode value) {
+    return new Change(kind, pathOf(at), replace(passing, at, value), Answer.PASSES);
   }
 
   private static String replace(JsonNode passing, List<Object> at, JsonNode value) {
@@ -919,16 +1166,25 @@ class ApiDescriptionIT {
     return longer;
   }
 
-  private static void assertRefused(
-      String endpoint, HttpResponse<String> answer, BreakCase broken) {
-    String label = endpoint + ", " + broken.kind() + " " + broken.at() + ": " + answer.body();
+  private static void assertAnswered(String endpoint, HttpResponse<String> answer, Change change) {
+    String label = endpoint + ", " + change.kind() + " " + change.at() + ": " + answer.body();
+    if (change.answer() == Answer.PASSES) {
+      assertThat(answer.statusCode()).as(label).isLessThan(500);
+      if (answer.statusCode() == 400) {
+        JsonNode problem = JsonMapper.shared().readTree(answer.body());
+        assertThat(problem.has("errors") || problem.path("title").asString().equals("Bad Request"))
+            .as(label + ": the boundary refused what the description takes")
+            .isFalse();
+      }
+      return;
+    }
     assertThat(answer.statusCode()).as(label).isEqualTo(400);
     assertThat(answer.headers().firstValue("Content-Type")).contains(PROBLEM_JSON);
     JsonNode problem = JsonMapper.shared().readTree(answer.body());
-    if (!broken.named()) {
+    if (change.answer() == Answer.UNREADABLE) {
       assertThat(problem.has("errors")).as(label).isFalse();
     } else {
-      assertThat(problem.path("errors").propertyNames()).as(label).containsExactly(broken.at());
+      assertThat(problem.path("errors").propertyNames()).as(label).containsExactly(change.at());
     }
   }
 

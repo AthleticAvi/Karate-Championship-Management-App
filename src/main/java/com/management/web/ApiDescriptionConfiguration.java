@@ -1,6 +1,7 @@
 package com.management.web;
 
 import com.management.filters.RequestCorrelationFilter;
+import io.swagger.v3.core.converter.ModelConverter;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -53,6 +54,12 @@ class ApiDescriptionConfiguration {
   @Bean
   OpenApiCustomizer apiDescriptionCustomizer() {
     return ApiDescriptionConfiguration::complete;
+  }
+
+  /** The generator takes a converter bean as one of its own. */
+  @Bean
+  ModelConverter recordSchemaConverter() {
+    return new RecordSchemaConverter();
   }
 
   private static void complete(OpenAPI description) {
@@ -280,8 +287,8 @@ class ApiDescriptionConfiguration {
                 new MapSchema()
                     .additionalProperties(new StringSchema())
                     .description(
-                        "Each failing field and why, on a failed validation or a field the"
-                            + " request does not take"));
+                        "Each failing field and why, on a failed validation, a field the request"
+                            + " does not take, or a value its field does not take"));
     problem.setRequired(List.of("title", "status", "detail", "instance"));
     return problem;
   }

@@ -39,7 +39,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.exc.StreamConstraintsException;
+import tools.jackson.databind.exc.MismatchedInputException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
@@ -259,8 +261,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * A body past the JSON parser's size limit is 413, and a field the request does not take is a
-   * field error, not the framework's bare 400.
+   * A body past the JSON parser's size limit is 413, and a field the request does not take, or a
+   * value its field does not take, is a field error, not the framework's bare 400.
    *
    * <p>The caller's JSON may be perfectly valid, so a parse error would send them looking for the
    * wrong fault. Everything else unreadable stays with the base class, including the parser's other
@@ -272,8 +274,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
-    if (ex.getMostSpecificCause() instanceof UnrecognizedPropertyException unknown) {
-      return handleUnknownField(unknown, ex, headers, status, request);
+    if (ex.getMostSpecificCause() instanceof JacksonException field
+        && (field instanceof MismatchedInputException || field instanceof InputCoercionException)
+        && !field.getPath().isEmpty()) {
+      return handleFieldNotRead(field, ex, headers, status, request);
     }
     if (!isBodyTooLong(ex)) {
       return super.handleHttpMessageNotReadable(ex, headers, status, request);
@@ -286,34 +290,46 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * A field the request does not take, in the shape of a field error, keyed by its path through
-   * records and lists as Bean Validation writes one, such as {@code panel[0].extra}. No request
-   * holds a map of records, so a map key is not written in brackets.
+   * A field the request does not take, or a value its field does not take, in the shape of a field
+   * error, keyed by its path as Bean Validation writes one, such as {@code panel[0].extra} or
+   * {@code pointValues[IPPON]}.
    *
-   * <p>Jackson refuses it, through {@code
-   * spring.jackson.deserialization.fail-on-unknown-properties} in {@code application.properties},
-   * and stops at the first, so one field is named. The name is the caller's own text, so it goes
+   * <p>A value its field does not take is one of another JSON type, outside an enum, a number past
+   * the range of its type, or a missing or null boolean or number. Jackson refuses each, through
+   * the settings in {@code application.properties} and {@link ApiMediaTypeConfiguration}, and stops
+   * at the first, so one field is named. A name or a map key is the caller's own text, so it goes
    * back only as a key of {@code errors}, never in the detail. Jackson's message is not used: it
-   * lists the class and every field it knows.
+   * names the class and repeats the value.
    */
-  private @Nullable ResponseEntity<Object> handleUnknownField(
-      UnrecognizedPropertyException unknown,
+  private @Nullable ResponseEntity<Object> handleFieldNotRead(
+      JacksonException field,
       HttpMessageNotReadableException ex,
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
     StringBuilder path = new StringBuilder();
-    for (JacksonException.Reference step : unknown.getPath()) {
+    for (JacksonException.Reference step : field.getPath()) {
       if (step.getPropertyName() == null) {
         path.append('[').append(step.getIndex()).append(']');
+      } else if (step.from() instanceof Map) {
+        path.append('[').append(step.getPropertyName()).append(']');
       } else {
         path.append(path.isEmpty() ? "" : ".").append(step.getPropertyName());
       }
     }
+    boolean unknown = field instanceof UnrecognizedPropertyException;
     ProblemDetail problem =
-        ProblemDetail.forStatusAndDetail(status, "The request has a field it does not take.");
+        ProblemDetail.forStatusAndDetail(
+            status,
+            unknown
+                ? "The request has a field it does not take."
+                : "The request has a value its field does not take.");
     problem.setTitle("Invalid request");
-    problem.setProperty("errors", Map.of(path.toString(), "is not a field of this request"));
+    problem.setProperty(
+        "errors",
+        Map.of(
+            path.toString(),
+            unknown ? "is not a field of this request" : "is not a value this field takes"));
     return handleExceptionInternal(ex, problem, headers, status, request);
   }
 

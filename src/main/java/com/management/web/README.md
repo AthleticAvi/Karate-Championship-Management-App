@@ -53,7 +53,10 @@ In this package:
   Nothing else moves: the actuator, the error path and the API description stay where they are.
 - `ApiCorsConfiguration`: which browsers may call the API. See `[cors]`.
 - `ApiDescriptionConfiguration`: what the generated description cannot find. See `[description]`.
-- `ApiMediaTypeConfiguration`: keeps the API on JSON. See `[description]`.
+- `RecordSchemaConverter`: what a request record enforces and the generator does not state. See
+  `[description]`.
+- `ApiMediaTypeConfiguration`: keeps the API on JSON, and text on text. See `[description]` and
+  `[validation]`.
 - `GlobalExceptionHandler`: the inbound gateway for failures. See `[errors]`.
 
 ## [may-call] May call
@@ -176,28 +179,41 @@ Request DTOs are records with Jakarta Bean Validation constraints, triggered by 
 fields, such as a WIN naming a winner or a medical timer naming its side, are domain validation and
 answer 400 as `InvalidGameRequestException`.
 
-**A request body follows the API description, or it is refused.** Jackson refuses it, through two
-settings in `application.properties`. `GlobalExceptionHandler` only names the unknown field:
+**A request body follows the API description, or it is refused.** Jackson refuses it, through
+settings in `application.properties` and one in `ApiMediaTypeConfiguration`, and
+`GlobalExceptionHandler` names the field, as a field error, `errors` holding its path as Bean
+Validation writes one, such as `panel[0].seat` or `pointValues[IPPON]`:
 
-- `spring.jackson.deserialization.fail-on-unknown-properties`: a field the request does not take
-  answers 400 in the shape of a field error, `errors` naming its path as Bean Validation writes one,
-  such as `panelLimit` or `panel[0].seat`. Spring Boot turns the check off by default, which is how
-  a settings change sending `panelLimit` used to answer 200 and change nothing.
+- `spring.jackson.deserialization.fail-on-unknown-properties`: a field the request does not take.
+  Spring Boot turns the check off by default, which is how a settings change sending `panelLimit`
+  used to answer 200 and change nothing.
 - `spring.jackson.datatype.enum.fail-on-numbers-for-enums`: an enum sent as a number, or a number
-  in text, answers 400. Jackson otherwise reads it as the constant at that position.
+  in text. Jackson otherwise reads it as the constant at that position.
+- `spring.jackson.mapper.allow-coercion-of-scalars`: text for a number or a boolean, such as `"5"`,
+  and a number for a boolean.
+- `spring.jackson.deserialization.accept-float-as-int`: a fraction for a whole number. Jackson
+  otherwise cuts `1.5` to `1`. It refuses `1.0` too, which JSON Schema counts as an integer.
+- `ApiMediaTypeConfiguration` refuses a number or a boolean for text, such as a name of `5`: no
+  property reaches text. It is a web configuration, so a controller slice reads bodies the same way.
 
-Jackson stops at the first unknown field, and reads the body before Bean Validation runs, so a body
-with an unknown field and a broken constraint names only the unknown field. A missing `boolean` or
-number of a primitive type, such as `medalGame` or `durationMs`, answers 400 as an unreadable body:
-Jackson 3 fails on a missing primitive. Query parameters are unchanged: one a list does not take is
-ignored, as `sort` is.
+A value outside an enum, a number past the range of its type, and a missing or null `boolean` or
+number of a primitive type, such as `medalGame` or `durationMs`, are named the same way: Jackson 3
+refuses each. Jackson stops at the first, and reads the body before Bean Validation runs, so a body
+with a wrong value and a broken constraint names only the wrong value. Query parameters are
+unchanged: one a list does not take is ignored, as `sort` is.
 
-`ApiDescriptionIT` walks every request body the description states and breaks each thing it states,
-one at a time, from a body that passes: a field taken away, a field added at every level, and each
-`maxLength`, `minimum`, `exclusiveMinimum`, `pattern`, `minItems`, `minProperties` and `enum`. Each
-answers 400 naming the path, except an enum, which answers the unreadable body. A constraint it has
-no case for fails it. It does not prove `type`: Jackson coerces a scalar, so `"5"` reads as a number
-and `5` as text.
+**Not refused by any setting:** Jackson reads the text `"Infinity"`, `"NaN"` and `"-Infinity"` as a
+`double`, and `1e400` as infinity, before any coercion check. `@Positive` refuses NaN and minus
+infinity, but an athlete's `weightKg` takes infinity, and is then written back as the text
+`"Infinity"`.
+
+`ApiDescriptionIT` walks every request body the description states and proves both ways, one change
+at a time from a body that passes. What the description refuses is refused, naming the path: a
+field taken away, a field added at every level, a value of each JSON type the schema does not take,
+and each bound it states. What it allows passes the boundary: a field not required taken away, null
+where null is taken, and the edges of text, numbers, lists, map keys and enum values. A keyword it
+has no case for fails it. Rules the domain holds after the boundary are not in the description, and
+the walk lets their 400 through: see `[description]`.
 
 **A missing `expectedVersion` answers in two shapes.** A settings change, a result and a status
 change require it as a field, so its absence answers with the `errors` map. A clock action needs it
@@ -441,10 +457,28 @@ say it, so a field can be added to one without breaking a client. `ApiDescriptio
 and ties the records reached to the request records in the code and the bodies to the handlers that
 read one.
 
-**Not in the description:** values that come from configuration, such as the side colours; the `X-Correlation-ID` a caller may send;
-that a text field must not be blank, because `@Size` renders `minLength: 0` and `@Size(min = 1)` would
-add a second message to the `errors` body. Required response fields follow references into lists,
-maps and nullable references, so nested response records are held to the same rule.
+**A request states every rule the boundary holds.** The generator leaves some out, so
+`RecordSchemaConverter`, a converter the generator runs on every record, adds them:
+
+- A component of a primitive type is required: a missing `boolean` or number is refused.
+- `@NotBlank` text has a pattern that needs a character `String.isBlank` does not count as space,
+  so it cannot be empty either, whatever `minLength` the generator writes. It is written out,
+  because `\S` means a different set in Java and in the description's regular expressions.
+  `RecordSchemaConverterTest` holds it to the real validator, one character at a time.
+- A `@Pattern` is anchored with `^(?:` and `)$`: Bean Validation matches the whole value, a pattern
+  in the description matches anywhere in it.
+- A map states its keys, as `propertyNames`, and the constraints on its values. The generator reads
+  the constraints on a list's items, but not on a map's type arguments, and a property customizer
+  sees neither those nor the record.
+
+**Not in the description:** values that come from configuration, such as the side colours; the
+`X-Correlation-ID` a caller may send; and the rules the domain holds after the boundary, such as a WIN
+naming a winner, or `pointValues` holding every score level. Those answer 400 with a `detail` and no
+`errors`. Two rules differ from JSON Schema's and cannot be stated: an integer written with a fraction
+or an exponent, such as `1.0`, is refused, and a length counts UTF-16 units, so a character outside
+the Basic Multilingual Plane counts twice against a `maxLength`. Required response fields follow
+references into lists, maps and nullable references, so nested response records are held to the same
+rule.
 
 **Documentation annotations stay in the web packages, never in a mapper.** `ArchitectureTest` fails on
 any other class using them.
@@ -507,8 +541,8 @@ and `instance`. `type` is not sent, because no problem has a page to point at.
 | Failure | Status | Exception | Detail |
 |---|---|---|---|
 | Request fails Bean Validation | 400 | `MethodArgumentNotValidException` (framework) | generic, plus an `errors` extension property mapping each failing field path to its message |
-| A body field the request does not take | 400 | `HttpMessageNotReadableException` (framework), caused by Jackson's `UnrecognizedPropertyException` | fixed, plus `errors` holding the field's path, the first one only. The name is the caller's text, so it is a key there and never in the detail |
-| Any other body that does not read: malformed JSON, a value outside an enum, a missing primitive, no body | 400 | `HttpMessageNotReadableException` (framework) | the base class's generic `Failed to read request`, no `errors` |
+| A body field the request does not take, or a value its field does not take: another JSON type, a value outside an enum, a number past its type's range, a missing or null primitive | 400 | `HttpMessageNotReadableException` (framework), caused by Jackson's `MismatchedInputException` or `InputCoercionException` with a path, such as `UnrecognizedPropertyException` | fixed, plus `errors` holding the field's path, the first one only. A name or map key is the caller's text, so it is a key there and never in the detail |
+| Any other body that does not read: malformed JSON, no body | 400 | `HttpMessageNotReadableException` (framework) | the base class's generic `Failed to read request`, no `errors` |
 | A query value that does not convert, such as a status that does not exist | 400 | `TypeMismatchException` (framework) | fixed, naming the parameter and never the value sent |
 | A request this app validated and rejected | 400 | `InvalidGameRequestException` | the message |
 | Any other illegal argument, incl. `NumberFormatException` | 400 | `IllegalArgumentException` | **generic**, message logged |
