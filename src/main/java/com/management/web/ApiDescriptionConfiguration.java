@@ -287,8 +287,8 @@ class ApiDescriptionConfiguration {
                 new MapSchema()
                     .additionalProperties(new StringSchema())
                     .description(
-                        "Each failing field and why, on a failed validation or a field the"
-                            + " request does not take"));
+                        "Each failing field and why, on a failed validation, a field the request"
+                            + " does not take, or a value its field does not take"));
     problem.setRequired(List.of("title", "status", "detail", "instance"));
     return problem;
   }

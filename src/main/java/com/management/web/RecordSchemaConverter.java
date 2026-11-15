@@ -83,10 +83,11 @@ final class RecordSchemaConverter implements ModelConverter {
     if (component.getType().isPrimitive()) {
       record.addRequiredItem(component.getName());
     }
-    if (component.getAccessor().isAnnotationPresent(NotBlank.class)) {
+    // Read from the component's type, which keeps them when a record declares its own accessor.
+    if (component.getAnnotatedType().isAnnotationPresent(NotBlank.class)) {
       property.setPattern(NOT_BLANK);
     }
-    Pattern pattern = component.getAccessor().getAnnotation(Pattern.class);
+    Pattern pattern = component.getAnnotatedType().getAnnotation(Pattern.class);
     if (pattern != null) {
       property.setPattern("^(?:" + pattern.regexp() + ")$");
     }
