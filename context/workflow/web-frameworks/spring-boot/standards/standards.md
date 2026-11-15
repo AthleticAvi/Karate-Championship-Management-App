@@ -100,6 +100,8 @@ A field initialised inline and marked `final` cannot be replaced by a test doubl
 - `springdoc.model-converters.java-nullable-property-customizer.enabled` honours `@Nullable` on a record, but leaves `null` out of an enum's values, so a real `null` fails the schema.
 - Set `springdoc.api-docs.enabled` explicitly, or it logs a warning at startup.
 - A request schema states only some of what the API enforces: `@Positive` renders as `exclusiveMinimum`, but `@NotBlank`, a constraint on a map's values or keys, and a primitive component's being required are not stated. It never says a schema takes no other field: set `additionalProperties: false` on request schemas in a customizer when the API refuses them.
+- A property customizer cannot add those: it sees neither the record nor the annotations on a map's type arguments. A `ModelConverter` bean can: after the chain resolves a record, read its components, and resolve a type argument with `new AnnotatedType(type).ctxAnnotations(annotations)` through the context, which applies the constraints as it does for a list's items.
+- A `@Pattern` is written as it is, but the description's pattern matches anywhere in the value and Bean Validation matches the whole of it: anchor it. `\S` is a different set in Java and in the description's regular expressions, so a not-blank pattern lists the spaces `String.isBlank` counts.
 
 ## [package-layout] Package layout
 

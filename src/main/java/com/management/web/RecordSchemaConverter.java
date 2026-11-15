@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  *   <li>{@code @Pattern} matches the whole value, but a pattern in the description matches anywhere
  *       in it, so it is anchored.
  *   <li>The generator reads the constraints on a list's items, but not those on a map's keys and
- *       values. They are resolved here the way the generator resolves an item.
+ *       values. They are resolved here the way the generator resolves an item. No map holds
+ *       records: such values would be written out whole, without their JSON view.
  * </ul>
  *
  * <p>A converter rather than a property customizer, because only the record holds a component's
